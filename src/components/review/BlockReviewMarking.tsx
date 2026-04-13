@@ -142,9 +142,9 @@ export const BlockReviewMarking = ({
                   })}
                 </div>
                 {verse.translations?.[0]?.text && (
-                  <p className="text-xs text-muted-foreground mt-3 leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: verse.translations[0].text }}
-                  />
+                  <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+                    {verse.translations[0].text.replace(/<sup[^>]*>.*?<\/sup>/gi, '').replace(/<[^>]*>/g, '').trim()}
+                  </p>
                 )}
               </CardContent>
             </Card>
