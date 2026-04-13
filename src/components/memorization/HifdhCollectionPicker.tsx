@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { callQfUserApi, isQfSessionValid } from '@/services/qfAuth';
+import { useSurahList } from '@/hooks/useQuranData';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -32,6 +33,13 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
   const [bookmarks, setBookmarks] = useState<CollectionBookmark[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const isConnected = isQfSessionValid();
+  const { data: chapters } = useSurahList();
+
+  const surahNameMap = useMemo(() => {
+    const map: Record<number, { arabic: string; simple: string }> = {};
+    chapters?.forEach((s) => { map[s.id] = { arabic: s.name_arabic, simple: s.name_simple }; });
+    return map;
+  }, [chapters]);
 
   const fetchCollections = async () => {
     setLoading(true);
@@ -242,7 +250,7 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
                         return (
                           <div key={surahNum}>
                             <p className="mb-1.5 text-xs font-medium text-muted-foreground">
-                              Surah {surahNum}
+                              {surahNum}. {surahNameMap[surahNum]?.arabic ?? ''} — {surahNameMap[surahNum]?.simple ?? `Surah ${surahNum}`}
                             </p>
                             <div className="space-y-1">
                               {items.map((bookmark) => (
