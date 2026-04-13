@@ -103,6 +103,7 @@ const App = () => (
                   } 
                 />
                 <Route path="/quran-test" element={<QuranTest />} />
+                <Route path="/qf-callback" element={<QFCallback />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
