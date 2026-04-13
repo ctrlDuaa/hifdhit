@@ -3,8 +3,8 @@
  * Single source of truth for default translation, tafsir, and reciter.
  */
 
-/** Sahih International */
-export const DEFAULT_TRANSLATION_ID = 131;
+/** Sahih International (Saheeh International) */
+export const DEFAULT_TRANSLATION_ID = 20;
 
 /** Ibn Kathir (English) */
 export const DEFAULT_TAFSIR_ID = 169;
