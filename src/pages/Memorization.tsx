@@ -1,4 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { useMemorizationSession } from '@/hooks/useMemorizationSession';
 import { MemorizationSetup } from '@/components/memorization/MemorizationSetup';
 import { GuidedMemorization } from '@/components/memorization/GuidedMemorization';
@@ -9,15 +10,23 @@ import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useCallback } from 'react';
-import { MemorizationSessionState } from '@/types/memorization';
+import { MemorizationSessionState, MemorizationSessionConfig } from '@/types/memorization';
 import { createDefaultBlockState } from '@/lib/reviewScheduler';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Play, RotateCcw } from 'lucide-react';
 
 const Memorization = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
 
-  // Read continue state from navigation
   const continueState = location.state as { surahId?: number; nextAyahStart?: number } | null;
 
   const {
@@ -32,9 +41,51 @@ const Memorization = () => {
     handleCheckpointResult,
     toggleWeakMark,
     endSession,
+    pauseSession,
+    resumeSession,
+    getSavedSessionInfo,
     getConfidenceSummary,
     getWeakPassages,
   } = useMemorizationSession();
+
+  // Check for a saved incomplete session
+  const [showResumeDialog, setShowResumeDialog] = useState(false);
+  const [savedInfo, setSavedInfo] = useState<ReturnType<typeof getSavedSessionInfo>>(null);
+  const [showSetup, setShowSetup] = useState(false);
+
+  useEffect(() => {
+    if (!state) {
+      const info = getSavedSessionInfo();
+      if (info) {
+        setSavedInfo(info);
+        setShowResumeDialog(true);
+        setShowSetup(false);
+      } else {
+        setShowSetup(true);
+      }
+    }
+  }, [state, getSavedSessionInfo]);
+
+  const handleResume = async () => {
+    setShowResumeDialog(false);
+    try {
+      await resumeSession();
+    } catch {
+      toast({
+        title: 'Failed to resume session',
+        description: 'Could not fetch verse data. Please start a new session.',
+        variant: 'destructive',
+      });
+      endSession();
+      setShowSetup(true);
+    }
+  };
+
+  const handleNewSession = () => {
+    setShowResumeDialog(false);
+    endSession(); // clears saved data
+    setShowSetup(true);
+  };
 
   const saveSessionStats = useCallback(async (sessionState: MemorizationSessionState) => {
     if (!user) return;
@@ -156,7 +207,61 @@ const Memorization = () => {
     navigate('/dashboard');
   };
 
-  if (!state) {
+  const handleExit = () => {
+    pauseSession(); // keep data in localStorage for resume
+    navigate('/dashboard');
+  };
+
+  // Resume dialog — shown when no active React state but localStorage has data
+  if (!state && showResumeDialog && savedInfo) {
+    return (
+      <>
+        <AppHeader />
+        <div className="min-h-[calc(100vh-64px)] flex items-center justify-center p-4 bg-background">
+          <Dialog open onOpenChange={(open) => { if (!open) handleNewSession(); }}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="text-xl">Resume Session?</DialogTitle>
+                <DialogDescription className="text-sm">
+                  You have an unfinished memorization session.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="rounded-lg bg-muted/50 p-4 space-y-1.5 my-2">
+                <p className="font-semibold text-foreground">{savedInfo.config.surahName}</p>
+                <p className="text-sm text-muted-foreground">
+                  Ayat {savedInfo.config.ayahStart}–{savedInfo.config.ayahEnd}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Progress: {savedInfo.completedAyahs}/{savedInfo.totalAyahs} ayat completed · Currently on Ayah {savedInfo.currentAyah}
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 mt-2">
+                <Button onClick={handleResume} className="w-full gap-2 bg-[#C6A477] hover:bg-[#b8956a] text-white" disabled={loadingVerses}>
+                  {loadingVerses ? (
+                    <span className="flex items-center gap-2">
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Loading...
+                    </span>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4" />
+                      Resume Session
+                    </>
+                  )}
+                </Button>
+                <Button onClick={handleNewSession} variant="outline" className="w-full gap-2">
+                  <RotateCcw className="w-4 h-4" />
+                  Start New Session
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </>
+    );
+  }
+
+  if (!state && showSetup) {
     return (
       <>
         <AppHeader />
@@ -171,6 +276,8 @@ const Memorization = () => {
     );
   }
 
+  if (!state) return null;
+
   if (state.phase === 'memorizing') {
     return (
       <>
@@ -181,7 +288,7 @@ const Memorization = () => {
           onAdvanceStage={advanceStage}
           onRateAyah={rateAyah}
           onToggleWeak={toggleWeakMark}
-          onExit={() => { endSession(); }}
+          onExit={handleExit}
           onGoBack={goBackStage}
         />
       </>
