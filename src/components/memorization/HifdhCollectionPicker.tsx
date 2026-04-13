@@ -252,7 +252,6 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
                             <p className="mb-1.5 text-xs font-medium text-muted-foreground">
                               {surahNum}. {surahNameMap[surahNum]?.arabic ?? ''} — {surahNameMap[surahNum]?.simple ?? `Surah ${surahNum}`}
                             </p>
-                            </p>
                             <div className="space-y-1">
                               {items.map((bookmark) => (
                                 <label
