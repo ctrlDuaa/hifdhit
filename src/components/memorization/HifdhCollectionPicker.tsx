@@ -7,7 +7,12 @@ import { Loader2, BookOpen } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 
-interface HifdhBookmark {
+interface Collection {
+  id: string;
+  name: string;
+}
+
+interface CollectionBookmark {
   id: string;
   key: number; // surah number
   verseNumber: number | null;
@@ -22,69 +27,77 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [bookmarks, setBookmarks] = useState<HifdhBookmark[]>([]);
-  const [noCollection, setNoCollection] = useState(false);
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
+  const [bookmarks, setBookmarks] = useState<CollectionBookmark[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const isConnected = isQfSessionValid();
 
   if (!isConnected) return null;
 
-  const fetchHifdhCollection = async () => {
+  const fetchCollections = async () => {
     setLoading(true);
     setError(null);
-    setNoCollection(false);
+    setCollections([]);
+    setSelectedCollectionId(null);
     setBookmarks([]);
+    setSelected(new Set());
 
     try {
-      // Step 1: Get all collections
       const collectionsRes = await callQfUserApi('/auth/v1/collections?first=20') as any;
-      console.log('[Hifdh] Full collections response:', JSON.stringify(collectionsRes));
-      const collections: { id: string; name: string }[] = collectionsRes?.data || [];
-      console.log('[Hifdh] Parsed collections:', collections.map(c => ({ id: c.id, name: c.name })));
+      const items: Collection[] = Array.isArray(collectionsRes?.data) ? collectionsRes.data : [];
+      const sortedCollections = items.filter((collection) => !!collection?.id).sort((a, b) => a.name.localeCompare(b.name));
 
-      // Step 2: Find the "Hifdh" collection (case-insensitive, trimmed)
-      const hifdhCollection = collections.find(
-        (c) => {
-          const name = c.name?.trim().toLowerCase();
-          return name === 'hifdh' || name === 'hifz' || name?.includes('hifdh') || name?.includes('hifz');
-        }
-      );
+      setCollections(sortedCollections);
 
-      if (!hifdhCollection) {
-        setNoCollection(true);
-        setLoading(false);
-        return;
+      if (sortedCollections.length > 0) {
+        setSelectedCollectionId(sortedCollections[0].id);
       }
-
-      // Step 3: Get bookmarks in the Hifdh collection
-      const itemsRes = await callQfUserApi(
-        `/auth/v1/collections/${hifdhCollection.id}?sortBy=verseKey&first=50`
-      ) as any;
-
-      const items: HifdhBookmark[] = itemsRes?.data?.bookmarks || [];
-      // Filter to ayah-type bookmarks only
-      const ayahBookmarks = items.filter((b) => b.type === 'ayah' && b.verseNumber != null);
-
-      if (ayahBookmarks.length === 0) {
-        setNoCollection(true);
-        setLoading(false);
-        return;
-      }
-
-      setBookmarks(ayahBookmarks);
     } catch (err) {
-      console.error('Failed to fetch Hifdh collection:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load collection');
+      console.error('Failed to fetch collections:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load collections');
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchCollectionBookmarks = async (collectionId: string) => {
+    setLoading(true);
+    setError(null);
+    setBookmarks([]);
+    setSelected(new Set());
+
+    try {
+      const itemsRes = await callQfUserApi(
+        `/auth/v1/collections/${collectionId}?sortBy=verseKey&first=50`
+      ) as any;
+
+      const items: CollectionBookmark[] = itemsRes?.data?.bookmarks || [];
+      const ayahBookmarks = items.filter((bookmark) => bookmark.type === 'ayah' && bookmark.verseNumber != null);
+      setBookmarks(ayahBookmarks);
+    } catch (err) {
+      console.error('Failed to fetch collection items:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load collection verses');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (open) {
+      fetchCollections();
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (open && selectedCollectionId) {
+      fetchCollectionBookmarks(selectedCollectionId);
+    }
+  }, [open, selectedCollectionId]);
+
   const handleOpen = () => {
     setOpen(true);
-    setSelected(new Set());
-    fetchHifdhCollection();
   };
 
   const toggleBookmark = (id: string) => {
@@ -98,16 +111,15 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
 
   const handleConfirm = () => {
     const verses = bookmarks
-      .filter((b) => selected.has(b.id))
-      .map((b) => ({ surahId: b.key, ayah: b.verseNumber! }));
+      .filter((bookmark) => selected.has(bookmark.id))
+      .map((bookmark) => ({ surahId: bookmark.key, ayah: bookmark.verseNumber! }));
     onSelectVerses(verses);
     setOpen(false);
   };
 
-  // Group bookmarks by surah for display
-  const groupedBookmarks = bookmarks.reduce<Record<number, HifdhBookmark[]>>((acc, b) => {
-    if (!acc[b.key]) acc[b.key] = [];
-    acc[b.key].push(b);
+  const groupedBookmarks = bookmarks.reduce<Record<number, CollectionBookmark[]>>((acc, bookmark) => {
+    if (!acc[bookmark.key]) acc[bookmark.key] = [];
+    acc[bookmark.key].push(bookmark);
     return acc;
   }, {});
 
@@ -118,39 +130,39 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
         <Button
           variant="outline"
           onClick={handleOpen}
-          className="w-full gap-2 border-[#C6A477]/30 text-[#C6A477] hover:bg-[#C6A477]/10 hover:text-[#C6A477]"
+          className="w-full gap-2 border-primary/30 text-primary hover:bg-primary/10 hover:text-primary"
         >
           <BookOpen className="w-4 h-4" />
-          See Hifdh collection
+          See collections
         </Button>
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Hifdh Collection</DialogTitle>
-            <DialogDescription>Select verses to memorize from your Quran.com Hifdh collection</DialogDescription>
+            <DialogTitle>Your Collections</DialogTitle>
+            <DialogDescription>Select verses to memorize from any Quran.com collection</DialogDescription>
           </DialogHeader>
 
-          {loading && (
+          {loading && collections.length === 0 && (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-[#C6A477]" />
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
             </div>
           )}
 
           {error && (
             <div className="text-center py-6 space-y-2">
               <p className="text-sm text-destructive">{error}</p>
-              <Button variant="outline" size="sm" onClick={fetchHifdhCollection}>
+              <Button variant="outline" size="sm" onClick={fetchCollections}>
                 Try Again
               </Button>
             </div>
           )}
 
-          {noCollection && !loading && !error && (
+          {!loading && !error && collections.length === 0 && (
             <div className="text-center py-8 space-y-3">
               <p className="text-sm text-muted-foreground">
-                You have no Hifdh collection, start creating one now!
+                No collections found on your Quran.com account yet.
               </p>
               <Button
                 variant="outline"
@@ -162,47 +174,84 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
             </div>
           )}
 
-          {!loading && !error && !noCollection && bookmarks.length > 0 && (
-            <>
-              <ScrollArea className="max-h-[50vh]">
-                <div className="space-y-3 pr-3">
-                  {Object.entries(groupedBookmarks).map(([surahStr, items]) => {
-                    const surahNum = parseInt(surahStr);
-                    return (
-                      <div key={surahNum}>
-                        <p className="text-xs font-medium text-muted-foreground mb-1.5">
-                          Surah {surahNum}
-                        </p>
-                        <div className="space-y-1">
-                          {items.map((b) => (
-                            <label
-                              key={b.id}
-                              className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-muted/50 cursor-pointer transition-colors"
-                            >
-                              <Checkbox
-                                checked={selected.has(b.id)}
-                                onCheckedChange={() => toggleBookmark(b.id)}
-                              />
-                              <span className="text-sm">
-                                Ayah {b.verseNumber} ({surahNum}:{b.verseNumber})
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                        <Separator className="mt-2" />
-                      </div>
-                    );
-                  })}
+          {!error && collections.length > 0 && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-foreground">Choose a collection</p>
+                <ScrollArea className="max-h-40 rounded-md border border-border/50">
+                  <div className="p-2 space-y-1">
+                    {collections.map((collection) => {
+                      const isActive = selectedCollectionId === collection.id;
+                      return (
+                        <button
+                          key={collection.id}
+                          type="button"
+                          onClick={() => setSelectedCollectionId(collection.id)}
+                          className={`w-full rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                            isActive ? 'bg-primary/10 text-primary' : 'hover:bg-muted/50 text-foreground'
+                          }`}
+                        >
+                          {collection.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              </div>
+
+              {loading ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
                 </div>
-              </ScrollArea>
-              <Button
-                onClick={handleConfirm}
-                disabled={selected.size === 0}
-                className="w-full bg-[#C6A477] hover:bg-[#b8956a] text-white"
-              >
-                Memorize {selected.size} selected {selected.size === 1 ? 'verse' : 'verses'}
-              </Button>
-            </>
+              ) : bookmarks.length === 0 ? (
+                <div className="rounded-md border border-border/50 bg-muted/20 px-4 py-6 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    This collection has no verse bookmarks to memorize.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <ScrollArea className="max-h-[40vh] rounded-md border border-border/50">
+                    <div className="space-y-3 p-3">
+                      {Object.entries(groupedBookmarks).map(([surahStr, items]) => {
+                        const surahNum = parseInt(surahStr);
+                        return (
+                          <div key={surahNum}>
+                            <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+                              Surah {surahNum}
+                            </p>
+                            <div className="space-y-1">
+                              {items.map((bookmark) => (
+                                <label
+                                  key={bookmark.id}
+                                  className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-muted/50"
+                                >
+                                  <Checkbox
+                                    checked={selected.has(bookmark.id)}
+                                    onCheckedChange={() => toggleBookmark(bookmark.id)}
+                                  />
+                                  <span className="text-sm">
+                                    Ayah {bookmark.verseNumber} ({surahNum}:{bookmark.verseNumber})
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                            <Separator className="mt-2" />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                  <Button
+                    onClick={handleConfirm}
+                    disabled={selected.size === 0}
+                    className="w-full"
+                  >
+                    Memorize {selected.size} selected {selected.size === 1 ? 'verse' : 'verses'}
+                  </Button>
+                </>
+              )}
+            </div>
           )}
         </DialogContent>
       </Dialog>
