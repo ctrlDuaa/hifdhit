@@ -51,7 +51,7 @@ function quranVerseToAyah(v: QuranVerse, audioUrls?: Record<string, string>): Me
   return {
     number: verseNum,
     text: v.text_uthmani,
-    translation: v.translations?.[0]?.text?.replace(/<[^>]*>/g, '') || '',
+    translation: v.translations?.[0]?.text?.replace(/<sup[^>]*>.*?<\/sup>/gi, '').replace(/<[^>]*>/g, '').trim() || '',
     transliteration: '',
     words: v.words
       ? v.words.filter(w => w.char_type_name !== 'end').map(w => w.text_uthmani)
