@@ -158,7 +158,7 @@ export async function startQfLogin(scopes = 'openid offline_access user bookmark
   const nonce = randomString(16);
 
   // Build redirect URI — the /qf-callback page in our app
-  const redirectUri = `${window.location.origin}/qf-callback`;
+  const redirectUri = `${window.location.origin}/callback`;
 
   // Store PKCE state for the callback
   storePkceState({ codeVerifier, state, nonce, redirectUri });
