@@ -32,10 +32,6 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
   const [bookmarks, setBookmarks] = useState<CollectionBookmark[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  const isConnected = isQfSessionValid();
-
-  if (!isConnected) return null;
-
   const fetchCollections = async () => {
     setLoading(true);
     setError(null);
@@ -122,6 +118,8 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
     acc[bookmark.key].push(bookmark);
     return acc;
   }, {});
+
+  if (!isConnected) return null;
 
   return (
     <>
