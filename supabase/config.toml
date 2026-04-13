@@ -1,4 +1,1 @@
 project_id = "tamjlnbuaofgaqbnvyxs"
-
-[functions.qf-oauth]
-verify_jwt = false
