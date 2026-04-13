@@ -152,12 +152,16 @@ export async function getQfOAuthConfig(): Promise<{ clientId: string; authBaseUr
  * 3. Redirect to QF hosted login
  */
 export async function startQfLogin(scopes = 'openid offline_access user bookmark collection reading_session preference') {
+  if (window.location.hostname.startsWith('id-preview--')) {
+    throw new Error('Quran.com OAuth must be started from the published app URL: https://hifdhit.lovable.app. Preview URLs use a different origin, so the registered redirect URI will be rejected.');
+  }
+
   const { clientId, authBaseUrl } = await getQfOAuthConfig();
   const { codeVerifier, codeChallenge } = await generatePkce();
   const state = randomString(16);
   const nonce = randomString(16);
 
-  // Build redirect URI — the /qf-callback page in our app
+  // Build redirect URI — the /callback page in our app
   const redirectUri = `${window.location.origin}/callback`;
 
   // Store PKCE state for the callback
