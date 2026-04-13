@@ -159,13 +159,12 @@ serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    const action = url.searchParams.get("action");
+    const reqBody = await req.json().catch(() => ({}));
+    const action = url.searchParams.get("action") || reqBody.action || req.headers.get("x-action");
 
     if (req.method !== "POST") {
       return err("POST required", 405);
     }
-
-    const reqBody = await req.json().catch(() => ({}));
 
     // ── Exchange ──────────────────────────────────────────
     if (action === "exchange") {
