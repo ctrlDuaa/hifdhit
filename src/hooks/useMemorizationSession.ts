@@ -1,0 +1,268 @@
+import { useState, useCallback, useEffect, useRef } from 'react';
+import {
+  MemorizationSessionState,
+  MemorizationSessionConfig,
+  MemorizationStage,
+  ConfidenceRating,
+  SessionPhase,
+  ChunkProgress,
+  AyahPerformance,
+} from '@/types/memorization';
+import { quranApi, QuranVerse } from '@/services/quranApi';
+
+const STAGE_ORDER: MemorizationStage[] = [
+  'listen',
+  'hide-third',
+  'hide-half',
+  'first-letters',
+  'self-assess',
+];
+
+const STORAGE_KEY = 'memorization_session';
+const VERSES_KEY = 'memorization_verses';
+
+function buildChunks(start: number, end: number, chunkSize: number): ChunkProgress[] {
+  const chunks: ChunkProgress[] = [];
+  let i = start;
+  let idx = 0;
+  while (i <= end) {
+    const chunkEnd = Math.min(i + chunkSize - 1, end);
+    chunks.push({ chunkIndex: idx, ayahStart: i, ayahEnd: chunkEnd, completed: false, needsRepeat: false });
+    i = chunkEnd + 1;
+    idx++;
+  }
+  return chunks;
+}
+
+// Block-level scheduling is now handled in Memorization.tsx saveSessionStats
+
+/** Adapter: convert QuranVerse to the shape GuidedMemorization expects */
+export interface MemorizationAyah {
+  number: number;
+  text: string;
+  translation: string;
+  transliteration: string;
+  words: string[];
+  audioUrl?: string;
+}
+
+function quranVerseToAyah(v: QuranVerse, audioUrls?: Record<string, string>): MemorizationAyah {
+  const verseNum = parseInt(v.verse_key.split(':')[1]);
+  return {
+    number: verseNum,
+    text: v.text_uthmani,
+    translation: v.translations?.[0]?.text?.replace(/<[^>]*>/g, '') || '',
+    transliteration: '',
+    words: v.words
+      ? v.words.filter(w => w.char_type_name !== 'end').map(w => w.text_uthmani)
+      : v.text_uthmani.split(' '),
+    audioUrl: audioUrls?.[v.verse_key],
+  };
+}
+
+export function useMemorizationSession() {
+  const [state, setState] = useState<MemorizationSessionState | null>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+
+  const [versesMap, setVersesMap] = useState<Record<number, MemorizationAyah>>(() => {
+    try {
+      const saved = localStorage.getItem(VERSES_KEY);
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
+
+  const [loadingVerses, setLoadingVerses] = useState(false);
+
+  // Persist state
+  useEffect(() => {
+    if (state) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }, [state]);
+
+  useEffect(() => {
+    if (Object.keys(versesMap).length > 0) {
+      localStorage.setItem(VERSES_KEY, JSON.stringify(versesMap));
+    }
+  }, [versesMap]);
+
+  const startSession = useCallback(async (config: MemorizationSessionConfig) => {
+    setLoadingVerses(true);
+    try {
+      // Fetch verses from API
+      const [versesResult, audioResult] = await Promise.all([
+        quranApi.getVerseRange(config.surahId, config.ayahStart, config.ayahEnd),
+        quranApi.getVerseAudio(config.surahId).catch(() => ({ audio_files: [] })),
+      ]);
+
+      // Build audio URL map
+      const audioUrls: Record<string, string> = {};
+      const audioFiles = (audioResult as any)?.audio_files || [];
+      for (const af of audioFiles) {
+        if (af.verse_key && af.url) {
+          audioUrls[af.verse_key] = af.url.startsWith('http') ? af.url : `https://verses.quran.com/${af.url}`;
+        }
+      }
+
+      // Convert to memorization ayahs
+      const newVersesMap: Record<number, MemorizationAyah> = {};
+      for (const v of versesResult.verses) {
+        const ayah = quranVerseToAyah(v, audioUrls);
+        newVersesMap[ayah.number] = ayah;
+      }
+      setVersesMap(newVersesMap);
+
+      // Build session
+      const chunks = buildChunks(config.ayahStart, config.ayahEnd, config.chunkSize);
+      const perf: Record<number, AyahPerformance> = {};
+      for (let a = config.ayahStart; a <= config.ayahEnd; a++) {
+        perf[a] = { ayahNumber: a, confidenceRating: null, reviewScheduledFor: [], markedWeak: false, repetitionsCompleted: 0 };
+      }
+
+      setState({
+        config,
+        phase: 'memorizing',
+        currentChunkIndex: 0,
+        currentAyahInChunk: 0,
+        currentStage: 'listen',
+        currentRepetition: 1,
+        ayahPerformance: perf,
+        chunks,
+        startedAt: new Date().toISOString(),
+        completedAt: null,
+        totalTimeSpentMs: 0,
+      });
+    } catch (err) {
+      console.error('Failed to start session:', err);
+      throw err;
+    } finally {
+      setLoadingVerses(false);
+    }
+  }, []);
+
+  const getCurrentAyah = useCallback((): MemorizationAyah | null => {
+    if (!state) return null;
+    const chunk = state.chunks[state.currentChunkIndex];
+    if (!chunk) return null;
+    const ayahNum = chunk.ayahStart + state.currentAyahInChunk;
+    return versesMap[ayahNum] || null;
+  }, [state, versesMap]);
+
+  const getChunkAyahs = useCallback((): MemorizationAyah[] => {
+    if (!state) return [];
+    const chunk = state.chunks[state.currentChunkIndex];
+    if (!chunk) return [];
+    const result: MemorizationAyah[] = [];
+    for (let a = chunk.ayahStart; a <= chunk.ayahEnd; a++) {
+      if (versesMap[a]) result.push(versesMap[a]);
+    }
+    return result;
+  }, [state, versesMap]);
+
+  const advanceStage = useCallback(() => {
+    if (!state) return;
+    const idx = STAGE_ORDER.indexOf(state.currentStage);
+    if (idx < STAGE_ORDER.length - 1) {
+      setState(s => s ? { ...s, currentStage: STAGE_ORDER[idx + 1] } : s);
+    }
+  }, [state]);
+
+  const goBackStage = useCallback(() => {
+    if (!state) return;
+    const idx = STAGE_ORDER.indexOf(state.currentStage);
+    if (idx > 0) {
+      setState(s => s ? { ...s, currentStage: STAGE_ORDER[idx - 1] } : s);
+    }
+  }, [state]);
+
+  const rateAyah = useCallback((rating: ConfidenceRating) => {
+    if (!state) return;
+    const chunk = state.chunks[state.currentChunkIndex];
+    const ayahNum = chunk.ayahStart + state.currentAyahInChunk;
+    
+    setState(s => {
+      if (!s) return s;
+      const perf = { ...s.ayahPerformance };
+      perf[ayahNum] = { ...perf[ayahNum], confidenceRating: rating, reviewScheduledFor: [] };
+      
+      const chunk = s.chunks[s.currentChunkIndex];
+      const chunkAyahCount = chunk.ayahEnd - chunk.ayahStart + 1;
+      const nextAyahInChunk = s.currentAyahInChunk + 1;
+      
+      if (nextAyahInChunk < chunkAyahCount) {
+        return { ...s, ayahPerformance: perf, currentAyahInChunk: nextAyahInChunk, currentStage: 'listen', currentRepetition: 1 };
+      } else {
+        return { ...s, ayahPerformance: perf, phase: 'checkpoint' as SessionPhase };
+      }
+    });
+  }, [state]);
+
+  const handleCheckpointResult = useCallback((gotIt: boolean) => {
+    if (!state) return;
+    setState(s => {
+      if (!s) return s;
+      const chunks = [...s.chunks];
+      chunks[s.currentChunkIndex] = { ...chunks[s.currentChunkIndex], completed: gotIt, needsRepeat: !gotIt };
+      
+      if (!gotIt) {
+        return { ...s, chunks, phase: 'memorizing' as SessionPhase, currentAyahInChunk: 0, currentStage: 'listen' as MemorizationStage, currentRepetition: 1 };
+      }
+      
+      const nextChunk = s.currentChunkIndex + 1;
+      if (nextChunk < chunks.length) {
+        return { ...s, chunks, phase: 'memorizing' as SessionPhase, currentChunkIndex: nextChunk, currentAyahInChunk: 0, currentStage: 'listen' as MemorizationStage, currentRepetition: 1 };
+      } else {
+        return { ...s, chunks, phase: 'summary' as SessionPhase, completedAt: new Date().toISOString() };
+      }
+    });
+  }, [state]);
+
+  const toggleWeakMark = useCallback((ayahNum: number) => {
+    setState(s => {
+      if (!s) return s;
+      const perf = { ...s.ayahPerformance };
+      perf[ayahNum] = { ...perf[ayahNum], markedWeak: !perf[ayahNum].markedWeak };
+      return { ...s, ayahPerformance: perf };
+    });
+  }, []);
+
+  const endSession = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(VERSES_KEY);
+    setState(null);
+    setVersesMap({});
+  }, []);
+
+  const getConfidenceSummary = useCallback(() => {
+    if (!state) return { easy: 0, shaky: 0, hard: 0 };
+    const perfs = Object.values(state.ayahPerformance);
+    return {
+      easy: perfs.filter(p => p.confidenceRating === 'easy').length,
+      shaky: perfs.filter(p => p.confidenceRating === 'shaky').length,
+      hard: perfs.filter(p => p.confidenceRating === 'hard').length,
+    };
+  }, [state]);
+
+  const getWeakPassages = useCallback(() => {
+    if (!state) return [];
+    return Object.values(state.ayahPerformance).filter(p => p.markedWeak || p.confidenceRating === 'hard');
+  }, [state]);
+
+  return {
+    state,
+    loadingVerses,
+    startSession,
+    getCurrentAyah,
+    getChunkAyahs,
+    advanceStage,
+    goBackStage,
+    rateAyah,
+    handleCheckpointResult,
+    toggleWeakMark,
+    endSession,
+    getConfidenceSummary,
+    getWeakPassages,
+  };
+}
