@@ -334,6 +334,9 @@ export function useMemorizationSession() {
     handleCheckpointResult,
     toggleWeakMark,
     endSession,
+    pauseSession,
+    resumeSession,
+    getSavedSessionInfo,
     getConfidenceSummary,
     getWeakPassages,
   };
