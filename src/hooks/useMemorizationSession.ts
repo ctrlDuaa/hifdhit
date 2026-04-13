@@ -228,11 +228,83 @@ export function useMemorizationSession() {
     });
   }, []);
 
+  /** Clear session data completely (used after completion or when user chooses "new session") */
   const endSession = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(VERSES_KEY);
     setState(null);
     setVersesMap({});
+  }, []);
+
+  /** Pause session — keep data in localStorage so user can resume later */
+  const pauseSession = useCallback(() => {
+    // State is already persisted via useEffect — just clear React state
+    setState(null);
+    setVersesMap({});
+  }, []);
+
+  /** Check if there's a saved session in localStorage (without loading it into React state) */
+  const getSavedSessionInfo = useCallback((): { config: MemorizationSessionConfig; currentAyah: number; completedAyahs: number; totalAyahs: number } | null => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) return null;
+      const s: MemorizationSessionState = JSON.parse(saved);
+      if (s.phase === 'summary') return null; // completed sessions don't count
+      const chunk = s.chunks[s.currentChunkIndex];
+      const currentAyah = chunk ? chunk.ayahStart + s.currentAyahInChunk : s.config.ayahStart;
+      const completedAyahs = Object.values(s.ayahPerformance).filter(p => p.confidenceRating !== null).length;
+      const totalAyahs = s.config.ayahEnd - s.config.ayahStart + 1;
+      return { config: s.config, currentAyah, completedAyahs, totalAyahs };
+    } catch { return null; }
+  }, []);
+
+  /** Resume a saved session — reload verses from API since versesMap may be empty */
+  const resumeSession = useCallback(async () => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) return;
+      const s: MemorizationSessionState = JSON.parse(saved);
+      
+      // Check if versesMap is already populated
+      const savedVerses = localStorage.getItem(VERSES_KEY);
+      if (savedVerses) {
+        const parsed = JSON.parse(savedVerses);
+        if (Object.keys(parsed).length > 0) {
+          setState(s);
+          setVersesMap(parsed);
+          return;
+        }
+      }
+      
+      // Re-fetch verses
+      setLoadingVerses(true);
+      const [versesResult, audioResult] = await Promise.all([
+        quranApi.getVerseRange(s.config.surahId, s.config.ayahStart, s.config.ayahEnd),
+        quranApi.getVerseAudio(s.config.surahId).catch(() => ({ audio_files: [] })),
+      ]);
+
+      const audioUrls: Record<string, string> = {};
+      const audioFiles = (audioResult as any)?.audio_files || [];
+      for (const af of audioFiles) {
+        if (af.verse_key && af.url) {
+          audioUrls[af.verse_key] = af.url.startsWith('http') ? af.url : `https://verses.quran.com/${af.url}`;
+        }
+      }
+
+      const newVersesMap: Record<number, MemorizationAyah> = {};
+      for (const v of versesResult.verses) {
+        const ayah = quranVerseToAyah(v, audioUrls);
+        newVersesMap[ayah.number] = ayah;
+      }
+
+      setState(s);
+      setVersesMap(newVersesMap);
+      setLoadingVerses(false);
+    } catch (err) {
+      console.error('Failed to resume session:', err);
+      setLoadingVerses(false);
+      throw err;
+    }
   }, []);
 
   const getConfidenceSummary = useCallback(() => {
