@@ -9,6 +9,8 @@ import { Loader2 } from 'lucide-react';
 import { MemorizationSessionConfig } from '@/types/memorization';
 import { useSurahList } from '@/hooks/useQuranData';
 import { Skeleton } from '@/components/ui/skeleton';
+import { HifdhCollectionPicker } from './HifdhCollectionPicker';
+import { Separator } from '@/components/ui/separator';
 
 interface Props {
   onStart: (config: MemorizationSessionConfig) => void;
@@ -50,6 +52,24 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
       ayahEnd: ayahStart + blockSize - 1,
       repetitions: 3,
       chunkSize: blockSize,
+      showTranslation: false,
+      showTransliteration: false,
+    });
+  };
+
+  const handleHifdhSelect = (verses: { surahId: number; ayah: number }[]) => {
+    if (verses.length === 0) return;
+    // Group by surah — use the first surah group for a session
+    const firstSurah = verses[0].surahId;
+    const surahVerses = verses.filter(v => v.surahId === firstSurah).sort((a, b) => a.ayah - b.ayah);
+    const surah = chapters?.find(s => s.id === firstSurah);
+    onStart({
+      surahId: firstSurah,
+      surahName: surah?.name_arabic || surah?.name_simple || '',
+      ayahStart: surahVerses[0].ayah,
+      ayahEnd: surahVerses[surahVerses.length - 1].ayah,
+      repetitions: 3,
+      chunkSize: surahVerses.length,
       showTranslation: false,
       showTransliteration: false,
     });
@@ -109,6 +129,10 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
               <Input type="number" min={1} max={20} placeholder="Enter chunk size" value={customChunk} onChange={e => setCustomChunk(e.target.value)} className="mt-2" />
             )}
           </div>
+
+          <Separator />
+
+          <HifdhCollectionPicker onSelectVerses={handleHifdhSelect} />
 
           <Button onClick={handleStart} className="w-full bg-[#C6A477] hover:bg-[#b8956a] text-white" size="lg" disabled={startLoading || chaptersLoading}>
             {startLoading ? (
