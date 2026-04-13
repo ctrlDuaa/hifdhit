@@ -136,6 +136,23 @@ const Dashboard = () => {
   const [loadingProgress, setLoadingProgress] = useState(true);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [showUsernameSetup, setShowUsernameSetup] = useState(false);
+  const [qfConnected, setQfConnected] = useState(isQfSessionValid());
+  const [qfLoading, setQfLoading] = useState(false);
+
+  const handleQfConnect = async () => {
+    setQfLoading(true);
+    try {
+      await startQfLogin();
+    } catch (err) {
+      console.error('Failed to start QF login:', err);
+      setQfLoading(false);
+    }
+  };
+
+  const handleQfDisconnect = () => {
+    logoutQf();
+    setQfConnected(false);
+  };
 
   // Juz to ayah ranges mapping - each juz contains specific ayah ranges from various surahs
   const juzAyahRanges = [
