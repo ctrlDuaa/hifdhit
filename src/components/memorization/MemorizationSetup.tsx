@@ -57,6 +57,24 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
     });
   };
 
+  const handleHifdhSelect = (verses: { surahId: number; ayah: number }[]) => {
+    if (verses.length === 0) return;
+    // Group by surah — use the first surah group for a session
+    const firstSurah = verses[0].surahId;
+    const surahVerses = verses.filter(v => v.surahId === firstSurah).sort((a, b) => a.ayah - b.ayah);
+    const surah = chapters?.find(s => s.id === firstSurah);
+    onStart({
+      surahId: firstSurah,
+      surahName: surah?.name_arabic || surah?.name_simple || '',
+      ayahStart: surahVerses[0].ayah,
+      ayahEnd: surahVerses[surahVerses.length - 1].ayah,
+      repetitions: 3,
+      chunkSize: surahVerses.length,
+      showTranslation: false,
+      showTransliteration: false,
+    });
+  };
+
   return (
     <div className="min-h-[calc(100vh-64px)] flex items-center justify-center p-4 bg-background">
       <Card className="w-full max-w-lg shadow-lg border-border/50">
