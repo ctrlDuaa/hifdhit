@@ -31,6 +31,7 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
   const [bookmarks, setBookmarks] = useState<CollectionBookmark[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const isConnected = isQfSessionValid();
 
   const fetchCollections = async () => {
     setLoading(true);
@@ -41,14 +42,28 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
     setSelected(new Set());
 
     try {
-      const collectionsRes = await callQfUserApi('/auth/v1/collections?first=20') as any;
-      const items: Collection[] = Array.isArray(collectionsRes?.data) ? collectionsRes.data : [];
-      const sortedCollections = items.filter((collection) => !!collection?.id).sort((a, b) => a.name.localeCompare(b.name));
+      const allCollections: Collection[] = [];
+      let after: string | null = null;
+      let hasNextPage = true;
 
-      setCollections(sortedCollections);
+      while (hasNextPage) {
+        const query = new URLSearchParams({ first: '20', sortBy: 'alphabetical' });
+        if (after) query.set('after', after);
 
-      if (sortedCollections.length > 0) {
-        setSelectedCollectionId(sortedCollections[0].id);
+        const collectionsRes = await callQfUserApi(`/auth/v1/collections?${query.toString()}`) as any;
+        const pageItems: Collection[] = Array.isArray(collectionsRes?.data) ? collectionsRes.data : [];
+        const pagination = collectionsRes?.pagination;
+
+        allCollections.push(...pageItems.filter((collection) => !!collection?.id));
+        hasNextPage = Boolean(pagination?.hasNextPage && pagination?.endCursor);
+        after = pagination?.endCursor ?? null;
+      }
+
+      const uniqueCollections = Array.from(new Map(allCollections.map((collection) => [collection.id, collection])).values());
+      setCollections(uniqueCollections);
+
+      if (uniqueCollections.length > 0) {
+        setSelectedCollectionId(uniqueCollections[0].id);
       }
     } catch (err) {
       console.error('Failed to fetch collections:', err);
@@ -65,13 +80,24 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
     setSelected(new Set());
 
     try {
-      const itemsRes = await callQfUserApi(
-        `/auth/v1/collections/${collectionId}?sortBy=verseKey&first=50`
-      ) as any;
+      const allBookmarks: CollectionBookmark[] = [];
+      let after: string | null = null;
+      let hasNextPage = true;
 
-      const items: CollectionBookmark[] = itemsRes?.data?.bookmarks || [];
-      const ayahBookmarks = items.filter((bookmark) => bookmark.type === 'ayah' && bookmark.verseNumber != null);
-      setBookmarks(ayahBookmarks);
+      while (hasNextPage) {
+        const query = new URLSearchParams({ first: '50', sortBy: 'verseKey' });
+        if (after) query.set('after', after);
+
+        const itemsRes = await callQfUserApi(`/auth/v1/collections/${collectionId}?${query.toString()}`) as any;
+        const pageItems: CollectionBookmark[] = Array.isArray(itemsRes?.data?.bookmarks) ? itemsRes.data.bookmarks : [];
+        const pagination = itemsRes?.data?.pagination ?? itemsRes?.pagination;
+
+        allBookmarks.push(...pageItems.filter((bookmark) => bookmark.type === 'ayah' && bookmark.verseNumber != null));
+        hasNextPage = Boolean(pagination?.hasNextPage && pagination?.endCursor);
+        after = pagination?.endCursor ?? null;
+      }
+
+      setBookmarks(allBookmarks);
     } catch (err) {
       console.error('Failed to fetch collection items:', err);
       setError(err instanceof Error ? err.message : 'Failed to load collection verses');
