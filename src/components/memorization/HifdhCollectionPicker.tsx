@@ -54,7 +54,7 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
 
       // Step 3: Get bookmarks in the Hifdh collection
       const itemsRes = await callQfUserApi(
-        `/v1/collections/${hifdhCollection.id}?sortBy=verseKey&first=50`
+        `/auth/v1/collections/${hifdhCollection.id}?sortBy=verseKey&first=50`
       ) as any;
 
       const items: HifdhBookmark[] = itemsRes?.data?.bookmarks || [];
