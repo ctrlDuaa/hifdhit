@@ -1,14 +1,15 @@
 /**
- * Quran Foundation OAuth2 Token Exchange Edge Function
+ * Quran Foundation OAuth2 Token Exchange Edge Function (v2)
  *
  * Confidential client pattern: CLIENT_SECRET stays server-side.
  * The browser client generates PKCE, redirects to QF login, receives
  * the authorization code, then sends code + code_verifier here.
  *
  * Endpoints:
- *   POST ?action=exchange   — exchange authorization code for tokens
- *   POST ?action=refresh    — refresh an expired access_token
- *   POST ?action=userinfo   — proxy a User API call
+ *   POST ?action=config    — return public OAuth config (clientId, authBaseUrl)
+ *   POST ?action=exchange  — exchange authorization code for tokens
+ *   POST ?action=refresh   — refresh an expired access_token
+ *   POST ?action=user-api  — proxy a User API call
  */
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
