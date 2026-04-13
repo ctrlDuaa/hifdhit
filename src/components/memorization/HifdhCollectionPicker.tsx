@@ -97,6 +97,12 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
         if (after) query.set('after', after);
 
         const itemsRes = await callQfUserApi(`/auth/v1/collections/${collectionId}?${query.toString()}`) as any;
+
+        // Handle upstream errors gracefully (e.g. 404, empty collection)
+        if (itemsRes?.success === false || itemsRes?.type === 'not_found') {
+          break;
+        }
+
         const pageItems: CollectionBookmark[] = Array.isArray(itemsRes?.data?.bookmarks) ? itemsRes.data.bookmarks : [];
         const pagination = itemsRes?.data?.pagination ?? itemsRes?.pagination;
 
