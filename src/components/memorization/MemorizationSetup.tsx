@@ -9,6 +9,8 @@ import { Loader2 } from 'lucide-react';
 import { MemorizationSessionConfig } from '@/types/memorization';
 import { useSurahList } from '@/hooks/useQuranData';
 import { Skeleton } from '@/components/ui/skeleton';
+import { HifdhCollectionPicker } from './HifdhCollectionPicker';
+import { Separator } from '@/components/ui/separator';
 
 interface Props {
   onStart: (config: MemorizationSessionConfig) => void;
