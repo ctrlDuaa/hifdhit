@@ -225,7 +225,7 @@ serve(async (req) => {
       if (!path || !accessToken) return err("path and accessToken are required");
 
       const result = await proxyUserApi(path, accessToken, method || "GET", body);
-      return json({ success: true, data: result.data }, result.status >= 400 ? result.status : 200);
+      return json({ success: true, data: result.data, upstreamStatus: result.status });
     }
 
     // ── Config (public info only) ─────────────────────────
