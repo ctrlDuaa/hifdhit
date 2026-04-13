@@ -18,6 +18,8 @@ export const AppHeader = () => {
     } catch (err) {
       console.error('Failed to start QF login:', err);
       setQfLoading(false);
+      // Show a toast or alert so the user knows what happened
+      alert(err instanceof Error ? err.message : 'Failed to connect to Quran.com');
     }
   };
 
