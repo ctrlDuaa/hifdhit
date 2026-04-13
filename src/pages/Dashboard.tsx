@@ -14,11 +14,12 @@ import { WeeklyMistakesCard } from '@/components/WeeklyMistakesCard';
 import { useAuth } from '@/hooks/useAuth';
 import { useSurahList } from '@/hooks/useQuranData';
 import { supabase } from '@/integrations/supabase/client';
-import { BookOpen, BarChart3, GraduationCap, ClipboardCheck, Play, Calendar } from 'lucide-react';
+import { BookOpen, BarChart3, GraduationCap, ClipboardCheck, Play, Calendar, Link2 } from 'lucide-react';
 import { useMemorizationBlocks } from '@/hooks/useMemorizationBlocks';
 import { useSurahList as useSurahListForReview } from '@/hooks/useQuranData';
 import { getMasteryLabel, getMasteryColor } from '@/lib/reviewScheduler';
 import { AppHeader } from '@/components/AppHeader';
+import { startQfLogin, isQfSessionValid, logoutQf } from '@/services/qfAuth';
 interface UserProgress {
   totalAyahs: number;
   revisedAyahs: number;
@@ -1038,6 +1039,24 @@ const Dashboard = () => {
             As-Salāmu 'Alaykum, {userProfile?.username || 'Brother/Sister'}!
           </h2>
           <p className="text-muted-foreground">Welcome back to your hifdh.</p>
+        </div>
+        <div className="flex justify-center md:justify-end">
+          {qfConnected ? (
+            <Button variant="outline" size="sm" onClick={handleQfDisconnect} className="text-xs">
+              <Link2 className="w-3.5 h-3.5 mr-1.5" />
+              Connected to Quran.com · Disconnect
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              onClick={handleQfConnect}
+              disabled={qfLoading}
+              className="bg-[#C6A477] hover:bg-[#b8956a] text-white text-xs"
+            >
+              <Link2 className="w-3.5 h-3.5 mr-1.5" />
+              {qfLoading ? 'Connecting...' : 'Connect to Quran.com'}
+            </Button>
+          )}
         </div>
 
         {/* Progress Overview */}
