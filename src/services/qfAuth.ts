@@ -120,14 +120,34 @@ function getHeaders() {
 }
 
 async function callEdgeFunction(action: string, body: Record<string, unknown>) {
-  const res = await fetch(`${getEdgeFunctionUrl()}?action=${action}`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(body),
-  });
+  const url = `${getEdgeFunctionUrl()}?action=${action}`;
+  console.log(`[QF OAuth] Calling edge function: ${action}`);
+  
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(body),
+    });
+  } catch (networkErr) {
+    console.error('[QF OAuth] Network error:', networkErr);
+    throw new Error(`Network error calling QF OAuth: ${networkErr instanceof Error ? networkErr.message : 'unknown'}`);
+  }
 
-  const result = await res.json();
-  if (!result.success) throw new Error(result.error || 'QF OAuth request failed');
+  let result: any;
+  try {
+    result = await res.json();
+  } catch {
+    const text = await res.text().catch(() => '');
+    console.error(`[QF OAuth] Non-JSON response [${res.status}]:`, text);
+    throw new Error(`QF OAuth returned non-JSON response (${res.status})`);
+  }
+
+  if (!result.success) {
+    console.error('[QF OAuth] Error response:', result);
+    throw new Error(result.error || `QF OAuth request failed (${res.status})`);
+  }
   return result.data;
 }
 
