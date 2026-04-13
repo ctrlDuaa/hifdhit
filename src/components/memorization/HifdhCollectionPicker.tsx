@@ -38,7 +38,8 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
 
     try {
       // Step 1: Get all collections
-      const collectionsRes = await callQfUserApi('/v1/collections?first=20') as any;
+      const collectionsRes = await callQfUserApi('/auth/v1/collections?first=20') as any;
+      console.log('[Hifdh] Collections response:', collectionsRes);
       const collections: { id: string; name: string }[] = collectionsRes?.data || [];
 
       // Step 2: Find the "Hifdh" collection (case-insensitive)
@@ -54,7 +55,7 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
 
       // Step 3: Get bookmarks in the Hifdh collection
       const itemsRes = await callQfUserApi(
-        `/v1/collections/${hifdhCollection.id}?sortBy=verseKey&first=50`
+        `/auth/v1/collections/${hifdhCollection.id}?sortBy=verseKey&first=50`
       ) as any;
 
       const items: HifdhBookmark[] = itemsRes?.data?.bookmarks || [];
