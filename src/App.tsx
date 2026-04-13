@@ -19,6 +19,7 @@ import Memorization from "./pages/Memorization";
 import BlockReview from "./pages/BlockReview";
 import ReviewSchedule from "./pages/ReviewSchedule";
 import QuranTest from "./pages/QuranTest";
+import QFCallback from "./pages/QFCallback";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -102,6 +103,7 @@ const App = () => (
                   } 
                 />
                 <Route path="/quran-test" element={<QuranTest />} />
+                <Route path="/qf-callback" element={<QFCallback />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
