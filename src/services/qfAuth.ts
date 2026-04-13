@@ -112,7 +112,7 @@ async function callEdgeFunction(action: string, body: Record<string, unknown>) {
   console.log(`[QF OAuth] Calling edge function: ${action}`);
 
   try {
-    const { data, error } = await supabase.functions.invoke('quran-api', {
+    const { data, error } = await supabase.functions.invoke('qf-oauth', {
       body: { ...body, action },
       headers: { 'x-action': action },
     });
