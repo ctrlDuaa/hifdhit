@@ -55,7 +55,7 @@ export const QuranVerseDisplay = ({
       {/* Translation */}
       {showTranslation && verse.translations && verse.translations.length > 0 && (
         <p className="text-center text-sm text-muted-foreground italic bg-muted/30 rounded-lg p-3">
-          {verse.translations[0].text.replace(/<[^>]*>/g, '')}
+          {verse.translations[0].text.replace(/<sup[^>]*>.*?<\/sup>/gi, '').replace(/<[^>]*>/g, '').trim()}
         </p>
       )}
     </div>
