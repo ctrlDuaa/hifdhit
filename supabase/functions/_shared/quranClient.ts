@@ -86,7 +86,7 @@ async function attemptFetch(url: string): Promise<any> {
 }
 
 // ── Default IDs (configurable) ───────────────────────────────
-export const DEFAULT_TRANSLATION_ID = 131;   // Sahih International
+export const DEFAULT_TRANSLATION_ID = 20;    // Saheeh International
 export const DEFAULT_TAFSIR_ID = 169;         // Ibn Kathir (English)
 export const DEFAULT_RECITER_ID = 7;          // Mishary Rashid Alafasy
 
