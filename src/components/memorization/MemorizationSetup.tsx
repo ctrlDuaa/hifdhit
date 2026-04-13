@@ -130,6 +130,10 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
             )}
           </div>
 
+          <Separator />
+
+          <HifdhCollectionPicker onSelectVerses={handleHifdhSelect} />
+
           <Button onClick={handleStart} className="w-full bg-[#C6A477] hover:bg-[#b8956a] text-white" size="lg" disabled={startLoading || chaptersLoading}>
             {startLoading ? (
               <>
