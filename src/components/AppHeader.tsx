@@ -5,9 +5,11 @@ import { Link } from 'react-router-dom';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { startQfLogin, isQfSessionValid, logoutQf } from '@/services/qfAuth';
 import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 export const AppHeader = () => {
   const { signOut } = useAuth();
+  const { toast } = useToast();
   const [qfConnected, setQfConnected] = useState(isQfSessionValid());
   const [qfLoading, setQfLoading] = useState(false);
 
@@ -18,8 +20,11 @@ export const AppHeader = () => {
     } catch (err) {
       console.error('Failed to start QF login:', err);
       setQfLoading(false);
-      // Show a toast or alert so the user knows what happened
-      alert(err instanceof Error ? err.message : 'Failed to connect to Quran.com');
+      toast({
+        title: 'Connection Failed',
+        description: err instanceof Error ? err.message : 'Failed to connect to Quran.com',
+        variant: 'destructive',
+      });
     }
   };
 
