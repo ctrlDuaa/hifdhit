@@ -38,7 +38,7 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
 
     try {
       // Step 1: Get all collections
-      const collectionsRes = await callQfUserApi('/v1/collections?first=20') as any;
+      const collectionsRes = await callQfUserApi('/auth/v1/collections?first=20') as any;
       const collections: { id: string; name: string }[] = collectionsRes?.data || [];
 
       // Step 2: Find the "Hifdh" collection (case-insensitive)
