@@ -106,49 +106,34 @@ export function isQfSessionValid(): boolean {
 
 // ── Edge function caller ─────────────────────────────────────
 
-function getEdgeFunctionUrl(): string {
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  return `https://${projectId}.supabase.co/functions/v1/qf-oauth`;
-}
-
-function getHeaders() {
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-    apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-  };
-}
+import { supabase } from '@/integrations/supabase/client';
 
 async function callEdgeFunction(action: string, body: Record<string, unknown>) {
-  const url = `${getEdgeFunctionUrl()}?action=${action}`;
   console.log(`[QF OAuth] Calling edge function: ${action}`);
-  
-  let res: Response;
+
   try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify(body),
+    const { data, error } = await supabase.functions.invoke('qf-oauth', {
+      body: { ...body, action },
+      headers: { 'x-action': action },
     });
-  } catch (networkErr) {
-    console.error('[QF OAuth] Network error:', networkErr);
-    throw new Error(`Network error calling QF OAuth: ${networkErr instanceof Error ? networkErr.message : 'unknown'}`);
-  }
 
-  let result: any;
-  try {
-    result = await res.json();
-  } catch {
-    const text = await res.text().catch(() => '');
-    console.error(`[QF OAuth] Non-JSON response [${res.status}]:`, text);
-    throw new Error(`QF OAuth returned non-JSON response (${res.status})`);
-  }
+    if (error) {
+      console.error('[QF OAuth] Invoke error:', error);
+      throw new Error(error.message || 'QF OAuth request failed');
+    }
 
-  if (!result.success) {
-    console.error('[QF OAuth] Error response:', result);
-    throw new Error(result.error || `QF OAuth request failed (${res.status})`);
+    // supabase.functions.invoke already parses JSON
+    const result = typeof data === 'string' ? JSON.parse(data) : data;
+
+    if (!result.success) {
+      console.error('[QF OAuth] Error response:', result);
+      throw new Error(result.error || 'QF OAuth request failed');
+    }
+    return result.data;
+  } catch (err) {
+    console.error('[QF OAuth] Call failed:', err);
+    throw err;
   }
-  return result.data;
 }
 
 // ── Public API ───────────────────────────────────────────────
