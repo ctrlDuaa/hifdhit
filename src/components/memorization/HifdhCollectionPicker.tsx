@@ -59,7 +59,7 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
         if (after) query.set('after', after);
 
         console.log('[HifdhPicker] Fetching collections page, after=', after);
-        const collectionsRes = await callQfUserApi(`/v1/collections?${query.toString()}`) as any;
+        const collectionsRes = await callQfUserApi(`/auth/v1/collections?${query.toString()}`) as any;
         console.log('[HifdhPicker] Collections response:', JSON.stringify(collectionsRes, null, 2)?.slice(0, 1000));
 
         const pageItems: Collection[] = Array.isArray(collectionsRes?.data) ? collectionsRes.data : [];
