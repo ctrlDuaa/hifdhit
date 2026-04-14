@@ -55,7 +55,7 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
       let hasNextPage = true;
 
       while (hasNextPage) {
-        const query = new URLSearchParams({ first: '20', sortBy: 'alphabetical' });
+        const query = new URLSearchParams({ first: '10', sortBy: 'alphabetical' });
         if (after) query.set('after', after);
 
         console.log('[HifdhPicker] Fetching collections page, after=', after);
