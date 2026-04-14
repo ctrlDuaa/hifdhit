@@ -59,14 +59,14 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
         if (after) query.set('after', after);
 
         console.log('[HifdhPicker] Fetching collections page, after=', after);
-        const collectionsRes = await callQfUserApi(`/auth/v1/collections?${query.toString()}`) as any;
+        const collectionsRes = await callQfUserApi(`/v1/collections?${query.toString()}`) as any;
         console.log('[HifdhPicker] Collections response:', JSON.stringify(collectionsRes, null, 2)?.slice(0, 1000));
 
         const pageItems: Collection[] = Array.isArray(collectionsRes?.data) ? collectionsRes.data : [];
         const pagination = collectionsRes?.pagination;
 
         allCollections.push(...pageItems.filter((collection) => !!collection?.id));
-        hasNextPage = Boolean(pagination?.hasNextPage && pagination?.endCursor);
+        hasNextPage = Boolean((pagination?.hasNextPage ?? pagination?.hasNext) && pagination?.endCursor);
         after = pagination?.endCursor ?? null;
       }
 
@@ -100,18 +100,22 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
         const query = new URLSearchParams({ first: '50', sortBy: 'verseKey' });
         if (after) query.set('after', after);
 
-        const itemsRes = await callQfUserApi(`/auth/v1/collections/${collectionId}?${query.toString()}`) as any;
+        const itemsRes = await callQfUserApi(`/v1/collections/${collectionId}?${query.toString()}`) as any;
+        console.log('[HifdhPicker] Collection items response:', JSON.stringify(itemsRes, null, 2)?.slice(0, 1000));
 
-        // Handle upstream errors gracefully (e.g. 404, empty collection)
         if (itemsRes?.success === false || itemsRes?.type === 'not_found') {
           break;
         }
 
-        const pageItems: CollectionBookmark[] = Array.isArray(itemsRes?.data?.bookmarks) ? itemsRes.data.bookmarks : [];
+        const pageItems: CollectionBookmark[] = Array.isArray(itemsRes?.data?.bookmarks)
+          ? itemsRes.data.bookmarks
+          : Array.isArray(itemsRes?.data)
+            ? itemsRes.data
+            : [];
         const pagination = itemsRes?.data?.pagination ?? itemsRes?.pagination;
 
         allBookmarks.push(...pageItems.filter((bookmark) => bookmark.type === 'ayah' && bookmark.verseNumber != null));
-        hasNextPage = Boolean(pagination?.hasNextPage && pagination?.endCursor);
+        hasNextPage = Boolean((pagination?.hasNextPage ?? pagination?.hasNext) && pagination?.endCursor);
         after = pagination?.endCursor ?? null;
       }
 
