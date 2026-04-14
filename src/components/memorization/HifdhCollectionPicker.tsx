@@ -50,33 +50,46 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
     setSelected(new Set());
 
     try {
-      const allCollections: Collection[] = [];
-      let after: string | null = null;
-      let hasNextPage = true;
+      const paths = [
+        '/auth/v1/collections?sortBy=alphabetical',
+        '/auth/v1/collections',
+      ];
 
-      while (hasNextPage) {
-        const query = new URLSearchParams({ first: '10', sortBy: 'alphabetical' });
-        if (after) query.set('after', after);
+      let lastError: string | null = null;
 
-        console.log('[HifdhPicker] Fetching collections page, after=', after);
-        const collectionsRes = await callQfUserApi(`/auth/v1/collections?${query.toString()}`) as any;
-        console.log('[HifdhPicker] Collections response:', JSON.stringify(collectionsRes, null, 2)?.slice(0, 1000));
+      for (const path of paths) {
+        try {
+          console.log('[HifdhPicker] Fetching collections path:', path);
+          const collectionsRes = await callQfUserApi(path) as any;
+          console.log('[HifdhPicker] Collections response:', JSON.stringify(collectionsRes, null, 2)?.slice(0, 1000));
 
-        const pageItems: Collection[] = Array.isArray(collectionsRes?.data) ? collectionsRes.data : [];
-        const pagination = collectionsRes?.pagination;
+          const upstreamStatus = collectionsRes?.upstreamStatus;
+          const responseData = collectionsRes?.data;
+          const pageItems: Collection[] = Array.isArray(responseData?.data)
+            ? responseData.data
+            : Array.isArray(responseData)
+              ? responseData
+              : [];
 
-        allCollections.push(...pageItems.filter((collection) => !!collection?.id));
-        hasNextPage = Boolean((pagination?.hasNextPage ?? pagination?.hasNext) && pagination?.endCursor);
-        after = pagination?.endCursor ?? null;
+          if (upstreamStatus && upstreamStatus >= 400) {
+            lastError = `Path: ${path}\nHTTP Status: ${upstreamStatus}\nResponse Body:\n${JSON.stringify(responseData, null, 2)}`;
+            continue;
+          }
+
+          setCollections(pageItems.filter((collection) => !!collection?.id));
+
+          if (pageItems.length > 0) {
+            setSelectedCollectionId(pageItems[0].id);
+          }
+
+          setLoading(false);
+          return;
+        } catch (err) {
+          lastError = `Path: ${path}\n${err instanceof Error ? err.message : 'Failed to load collections'}`;
+        }
       }
 
-      const uniqueCollections = Array.from(new Map(allCollections.map((collection) => [collection.id, collection])).values());
-      console.log('[HifdhPicker] Total unique collections:', uniqueCollections.length);
-      setCollections(uniqueCollections);
-
-      if (uniqueCollections.length > 0) {
-        setSelectedCollectionId(uniqueCollections[0].id);
-      }
+      throw new Error(lastError || 'Failed to load collections');
     } catch (err) {
       console.error('[HifdhPicker] Failed to fetch collections:', err);
       setError(err instanceof Error ? err.message : 'Failed to load collections');

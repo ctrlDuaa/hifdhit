@@ -131,7 +131,6 @@ async function callEdgeFunction(action: string, body: Record<string, unknown>) {
       throw new Error(detail);
     }
 
-    // supabase.functions.invoke already parses JSON
     const result = typeof data === 'string' ? JSON.parse(data) : data;
     console.log(`[QF OAuth] ${action} response:`, JSON.stringify(result, null, 2).slice(0, 1000));
 
@@ -140,7 +139,10 @@ async function callEdgeFunction(action: string, body: Record<string, unknown>) {
       console.error('[QF OAuth] Error response:', detail);
       throw new Error(detail);
     }
-    return result.data;
+
+    return action === 'user-api'
+      ? result
+      : result.data;
   } catch (err) {
     console.error('[QF OAuth] Call failed:', err);
     throw err;
