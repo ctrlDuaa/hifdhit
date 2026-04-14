@@ -96,8 +96,6 @@ export const SaveToCollectionDialog = ({ verses, ctaText, open, onOpenChange }: 
         await callQfUserApi(`/auth/v1/collections/${selectedId}/bookmarks`, 'POST', {
           key: verseKey,
           mushafId: 1,
-          type: 'ayah',
-          verseNumber: v.ayah,
         });
       }
       setSaved(true);
