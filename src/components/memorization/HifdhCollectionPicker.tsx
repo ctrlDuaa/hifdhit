@@ -96,37 +96,34 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
     setSelected(new Set());
 
     try {
-      const allBookmarks: CollectionBookmark[] = [];
-      let after: string | null = null;
-      let hasNextPage = true;
+      // Simple path with no query params to avoid validation errors
+      const path = `/auth/v1/collections/${collectionId}`;
+      console.log('[HifdhPicker] Bookmarks request path:', path);
+      setDebugInfo(prev => prev + `\nBookmarks path: ${path}`);
 
-      while (hasNextPage) {
-        const query = new URLSearchParams({ first: '50', sortBy: 'verseKey' });
-        if (after) query.set('after', after);
+      const itemsRes = await callQfUserApi(path) as any;
+      console.log('[HifdhPicker] Bookmarks raw response:', JSON.stringify(itemsRes, null, 2));
+      setDebugInfo(prev => prev + `\nBookmarks response: ${JSON.stringify(itemsRes, null, 2)?.slice(0, 500)}`);
 
-        const itemsRes = await callQfUserApi(`/auth/v1/collections/${collectionId}?${query.toString()}`) as any;
-        console.log('[HifdhPicker] Bookmarks response:', JSON.stringify(itemsRes, null, 2)?.slice(0, 1000));
-
-        if (itemsRes?.success === false || itemsRes?.type === 'not_found') {
-          break;
-        }
-
-        // Handle nested response shape for bookmarks too
-        const resData = itemsRes?.data?.data ?? itemsRes?.data;
-        const pageItems: CollectionBookmark[] = Array.isArray(resData?.bookmarks)
-          ? resData.bookmarks
-          : Array.isArray(resData)
-            ? resData
-            : [];
-        const pagination = resData?.pagination ?? itemsRes?.data?.pagination ?? itemsRes?.pagination;
-
-        allBookmarks.push(...pageItems.filter((bookmark) => bookmark.type === 'ayah' && bookmark.verseNumber != null));
-        hasNextPage = Boolean((pagination?.hasNextPage ?? pagination?.hasNext) && pagination?.endCursor);
-        after = pagination?.endCursor ?? null;
+      if (itemsRes?.success === false || itemsRes?.type === 'not_found') {
+        setBookmarksError(`API returned: ${JSON.stringify(itemsRes, null, 2)}`);
+        return;
       }
 
-      setBookmarks(allBookmarks);
-      setDebugInfo(prev => prev + `\nBookmarks loaded: ${allBookmarks.length}`);
+      // Handle nested response shape
+      const resData = itemsRes?.data?.data ?? itemsRes?.data;
+      const pageItems: CollectionBookmark[] = Array.isArray(resData?.bookmarks)
+        ? resData.bookmarks
+        : Array.isArray(resData)
+          ? resData
+          : [];
+
+      console.log('[HifdhPicker] Parsed bookmarks array:', pageItems);
+      setDebugInfo(prev => prev + `\nParsed bookmarks: ${pageItems.length} items`);
+
+      const filtered = pageItems.filter((bookmark) => bookmark.type === 'ayah' && bookmark.verseNumber != null);
+      setBookmarks(filtered);
+      setDebugInfo(prev => prev + `\nFiltered ayah bookmarks: ${filtered.length}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load collection verses';
       console.error('[HifdhPicker] Bookmarks error:', msg);
