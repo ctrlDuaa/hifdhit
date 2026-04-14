@@ -164,7 +164,7 @@ export async function getQfOAuthConfig(): Promise<{ clientId: string; authBaseUr
  * 2. Generate PKCE, state, nonce
  * 3. Redirect to QF hosted login
  */
-export async function startQfLogin(scopes = 'openid offline_access user bookmark collection reading_session preference') {
+export async function startQfLogin(scopes = 'openid offline_access user bookmark collection reading_session preference goal streak') {
   if (window.location.hostname.startsWith('id-preview--')) {
     throw new Error('Quran.com OAuth must be started from the published app URL: https://hifdhit.lovable.app. Preview URLs use a different origin, so the registered redirect URI will be rejected.');
   }
