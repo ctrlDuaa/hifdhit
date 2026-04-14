@@ -92,10 +92,12 @@ export const SaveToCollectionDialog = ({ verses, ctaText, open, onOpenChange }: 
     setSaving(true);
     try {
       for (const v of verses) {
-        const verseKey = `${v.surahId}:${v.ayah}`;
-        await callQfUserApi(`/auth/v1/collections/${selectedId}/bookmarks`, 'POST', {
-          key: verseKey,
-          mushafId: 1,
+        const collectionId = selectedId === 'default' ? '__default__' : selectedId;
+        await callQfUserApi(`/auth/v1/collections/${collectionId}/bookmarks`, 'POST', {
+          key: v.surahId,
+          type: 'ayah',
+          verseNumber: v.ayah,
+          mushaf: 1,
         });
       }
       setSaved(true);
