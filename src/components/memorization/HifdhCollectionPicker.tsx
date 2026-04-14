@@ -27,8 +27,8 @@ interface Props {
 export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [collections, setCollections] = useState<Collection[]>([]);
+  const [collectionsError, setCollectionsError] = useState<string | null>(null);
+  const [bookmarksError, setBookmarksError] = useState<string | null>(null);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
   const [bookmarks, setBookmarks] = useState<CollectionBookmark[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
