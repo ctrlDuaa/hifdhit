@@ -197,8 +197,11 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
           )}
 
           {error && (
-            <div className="text-center py-6 space-y-2">
-              <p className="text-sm text-destructive">{error}</p>
+            <div className="py-4 space-y-2">
+              <p className="text-sm font-medium text-destructive">Error loading collections</p>
+              <pre className="text-xs text-muted-foreground bg-muted/50 rounded-md p-3 max-h-48 overflow-auto whitespace-pre-wrap break-all">
+                {error}
+              </pre>
               <Button variant="outline" size="sm" onClick={fetchCollections}>
                 Try Again
               </Button>
