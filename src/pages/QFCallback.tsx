@@ -64,9 +64,21 @@ const QFCallback = () => {
                   {session.user?.email && (
                     <p className="text-sm text-muted-foreground">{session.user.email as string}</p>
                   )}
-                  <p className="text-xs text-muted-foreground mt-2">
+                   <p className="text-xs text-muted-foreground mt-2">
                     Your Quran.com bookmarks, collections, and reading progress are now synced.
                   </p>
+                  {session.accessToken && (
+                    <div className="mt-3 w-full">
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Access Token:</p>
+                      <textarea
+                        readOnly
+                        value={session.accessToken}
+                        rows={3}
+                        className="w-full text-[10px] font-mono bg-muted p-2 rounded border border-border break-all resize-none"
+                        onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+                      />
+                    </div>
+                  )}
                 </div>
                 <Button
                   onClick={() => navigate('/dashboard')}
