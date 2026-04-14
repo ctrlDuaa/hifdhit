@@ -51,7 +51,7 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
 
     try {
       const paths = [
-        '/auth/v1/collections?sortBy=alphabetical',
+        '/auth/v1/collections?first=1&type=ayah',
         '/auth/v1/collections',
       ];
 
