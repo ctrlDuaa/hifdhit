@@ -11,6 +11,9 @@ import {
 import { MemorizationSessionState, MemorizationStage, ConfidenceRating } from '@/types/memorization';
 import { MemorizationAyah } from '@/hooks/useMemorizationSession';
 import { cn } from '@/lib/utils';
+import { isQfSessionValid } from '@/services/qfAuth';
+import { SaveToCollectionDialog } from '@/components/memorization/SaveToCollectionDialog';
+import { BookmarkPlus } from 'lucide-react';
 
 interface Props {
   state: MemorizationSessionState;
@@ -79,6 +82,8 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showTranslation, setShowTranslation] = useState(state.config.showTranslation);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const qfConnected = isQfSessionValid();
 
   const chunk = state.chunks[state.currentChunkIndex];
   const currentAyahNum = chunk ? chunk.ayahStart + state.currentAyahInChunk : 0;
@@ -244,6 +249,25 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
             )}
           </CardContent>
         </Card>
+
+        {/* Save to collection CTA */}
+        {qfConnected && (
+          <>
+            <button
+              onClick={() => setSaveDialogOpen(true)}
+              className="w-full text-center text-sm text-muted-foreground hover:text-primary transition-colors py-2 flex items-center justify-center gap-1.5"
+            >
+              <BookmarkPlus className="w-4 h-4" />
+              Like the verse? Save it to your collection now
+            </button>
+            <SaveToCollectionDialog
+              open={saveDialogOpen}
+              onOpenChange={setSaveDialogOpen}
+              verses={[{ surahId: state.config.surahId, ayah: currentAyahNum }]}
+              ctaText="Save the current verse to one of your Quran.com collections."
+            />
+          </>
+        )}
       </div>
     </div>
   );
