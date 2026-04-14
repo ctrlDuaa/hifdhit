@@ -50,46 +50,30 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
     setSelected(new Set());
 
     try {
-      const paths = [
-        '/auth/v1/collections?first=1&type=ayah',
-        '/auth/v1/collections',
-      ];
+      const path = '/auth/v1/collections?first=1&type=ayah';
+      console.log('[HifdhPicker] Fetching collections path:', path);
+      const collectionsRes = await callQfUserApi(path) as any;
+      console.log('[HifdhPicker] Collections raw response:', JSON.stringify(collectionsRes, null, 2)?.slice(0, 1500));
 
-      let lastError: string | null = null;
-
-      for (const path of paths) {
-        try {
-          console.log('[HifdhPicker] Fetching collections path:', path);
-          const collectionsRes = await callQfUserApi(path) as any;
-          console.log('[HifdhPicker] Collections response:', JSON.stringify(collectionsRes, null, 2)?.slice(0, 1000));
-
-          const upstreamStatus = collectionsRes?.upstreamStatus;
-          const responseData = collectionsRes?.data;
-          const pageItems: Collection[] = Array.isArray(responseData?.data)
-            ? responseData.data
-            : Array.isArray(responseData)
-              ? responseData
-              : [];
-
-          if (upstreamStatus && upstreamStatus >= 400) {
-            lastError = `Path: ${path}\nHTTP Status: ${upstreamStatus}\nResponse Body:\n${JSON.stringify(responseData, null, 2)}`;
-            continue;
-          }
-
-          setCollections(pageItems.filter((collection) => !!collection?.id));
-
-          if (pageItems.length > 0) {
-            setSelectedCollectionId(pageItems[0].id);
-          }
-
-          setLoading(false);
-          return;
-        } catch (err) {
-          lastError = `Path: ${path}\n${err instanceof Error ? err.message : 'Failed to load collections'}`;
-        }
+      const upstreamStatus = collectionsRes?.upstreamStatus;
+      if (upstreamStatus && upstreamStatus >= 400) {
+        throw new Error(`HTTP ${upstreamStatus}: ${JSON.stringify(collectionsRes?.data, null, 2)}`);
       }
 
-      throw new Error(lastError || 'Failed to load collections');
+      // Response shape: { success, data: { success, data: [...], pagination }, upstreamStatus }
+      const innerData = collectionsRes?.data;
+      const pageItems: Collection[] = Array.isArray(innerData?.data)
+        ? innerData.data
+        : Array.isArray(innerData)
+          ? innerData
+          : [];
+
+      console.log('[HifdhPicker] Parsed collections:', pageItems.length, 'items');
+
+      setCollections(pageItems.filter((c) => !!c?.id));
+      if (pageItems.length > 0) {
+        setSelectedCollectionId(pageItems[0].id);
+      }
     } catch (err) {
       console.error('[HifdhPicker] Failed to fetch collections:', err);
       setError(err instanceof Error ? err.message : 'Failed to load collections');
