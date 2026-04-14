@@ -122,6 +122,7 @@ async function refreshToken(refreshTokenValue: string) {
 // ── User API proxy ───────────────────────────────────────────
 async function proxyUserApi(path: string, accessToken: string, method = "GET", body?: string) {
   const { clientId, apiBaseUrl } = getConfig();
+  const url = `${apiBaseUrl}${path}`;
 
   const headers: Record<string, string> = {
     "x-auth-token": accessToken,
@@ -129,7 +130,9 @@ async function proxyUserApi(path: string, accessToken: string, method = "GET", b
   };
   if (body) headers["Content-Type"] = "application/json";
 
-  const res = await fetch(`${apiBaseUrl}${path}`, {
+  console.log(`[proxy] ${method} ${url}`);
+
+  const res = await fetch(url, {
     method,
     headers,
     ...(body ? { body } : {}),
@@ -137,6 +140,8 @@ async function proxyUserApi(path: string, accessToken: string, method = "GET", b
 
   const contentType = res.headers.get("content-type") || "";
   const rawText = await res.text();
+
+  console.log(`[proxy] upstream ${res.status} content-type=${contentType} body=${rawText.slice(0, 500)}`);
 
   let data: unknown = null;
   if (rawText) {
