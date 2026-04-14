@@ -96,8 +96,7 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
     setSelected(new Set());
 
     try {
-      // Simple path with no query params to avoid validation errors
-      const path = `/auth/v1/collections/${collectionId}`;
+      const path = `/auth/v1/collections/${collectionId}/bookmarks?first=10&mushafId=1`;
       console.log('[HifdhPicker] Bookmarks request path:', path);
       setDebugInfo(prev => prev + `\nBookmarks path: ${path}`);
 
