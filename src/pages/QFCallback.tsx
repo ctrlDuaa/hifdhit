@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { handleQfCallback, QfOAuthSession } from '@/services/qfAuth';
+import { handleQfCallback, QfOAuthSession, callQfUserApi } from '@/services/qfAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { AppHeader } from '@/components/AppHeader';
+
+interface DebugResult {
+  path: string;
+  status: string;
+  parsed: unknown;
+  error?: string;
+}
 
 const QFCallback = () => {
   const navigate = useNavigate();
@@ -12,6 +19,8 @@ const QFCallback = () => {
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
   const [session, setSession] = useState<QfOAuthSession | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [debugResults, setDebugResults] = useState<DebugResult[]>([]);
+  const [debugLoading, setDebugLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,6 +42,33 @@ const QFCallback = () => {
     process();
     return () => { cancelled = true; };
   }, [searchParams]);
+
+  const runCollectionsDebug = async () => {
+    setDebugLoading(true);
+    setDebugResults([]);
+    const testPath = '/auth/v1/collections?first=1&type=ayah';
+
+    try {
+      console.log('[DEBUG] Testing collections path:', testPath);
+      const raw = await callQfUserApi(testPath) as any;
+      console.log('[DEBUG] Raw callQfUserApi result:', JSON.stringify(raw, null, 2));
+
+      setDebugResults([{
+        path: testPath,
+        status: raw?.upstreamStatus?.toString() ?? 'no upstreamStatus field',
+        parsed: raw,
+      }]);
+    } catch (err) {
+      console.error('[DEBUG] callQfUserApi threw:', err);
+      setDebugResults([{
+        path: testPath,
+        status: 'THREW',
+        parsed: null,
+        error: err instanceof Error ? err.message : String(err),
+      }]);
+    }
+    setDebugLoading(false);
+  };
 
   return (
     <>
@@ -64,7 +100,7 @@ const QFCallback = () => {
                   {session.user?.email && (
                     <p className="text-sm text-muted-foreground">{session.user.email as string}</p>
                   )}
-                   <p className="text-xs text-muted-foreground mt-2">
+                  <p className="text-xs text-muted-foreground mt-2">
                     Your Quran.com bookmarks, collections, and reading progress are now synced.
                   </p>
                   {session.accessToken && (
@@ -80,6 +116,31 @@ const QFCallback = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Debug: Test collections endpoint */}
+                <div className="w-full border-t border-border/50 pt-3 mt-2">
+                  <Button
+                    onClick={runCollectionsDebug}
+                    disabled={debugLoading}
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs"
+                  >
+                    {debugLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                    🔍 Debug: Test Collections Endpoint
+                  </Button>
+                  {debugResults.map((r, i) => (
+                    <div key={i} className="mt-2 text-left">
+                      <p className="text-[10px] font-mono text-muted-foreground">Path: {r.path}</p>
+                      <p className="text-[10px] font-mono text-muted-foreground">Upstream Status: {r.status}</p>
+                      {r.error && <p className="text-[10px] font-mono text-destructive">Error: {r.error}</p>}
+                      <pre className="mt-1 text-[9px] font-mono bg-muted p-2 rounded max-h-60 overflow-auto whitespace-pre-wrap break-all">
+                        {JSON.stringify(r.parsed, null, 2)}
+                      </pre>
+                    </div>
+                  ))}
+                </div>
+
                 <Button
                   onClick={() => navigate('/dashboard')}
                   className="w-full bg-[#C6A477] hover:bg-[#b8956a] text-white"
