@@ -299,6 +299,7 @@ export async function callQfUserApi(
   method = 'GET',
   body?: unknown
 ): Promise<unknown> {
+  console.log("FINAL PATH:", path);
   let accessToken = await getValidAccessToken();
   if (!accessToken) throw new Error('Not authenticated with Quran Foundation');
 
