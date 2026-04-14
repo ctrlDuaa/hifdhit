@@ -100,7 +100,7 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
         const query = new URLSearchParams({ first: '50', sortBy: 'verseKey' });
         if (after) query.set('after', after);
 
-        const itemsRes = await callQfUserApi(`/v1/collections/${collectionId}?${query.toString()}`) as any;
+        const itemsRes = await callQfUserApi(`/auth/v1/collections/${collectionId}?${query.toString()}`) as any;
         console.log('[HifdhPicker] Collection items response:', JSON.stringify(itemsRes, null, 2)?.slice(0, 1000));
 
         if (itemsRes?.success === false || itemsRes?.type === 'not_found') {
