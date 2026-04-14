@@ -1,9 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, Calendar, BarChart3 } from 'lucide-react';
+import { AlertTriangle, Calendar, BarChart3, BookmarkPlus } from 'lucide-react';
 import { MemorizationSessionState, AyahPerformance } from '@/types/memorization';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { isQfSessionValid } from '@/services/qfAuth';
+import { SaveToCollectionDialog } from '@/components/memorization/SaveToCollectionDialog';
 
 interface Props {
   state: MemorizationSessionState;
@@ -86,6 +88,16 @@ export const SessionSummary = ({ state, confidenceSummary, weakPassages, onFinis
   const totalAyahs = state.config.ayahEnd - state.config.ayahStart + 1;
   const duration = formatDuration(state.startedAt, state.completedAt);
   const reviewScheduleDays = getBlockReviewSchedule(confidenceSummary);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const qfConnected = isQfSessionValid();
+
+  const allVerses = useMemo(() => {
+    const v: { surahId: number; ayah: number }[] = [];
+    for (let a = state.config.ayahStart; a <= state.config.ayahEnd; a++) {
+      v.push({ surahId: state.config.surahId, ayah: a });
+    }
+    return v;
+  }, [state.config]);
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-background py-8 px-4">
@@ -179,6 +191,25 @@ export const SessionSummary = ({ state, confidenceSummary, weakPassages, onFinis
             <WeekCalendarStrip reviewDays={reviewScheduleDays} />
           </CardContent>
         </Card>
+
+        {/* Save to collection CTA */}
+        {qfConnected && (
+          <>
+            <button
+              onClick={() => setSaveDialogOpen(true)}
+              className="w-full text-center text-sm text-muted-foreground hover:text-primary transition-colors py-2 flex items-center justify-center gap-1.5"
+            >
+              <BookmarkPlus className="w-4 h-4" />
+              Liked the ayat? Save them to your collection now
+            </button>
+            <SaveToCollectionDialog
+              open={saveDialogOpen}
+              onOpenChange={setSaveDialogOpen}
+              verses={allVerses}
+              ctaText="Save all the verses from this session to one of your Quran.com collections."
+            />
+          </>
+        )}
 
         {/* Actions */}
         <div className="grid grid-cols-2 gap-3 pt-2">
