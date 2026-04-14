@@ -20,6 +20,7 @@ const QFCallback = () => {
       try {
         const result = await handleQfCallback(searchParams);
         if (cancelled) return;
+        console.log("QF SESSION:", JSON.stringify(result, null, 2));
         setSession(result);
         setStatus('success');
       } catch (err) {
