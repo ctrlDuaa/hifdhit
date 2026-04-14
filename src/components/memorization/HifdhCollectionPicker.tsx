@@ -58,7 +58,10 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
         const query = new URLSearchParams({ first: '20', sortBy: 'alphabetical' });
         if (after) query.set('after', after);
 
+        console.log('[HifdhPicker] Fetching collections page, after=', after);
         const collectionsRes = await callQfUserApi(`/auth/v1/collections?${query.toString()}`) as any;
+        console.log('[HifdhPicker] Collections response:', JSON.stringify(collectionsRes, null, 2)?.slice(0, 1000));
+
         const pageItems: Collection[] = Array.isArray(collectionsRes?.data) ? collectionsRes.data : [];
         const pagination = collectionsRes?.pagination;
 
@@ -68,13 +71,14 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
       }
 
       const uniqueCollections = Array.from(new Map(allCollections.map((collection) => [collection.id, collection])).values());
+      console.log('[HifdhPicker] Total unique collections:', uniqueCollections.length);
       setCollections(uniqueCollections);
 
       if (uniqueCollections.length > 0) {
         setSelectedCollectionId(uniqueCollections[0].id);
       }
     } catch (err) {
-      console.error('Failed to fetch collections:', err);
+      console.error('[HifdhPicker] Failed to fetch collections:', err);
       setError(err instanceof Error ? err.message : 'Failed to load collections');
     } finally {
       setLoading(false);

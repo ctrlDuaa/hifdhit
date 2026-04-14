@@ -109,7 +109,7 @@ export function isQfSessionValid(): boolean {
 import { supabase } from '@/integrations/supabase/client';
 
 async function callEdgeFunction(action: string, body: Record<string, unknown>) {
-  console.log(`[QF OAuth] Calling edge function: ${action}`);
+  console.log(`[QF OAuth] Calling edge function: ${action}`, body);
 
   try {
     const { data, error } = await supabase.functions.invoke('qf-oauth', {
@@ -118,12 +118,14 @@ async function callEdgeFunction(action: string, body: Record<string, unknown>) {
     });
 
     if (error) {
-      console.error('[QF OAuth] Invoke error:', error);
+      console.error('[QF OAuth] Invoke error — full error object:', JSON.stringify(error, null, 2));
+      console.error('[QF OAuth] Response data alongside error:', data);
       throw new Error(error.message || 'QF OAuth request failed');
     }
 
     // supabase.functions.invoke already parses JSON
     const result = typeof data === 'string' ? JSON.parse(data) : data;
+    console.log(`[QF OAuth] ${action} response:`, JSON.stringify(result, null, 2).slice(0, 1000));
 
     if (!result.success) {
       console.error('[QF OAuth] Error response:', result);
