@@ -135,7 +135,23 @@ async function proxyUserApi(path: string, accessToken: string, method = "GET", b
     ...(body ? { body } : {}),
   });
 
-  return { status: res.status, data: await res.json() };
+  const contentType = res.headers.get("content-type") || "";
+  const rawText = await res.text();
+
+  let data: unknown = null;
+  if (rawText) {
+    if (contentType.includes("application/json")) {
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        data = { raw: rawText };
+      }
+    } else {
+      data = { raw: rawText };
+    }
+  }
+
+  return { status: res.status, data };
 }
 
 // ── Decode JWT without verification (for id_token claims) ────
