@@ -118,9 +118,17 @@ async function callEdgeFunction(action: string, body: Record<string, unknown>) {
     });
 
     if (error) {
-      console.error('[QF OAuth] Invoke error — full error object:', JSON.stringify(error, null, 2));
-      console.error('[QF OAuth] Response data alongside error:', data);
-      throw new Error(error.message || 'QF OAuth request failed');
+      // Try to extract the response body that supabase-js may have attached
+      const context = (error as any).context;
+      let responseBody = '';
+      if (context instanceof Response) {
+        try { responseBody = await context.text(); } catch {}
+      }
+      const detail = responseBody
+        ? `[${action}] HTTP error — body: ${responseBody}`
+        : `[${action}] ${error.message || 'QF OAuth request failed'}`;
+      console.error('[QF OAuth] Invoke error:', detail);
+      throw new Error(detail);
     }
 
     // supabase.functions.invoke already parses JSON
@@ -128,8 +136,9 @@ async function callEdgeFunction(action: string, body: Record<string, unknown>) {
     console.log(`[QF OAuth] ${action} response:`, JSON.stringify(result, null, 2).slice(0, 1000));
 
     if (!result.success) {
-      console.error('[QF OAuth] Error response:', result);
-      throw new Error(result.error || 'QF OAuth request failed');
+      const detail = JSON.stringify(result);
+      console.error('[QF OAuth] Error response:', detail);
+      throw new Error(detail);
     }
     return result.data;
   } catch (err) {
