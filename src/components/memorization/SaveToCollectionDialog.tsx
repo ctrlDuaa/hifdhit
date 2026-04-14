@@ -97,7 +97,7 @@ export const SaveToCollectionDialog = ({ verses, ctaText, open, onOpenChange }: 
           key: v.surahId,
           type: 'ayah',
           verseNumber: v.ayah,
-          mushaf: 4,
+          mushaf: 1,
         });
       }
       setSaved(true);

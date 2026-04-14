@@ -35,8 +35,8 @@ function err(message: string, status = 400) {
 function getConfig() {
   const clientId = Deno.env.get("QURAN_CLIENT_ID") || "";
   const clientSecret = Deno.env.get("QURAN_CLIENT_SECRET") || "";
-  const authBaseUrl = (Deno.env.get("QF_OAUTH_AUTH_BASE_URL") || "https://oauth2.quran.com").replace(/\/+$/, "");
-  const apiBaseUrl = (Deno.env.get("QF_OAUTH_API_BASE_URL") || "https://apis.quran.com").replace(/\/+$/, "");
+  const authBaseUrl = (Deno.env.get("QF_OAUTH_AUTH_BASE_URL") || "https://prelive-oauth2.quran.foundation").replace(/\/+$/, "");
+  const apiBaseUrl = (Deno.env.get("QF_OAUTH_API_BASE_URL") || "https://apis-prelive.quran.foundation").replace(/\/+$/, "");
 
   if (!clientId) {
     throw new Error(
