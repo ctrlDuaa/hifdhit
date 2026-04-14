@@ -103,6 +103,14 @@ const QFCallback = () => {
                   <p className="text-xs text-muted-foreground mt-2">
                     Your Quran.com bookmarks, collections, and reading progress are now synced.
                   </p>
+                  {session.scope && (
+                    <div className="mt-2 w-full">
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Granted Scopes:</p>
+                      <p className="text-[10px] font-mono bg-muted p-2 rounded border border-border break-all">
+                        {session.scope}
+                      </p>
+                    </div>
+                  )}
                   {session.accessToken && (
                     <div className="mt-3 w-full">
                       <p className="text-xs font-medium text-muted-foreground mb-1">Access Token:</p>
