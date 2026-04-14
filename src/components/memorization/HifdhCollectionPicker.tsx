@@ -41,6 +41,8 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
     return map;
   }, [chapters]);
 
+  const [debugInfo, setDebugInfo] = useState<string>('');
+
   const fetchCollections = async () => {
     setLoading(true);
     setError(null);
@@ -51,16 +53,13 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
 
     try {
       const path = '/auth/v1/collections?first=1&type=ayah';
-      console.log('[HifdhPicker] Fetching collections path:', path);
       const collectionsRes = await callQfUserApi(path) as any;
-      console.log('[HifdhPicker] Collections raw response:', JSON.stringify(collectionsRes, null, 2)?.slice(0, 1500));
 
       const upstreamStatus = collectionsRes?.upstreamStatus;
       if (upstreamStatus && upstreamStatus >= 400) {
         throw new Error(`HTTP ${upstreamStatus}: ${JSON.stringify(collectionsRes?.data, null, 2)}`);
       }
 
-      // Response shape: { success, data: { success, data: [...], pagination }, upstreamStatus }
       const innerData = collectionsRes?.data;
       const pageItems: Collection[] = Array.isArray(innerData?.data)
         ? innerData.data
@@ -68,11 +67,12 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
           ? innerData
           : [];
 
-      console.log('[HifdhPicker] Parsed collections:', pageItems.length, 'items');
-
-      setCollections(pageItems.filter((c) => !!c?.id));
-      if (pageItems.length > 0) {
-        setSelectedCollectionId(pageItems[0].id);
+      const filtered = pageItems.filter((c) => !!c?.id);
+      console.log('[HifdhPicker] Setting collections:', JSON.stringify(filtered));
+      setDebugInfo(`setCollections called with ${filtered.length} items: ${JSON.stringify(filtered.map(c => c.id))}`);
+      setCollections(filtered);
+      if (filtered.length > 0) {
+        setSelectedCollectionId(filtered[0].id);
       }
     } catch (err) {
       console.error('[HifdhPicker] Failed to fetch collections:', err);
