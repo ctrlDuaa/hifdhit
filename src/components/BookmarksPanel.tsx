@@ -38,6 +38,7 @@ interface Props {
 export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [bookmarksMap, setBookmarksMap] = useState<Record<string, Bookmark[]>>({});
   const [loadingBookmarks, setLoadingBookmarks] = useState<string | null>(null);
@@ -52,17 +53,56 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     return map;
   }, [chapters]);
 
+  const normalizeCollections = (res: any): Collection[] => {
+    const upstreamStatus = res?.upstreamStatus;
+    if (upstreamStatus && upstreamStatus >= 400) {
+      throw new Error(`HTTP ${upstreamStatus}`);
+    }
+
+    const innerData = res?.data?.data ?? res?.data;
+    const items = Array.isArray(innerData?.data)
+      ? innerData.data
+      : Array.isArray(innerData?.collections)
+        ? innerData.collections
+        : Array.isArray(innerData)
+          ? innerData
+          : [];
+
+    return items
+      .filter((c: any) => !!c?.id)
+      .map((c: any) => ({ id: String(c.id), name: c.name ?? c.title ?? 'Untitled Collection' }));
+  };
+
   const fetchCollections = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
-      const res = await callQfUserApi('/auth/v1/collections?first=50') as any;
-      const innerData = res?.data;
-      const items: Collection[] = Array.isArray(innerData?.data)
-        ? innerData.data
-        : Array.isArray(innerData) ? innerData : [];
-      setCollections(items.filter(c => !!c?.id));
-    } catch {
-      toast({ title: 'Failed to load collections', variant: 'destructive' });
+      const [typedResult, allResult] = await Promise.allSettled([
+        callQfUserApi('/auth/v1/collections?first=20&type=ayah'),
+        callQfUserApi('/auth/v1/collections?first=50'),
+      ]);
+
+      const merged = new Map<string, Collection>();
+
+      if (typedResult.status === 'fulfilled') {
+        normalizeCollections(typedResult.value).forEach((collection) => merged.set(collection.id, collection));
+      }
+
+      if (allResult.status === 'fulfilled') {
+        normalizeCollections(allResult.value).forEach((collection) => merged.set(collection.id, collection));
+      }
+
+      const nextCollections = Array.from(merged.values());
+
+      if (nextCollections.length === 0) {
+        throw new Error('No collections returned');
+      }
+
+      setCollections(nextCollections);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load collections';
+      setLoadError(message);
+      toast({ title: 'Failed to load collections', description: message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
