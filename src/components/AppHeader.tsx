@@ -43,6 +43,17 @@ export const AppHeader = () => {
             <h1 className="text-2xl font-bold text-white cursor-pointer hover:opacity-80 transition-opacity">Hifdh it</h1>
           </Link>
           <div className="flex items-center gap-2">
+            {qfConnected && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setBookmarksOpen(true)}
+                className="text-white hover:bg-white/10"
+                title="Your Collections"
+              >
+                <Bookmark className="w-4 h-4" />
+              </Button>
+            )}
             <ThemeToggle />
             {qfConnected ? (
               <Button variant="outline" size="sm" onClick={handleQfDisconnect} className="text-xs bg-[#c6a477]">
