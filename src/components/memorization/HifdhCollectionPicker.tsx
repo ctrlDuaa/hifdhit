@@ -18,6 +18,7 @@ interface CollectionBookmark {
   key: number;
   verseNumber: number | null;
   type: string;
+  _raw?: any;
 }
 
 interface Props {
