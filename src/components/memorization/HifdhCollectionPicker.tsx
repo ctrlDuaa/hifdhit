@@ -96,7 +96,7 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
     setSelected(new Set());
 
     try {
-      const path = `/auth/v1/collections/${collectionId}/bookmarks?first=10&mushafId=1`;
+      const path = `/auth/v1/collections/${collectionId}?first=10`;
       console.log('[HifdhPicker] Bookmarks request path:', path);
       setDebugInfo(prev => prev + `\nBookmarks path: ${path}`);
 
@@ -109,13 +109,15 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
         return;
       }
 
-      // Handle nested response shape
+      // The collection endpoint returns items inside the collection data
       const resData = itemsRes?.data?.data ?? itemsRes?.data;
-      const pageItems: CollectionBookmark[] = Array.isArray(resData?.bookmarks)
-        ? resData.bookmarks
-        : Array.isArray(resData)
-          ? resData
-          : [];
+      const pageItems: CollectionBookmark[] = Array.isArray(resData?.items)
+        ? resData.items
+        : Array.isArray(resData?.bookmarks)
+          ? resData.bookmarks
+          : Array.isArray(resData)
+            ? resData
+            : [];
 
       console.log('[HifdhPicker] Parsed bookmarks array:', pageItems);
       setDebugInfo(prev => prev + `\nParsed bookmarks: ${pageItems.length} items`);
