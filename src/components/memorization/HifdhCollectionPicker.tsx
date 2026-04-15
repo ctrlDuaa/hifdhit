@@ -18,7 +18,6 @@ interface CollectionBookmark {
   key: number;
   verseNumber: number | null;
   type: string;
-  _raw?: any;
 }
 
 interface Props {
@@ -35,7 +34,6 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
   const [bookmarks, setBookmarks] = useState<CollectionBookmark[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [debugInfo, setDebugInfo] = useState<string>('');
   const isConnected = isQfSessionValid();
   const { data: chapters } = useSurahList();
 
@@ -52,19 +50,15 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
     setSelectedCollectionId(null);
     setBookmarks([]);
     setSelected(new Set());
-    setDebugInfo('fetching...');
 
     try {
-      const path = '/auth/v1/collections?first=1&type=ayah';
-      const collectionsRes = await callQfUserApi(path) as any;
-      console.log('[HifdhPicker] Raw response:', JSON.stringify(collectionsRes, null, 2));
+      const collectionsRes = await callQfUserApi('/auth/v1/collections?first=1&type=ayah') as any;
 
       const upstreamStatus = collectionsRes?.upstreamStatus;
       if (upstreamStatus && upstreamStatus >= 400) {
-        throw new Error(`HTTP ${upstreamStatus}: ${JSON.stringify(collectionsRes?.data, null, 2)}`);
+        throw new Error(`HTTP ${upstreamStatus}`);
       }
 
-      // Response shape: { success, data: { success, data: [...], pagination }, upstreamStatus }
       const innerData = collectionsRes?.data;
       const pageItems: Collection[] = Array.isArray(innerData?.data)
         ? innerData.data
@@ -73,18 +67,13 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
           : [];
 
       const filtered = pageItems.filter((c) => !!c?.id);
-      const info = `setCollections(${filtered.length} items: ${JSON.stringify(filtered)})\nloadingCollections → false\ncollectionsError → null`;
-      console.log('[HifdhPicker]', info);
-      setDebugInfo(info);
       setCollections(filtered);
       if (filtered.length > 0) {
         setSelectedCollectionId(filtered[0].id);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load collections';
-      console.error('[HifdhPicker] Collections error:', msg);
       setCollectionsError(msg);
-      setDebugInfo(`collectionsError set: ${msg}`);
     } finally {
       setLoadingCollections(false);
     }
@@ -97,20 +86,13 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
     setSelected(new Set());
 
     try {
-      const path = `/auth/v1/collections/${collectionId}?first=10`;
-      console.log('[HifdhPicker] Bookmarks request path:', path);
-      setDebugInfo(prev => prev + `\nBookmarks path: ${path}`);
-
-      const itemsRes = await callQfUserApi(path) as any;
-      console.log('[HifdhPicker] Bookmarks raw response:', JSON.stringify(itemsRes, null, 2));
-      setDebugInfo(prev => prev + `\nBookmarks response: ${JSON.stringify(itemsRes, null, 2)?.slice(0, 500)}`);
+      const itemsRes = await callQfUserApi(`/auth/v1/collections/${collectionId}?first=10`) as any;
 
       if (itemsRes?.success === false || itemsRes?.type === 'not_found') {
-        setBookmarksError(`API returned: ${JSON.stringify(itemsRes, null, 2)}`);
+        setBookmarksError('Collection not found');
         return;
       }
 
-      // The collection endpoint returns items inside the collection data
       const resData = itemsRes?.data?.data ?? itemsRes?.data;
       const rawItems: any[] = Array.isArray(resData?.items)
         ? resData.items
@@ -120,37 +102,20 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
             ? resData
             : [];
 
-      console.log('[HifdhPicker] Raw bookmark objects:', rawItems);
-      setDebugInfo(prev => prev + `\nParsed bookmarks: ${rawItems.length} items`);
-
-      // Normalize: accept any object with enough verse-identifying data
       const normalized: CollectionBookmark[] = [];
-      const excluded: { raw: any; reason: string }[] = [];
-
       for (const raw of rawItems) {
         const id = raw.id ?? raw.verseKey ?? `${raw.key ?? raw.chapterId ?? raw.surahId}:${raw.verseNumber ?? raw.ayah ?? raw.verse_number}`;
         const key = raw.key ?? raw.chapterId ?? raw.chapter_id ?? raw.surahId ?? (typeof raw.verseKey === 'string' ? parseInt(raw.verseKey.split(':')[0]) : null);
         const verseNumber = raw.verseNumber ?? raw.verse_number ?? raw.ayah ?? (typeof raw.verseKey === 'string' ? parseInt(raw.verseKey.split(':')[1]) : null);
 
         if (key != null && verseNumber != null && !isNaN(Number(key)) && !isNaN(Number(verseNumber))) {
-          const bm: CollectionBookmark = { id: String(id), key: Number(key), verseNumber: Number(verseNumber), type: raw.type ?? 'ayah', _raw: raw };
-          normalized.push(bm);
-          console.log('[HifdhPicker] Normalized bookmark:', bm);
-        } else {
-          const reason = `Missing key(${key}) or verseNumber(${verseNumber})`;
-          excluded.push({ raw, reason });
-          console.warn('[HifdhPicker] Excluded bookmark:', reason, raw);
+          normalized.push({ id: String(id), key: Number(key), verseNumber: Number(verseNumber), type: raw.type ?? 'ayah' });
         }
       }
-
-      setDebugInfo(prev => prev + `\nNormalized: ${normalized.length}, Excluded: ${excluded.length}` +
-        (excluded.length > 0 ? `\nExclusion reasons: ${excluded.map(e => e.reason).join('; ')}` : '') +
-        `\nSample normalized: ${JSON.stringify(normalized[0] ?? null)}`);
 
       setBookmarks(normalized);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load collection verses';
-      console.error('[HifdhPicker] Bookmarks error:', msg);
       setBookmarksError(msg);
     } finally {
       setLoadingBookmarks(false);
@@ -168,10 +133,6 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
       fetchCollectionBookmarks(selectedCollectionId);
     }
   }, [open, selectedCollectionId]);
-
-  const handleOpen = () => {
-    setOpen(true);
-  };
 
   const toggleBookmark = (id: string) => {
     setSelected((prev) => {
@@ -198,16 +159,13 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
 
   if (!isConnected) return null;
 
-  // Debug: log render state
-  console.log('[HifdhPicker] RENDER — collections:', collections.length, 'loadingCollections:', loadingCollections, 'collectionsError:', collectionsError, 'bookmarksError:', bookmarksError);
-
   return (
     <>
       <div className="rounded-lg border border-border/50 bg-muted/30 p-4 space-y-2">
         <p className="text-sm text-muted-foreground">Memorize verses that are meaningful to you</p>
         <Button
           variant="outline"
-          onClick={handleOpen}
+          onClick={() => setOpen(true)}
           className="w-full gap-2 border-primary/30 text-primary hover:bg-primary/10 hover:text-primary"
         >
           <BookOpen className="w-4 h-4" />
@@ -222,17 +180,6 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
             <DialogDescription>Select verses to memorize from any Quran.com collection</DialogDescription>
           </DialogHeader>
 
-          {/* Debug panel */}
-          <div className="rounded-md bg-muted/50 p-2 text-xs font-mono space-y-1 max-h-32 overflow-auto">
-            <p><strong>collections.length:</strong> {collections.length}</p>
-            <p><strong>loadingCollections:</strong> {String(loadingCollections)}</p>
-            <p><strong>collectionsError:</strong> {collectionsError ?? 'null'}</p>
-            <p><strong>bookmarksError:</strong> {bookmarksError ?? 'null'}</p>
-            <p><strong>selectedCollectionId:</strong> {selectedCollectionId ?? 'null'}</p>
-            <p><strong>bookmarks.length:</strong> {bookmarks.length}</p>
-            <p><strong>debug:</strong> {debugInfo}</p>
-          </div>
-
           {loadingCollections && collections.length === 0 && (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -242,9 +189,7 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
           {collectionsError && (
             <div className="py-4 space-y-2">
               <p className="text-sm font-medium text-destructive">Error loading collections</p>
-              <pre className="text-xs text-muted-foreground bg-muted/50 rounded-md p-3 max-h-48 overflow-auto whitespace-pre-wrap break-all">
-                {collectionsError}
-              </pre>
+              <p className="text-xs text-muted-foreground">{collectionsError}</p>
               <Button variant="outline" size="sm" onClick={fetchCollections}>
                 Try Again
               </Button>
@@ -294,9 +239,7 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
               {bookmarksError && (
                 <div className="py-2 space-y-2">
                   <p className="text-sm font-medium text-destructive">Error loading bookmarks</p>
-                  <pre className="text-xs text-muted-foreground bg-muted/50 rounded-md p-3 max-h-32 overflow-auto whitespace-pre-wrap break-all">
-                    {bookmarksError}
-                  </pre>
+                  <p className="text-xs text-muted-foreground">{bookmarksError}</p>
                 </div>
               )}
 
