@@ -125,9 +125,6 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
       const filtered = pageItems.filter((bookmark) => bookmark.type === 'ayah' && bookmark.verseNumber != null);
       setBookmarks(filtered);
       setDebugInfo(prev => prev + `\nFiltered ayah bookmarks: ${filtered.length}`);
-      const filtered = pageItems.filter((bookmark) => bookmark.type === 'ayah' && bookmark.verseNumber != null);
-      setBookmarks(filtered);
-      setDebugInfo(prev => prev + `\nFiltered ayah bookmarks: ${filtered.length}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load collection verses';
       console.error('[HifdhPicker] Bookmarks error:', msg);
