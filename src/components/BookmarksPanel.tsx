@@ -55,7 +55,7 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
   const fetchCollections = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await callQfUserApi('/auth/v1/collections?first=50&type=ayah') as any;
+      const res = await callQfUserApi('/auth/v1/collections?first=50') as any;
       const innerData = res?.data;
       const items: Collection[] = Array.isArray(innerData?.data)
         ? innerData.data
