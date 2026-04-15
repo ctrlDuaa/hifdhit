@@ -18,6 +18,7 @@ interface CollectionBookmark {
   key: number;
   verseNumber: number | null;
   type: string;
+  _raw?: any;
 }
 
 interface Props {
@@ -111,7 +112,7 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
 
       // The collection endpoint returns items inside the collection data
       const resData = itemsRes?.data?.data ?? itemsRes?.data;
-      const pageItems: CollectionBookmark[] = Array.isArray(resData?.items)
+      const rawItems: any[] = Array.isArray(resData?.items)
         ? resData.items
         : Array.isArray(resData?.bookmarks)
           ? resData.bookmarks
@@ -119,12 +120,34 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
             ? resData
             : [];
 
-      console.log('[HifdhPicker] Parsed bookmarks array:', pageItems);
-      setDebugInfo(prev => prev + `\nParsed bookmarks: ${pageItems.length} items`);
+      console.log('[HifdhPicker] Raw bookmark objects:', rawItems);
+      setDebugInfo(prev => prev + `\nParsed bookmarks: ${rawItems.length} items`);
 
-      const filtered = pageItems.filter((bookmark) => bookmark.type === 'ayah' && bookmark.verseNumber != null);
-      setBookmarks(filtered);
-      setDebugInfo(prev => prev + `\nFiltered ayah bookmarks: ${filtered.length}`);
+      // Normalize: accept any object with enough verse-identifying data
+      const normalized: CollectionBookmark[] = [];
+      const excluded: { raw: any; reason: string }[] = [];
+
+      for (const raw of rawItems) {
+        const id = raw.id ?? raw.verseKey ?? `${raw.key ?? raw.chapterId ?? raw.surahId}:${raw.verseNumber ?? raw.ayah ?? raw.verse_number}`;
+        const key = raw.key ?? raw.chapterId ?? raw.chapter_id ?? raw.surahId ?? (typeof raw.verseKey === 'string' ? parseInt(raw.verseKey.split(':')[0]) : null);
+        const verseNumber = raw.verseNumber ?? raw.verse_number ?? raw.ayah ?? (typeof raw.verseKey === 'string' ? parseInt(raw.verseKey.split(':')[1]) : null);
+
+        if (key != null && verseNumber != null && !isNaN(Number(key)) && !isNaN(Number(verseNumber))) {
+          const bm: CollectionBookmark = { id: String(id), key: Number(key), verseNumber: Number(verseNumber), type: raw.type ?? 'ayah', _raw: raw };
+          normalized.push(bm);
+          console.log('[HifdhPicker] Normalized bookmark:', bm);
+        } else {
+          const reason = `Missing key(${key}) or verseNumber(${verseNumber})`;
+          excluded.push({ raw, reason });
+          console.warn('[HifdhPicker] Excluded bookmark:', reason, raw);
+        }
+      }
+
+      setDebugInfo(prev => prev + `\nNormalized: ${normalized.length}, Excluded: ${excluded.length}` +
+        (excluded.length > 0 ? `\nExclusion reasons: ${excluded.map(e => e.reason).join('; ')}` : '') +
+        `\nSample normalized: ${JSON.stringify(normalized[0] ?? null)}`);
+
+      setBookmarks(normalized);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load collection verses';
       console.error('[HifdhPicker] Bookmarks error:', msg);
