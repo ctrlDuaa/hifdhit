@@ -45,6 +45,7 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
   const [deletingCollection, setDeletingCollection] = useState<Collection | null>(null);
   const [deletingBookmark, setDeletingBookmark] = useState<{ collectionId: string; bookmark: Bookmark } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<Record<string, any>>({});
 
   const { data: chapters } = useSurahList();
   const surahNameMap = useMemo(() => {
@@ -121,26 +122,15 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     setLoadingBookmarks(collectionId);
     try {
       const res = await callQfUserApi(`/auth/v1/collections/${collectionId}?first=50`) as any;
-      console.log('[BookmarksPanel] Raw API response:', JSON.stringify(res, null, 2).slice(0, 2000));
       
-      // The edge function returns { success, data } where data is the upstream response.
-      // Upstream may wrap in another { data: ... } or return items directly.
       const resData = res?.data?.data ?? res?.data;
-      console.log('[BookmarksPanel] resData:', JSON.stringify(resData, null, 2).slice(0, 1500));
       
-      // Try multiple known shapes for the items array
       let rawItems: any[] = [];
-      if (Array.isArray(resData?.items)) {
-        rawItems = resData.items;
-      } else if (Array.isArray(resData?.bookmarks)) {
-        rawItems = resData.bookmarks;
-      } else if (Array.isArray(resData?.data)) {
-        rawItems = resData.data;
-      } else if (Array.isArray(resData)) {
-        rawItems = resData;
-      }
+      if (Array.isArray(resData?.items)) rawItems = resData.items;
+      else if (Array.isArray(resData?.bookmarks)) rawItems = resData.bookmarks;
+      else if (Array.isArray(resData?.data)) rawItems = resData.data;
+      else if (Array.isArray(resData)) rawItems = resData;
       
-      // If still empty, try one more level: res.data itself might be the collection with items
       if (rawItems.length === 0 && res?.data) {
         const d = res.data;
         if (Array.isArray(d.items)) rawItems = d.items;
@@ -148,11 +138,9 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
         else if (Array.isArray(d.data?.items)) rawItems = d.data.items;
         else if (Array.isArray(d.data?.bookmarks)) rawItems = d.data.bookmarks;
       }
-      
-      console.log('[BookmarksPanel] rawItems count:', rawItems.length);
-      if (rawItems.length > 0) console.log('[BookmarksPanel] First raw item:', JSON.stringify(rawItems[0]));
 
       const normalized: Bookmark[] = [];
+      const skipped: any[] = [];
       for (const raw of rawItems) {
         const id = raw.id ?? raw.verseKey ?? `${raw.key ?? raw.chapterId}:${raw.verseNumber ?? raw.ayah}`;
         const key = raw.key ?? raw.chapterId ?? raw.chapter_id ?? raw.surahId 
@@ -163,11 +151,30 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
         if (key != null && verseNumber != null && !isNaN(Number(key)) && !isNaN(Number(verseNumber))) {
           normalized.push({ id: String(id), key: Number(key), verseNumber: Number(verseNumber) });
         } else {
-          console.log('[BookmarksPanel] Skipped item (missing key/verse):', JSON.stringify(raw));
+          skipped.push(raw);
         }
       }
+
+      setDebugInfo(prev => ({
+        ...prev,
+        [collectionId]: {
+          resTopKeys: res ? Object.keys(res) : null,
+          resDataKeys: res?.data ? Object.keys(res.data) : null,
+          resDataDataKeys: res?.data?.data ? Object.keys(res.data.data) : null,
+          rawItemsCount: rawItems.length,
+          firstRawItem: rawItems.length > 0 ? rawItems[0] : null,
+          normalizedCount: normalized.length,
+          skippedCount: skipped.length,
+          firstSkipped: skipped.length > 0 ? skipped[0] : null,
+        }
+      }));
+
       setBookmarksMap(prev => ({ ...prev, [collectionId]: normalized }));
-    } catch {
+    } catch (err) {
+      setDebugInfo(prev => ({
+        ...prev,
+        [collectionId]: { error: err instanceof Error ? err.message : String(err) }
+      }));
       toast({ title: 'Failed to load bookmarks', variant: 'destructive' });
     } finally {
       setLoadingBookmarks(null);
@@ -334,6 +341,15 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
                                   </div>
                                 );
                               })}
+                            </div>
+                          )}
+                          {/* Debug panel */}
+                          {debugInfo[collection.id] && (
+                            <div className="px-3 py-2 bg-muted/50 border-t border-border/30">
+                              <p className="text-xs font-mono font-bold text-muted-foreground mb-1">Debug Info:</p>
+                              <pre className="text-[10px] font-mono text-muted-foreground whitespace-pre-wrap break-all max-h-48 overflow-auto">
+                                {JSON.stringify(debugInfo[collection.id], null, 2)}
+                              </pre>
                             </div>
                           )}
                         </div>
