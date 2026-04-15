@@ -221,6 +221,12 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-6 h-6 animate-spin text-primary" />
               </div>
+            ) : loadError ? (
+              <div className="text-center py-12 space-y-3">
+                <p className="text-sm text-destructive">Failed to load collections</p>
+                <p className="text-xs text-muted-foreground">{loadError}</p>
+                <Button variant="outline" size="sm" onClick={fetchCollections}>Try Again</Button>
+              </div>
             ) : collections.length === 0 ? (
               <div className="text-center py-12 space-y-3">
                 <p className="text-sm text-muted-foreground">No collections found</p>
