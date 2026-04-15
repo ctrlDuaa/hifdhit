@@ -1,11 +1,12 @@
 import { Button } from '@/components/ui/button';
-import { LogOut, Link2 } from 'lucide-react';
+import { LogOut, Link2, Bookmark } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Link } from 'react-router-dom';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { startQfLogin, isQfSessionValid, logoutQf } from '@/services/qfAuth';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { BookmarksPanel } from '@/components/BookmarksPanel';
 
 export const AppHeader = () => {
   const { signOut } = useAuth();
