@@ -13,6 +13,7 @@ export const AppHeader = () => {
   const { toast } = useToast();
   const [qfConnected, setQfConnected] = useState(isQfSessionValid());
   const [qfLoading, setQfLoading] = useState(false);
+  const [bookmarksOpen, setBookmarksOpen] = useState(false);
 
   const handleQfConnect = async () => {
     setQfLoading(true);
