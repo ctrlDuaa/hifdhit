@@ -406,10 +406,15 @@ const SurahViewer = () => {
       const seenKeys = new Set<string>();
 
       allMistakes.forEach(mistake => {
-        const wordKey = `${mistake.surah_number}-${mistake.ayah_number}-${mistake.word_index}`;
-        if (!seenKeys.has(wordKey)) {
-          seenKeys.add(wordKey);
-          mistakeMap.set(wordKey, {
+        const primaryKey = `${mistake.surah_number}-${mistake.ayah_number}-${mistake.word_index}`;
+        const compatibilityKey = `${mistake.surah_number}-${mistake.ayah_number}-${mistake.word_index + 1}`;
+        if (!seenKeys.has(primaryKey) && !seenKeys.has(compatibilityKey)) {
+          seenKeys.add(primaryKey);
+          mistakeMap.set(primaryKey, {
+            category: mistake.mistake_category || 'tajweed',
+            date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : undefined
+          });
+          mistakeMap.set(compatibilityKey, {
             category: mistake.mistake_category || 'tajweed',
             date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : undefined
           });
@@ -424,13 +429,17 @@ const SurahViewer = () => {
         }
       });
 
-      // Merge block review mistakes (different table schema)
       if (!err3 && blockMistakes) {
         blockMistakes.forEach(bm => {
-          const wordKey = `${bm.surah_id}-${bm.ayah_number}-${bm.word_index}`;
-          if (!seenKeys.has(wordKey)) {
-            seenKeys.add(wordKey);
-            mistakeMap.set(wordKey, {
+          const primaryKey = `${bm.surah_id}-${bm.ayah_number}-${bm.word_index}`;
+          const compatibilityKey = `${bm.surah_id}-${bm.ayah_number}-${bm.word_index + 1}`;
+          if (!seenKeys.has(primaryKey) && !seenKeys.has(compatibilityKey)) {
+            seenKeys.add(primaryKey);
+            mistakeMap.set(primaryKey, {
+              category: bm.mistake_type || 'incorrect',
+              date: bm.created_at ? format(new Date(bm.created_at), 'MMM dd, yyyy') : undefined
+            });
+            mistakeMap.set(compatibilityKey, {
               category: bm.mistake_type || 'incorrect',
               date: bm.created_at ? format(new Date(bm.created_at), 'MMM dd, yyyy') : undefined
             });
@@ -992,7 +1001,8 @@ const SurahViewer = () => {
                       }}>
                           {line.words?.map((word: any, wordIndex: number) => {
                           const wordKey = `${word.surah}-${word.ayah}-${word.word}`;
-                          const mistakeData = highlightedWords.get(wordKey);
+                          const fallbackWordKey = `${word.surah}-${word.ayah}-${word.word - 1}`;
+                          const mistakeData = highlightedWords.get(wordKey) || highlightedWords.get(fallbackWordKey);
                           const hasMistake = !!mistakeData;
                           const mistakeCategory = mistakeData?.category;
                           const mistakeDate = mistakeData?.date;
