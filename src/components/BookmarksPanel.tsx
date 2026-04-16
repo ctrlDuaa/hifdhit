@@ -335,15 +335,6 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
                               })}
                             </div>
                           )}
-                          {/* Debug panel */}
-                          {debugInfo[collection.id] && (
-                            <div className="px-3 py-2 bg-muted/50 border-t border-border/30">
-                              <p className="text-xs font-mono font-bold text-muted-foreground mb-1">Debug Info:</p>
-                              <pre className="text-[10px] font-mono text-muted-foreground whitespace-pre-wrap break-all max-h-48 overflow-auto">
-                                {JSON.stringify(debugInfo[collection.id], null, 2)}
-                              </pre>
-                            </div>
-                          )}
                         </div>
                       )}
                     </div>
