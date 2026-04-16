@@ -335,6 +335,7 @@ const Memorization = () => {
           state={state}
           confidenceSummary={getConfidenceSummary()}
           weakPassages={getWeakPassages()}
+          mistakeCount={mistakeCount}
           onFinish={handleFinish}
           onStartRevision={async () => {
             if (state) await saveSessionStats(state);
