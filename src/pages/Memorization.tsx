@@ -52,6 +52,25 @@ const Memorization = () => {
   const [showResumeDialog, setShowResumeDialog] = useState(false);
   const [savedInfo, setSavedInfo] = useState<ReturnType<typeof getSavedSessionInfo>>(null);
   const [showSetup, setShowSetup] = useState(false);
+  const [mistakeCount, setMistakeCount] = useState(0);
+
+  // Fetch mistake count when entering summary phase
+  useEffect(() => {
+    if (!state || state.phase !== 'summary' || !user) return;
+    const fetchMistakeCount = async () => {
+      try {
+        const { count, error } = await supabase
+          .from('mistakes')
+          .select('*', { count: 'exact', head: true })
+          .eq('reciter_id', user.id)
+          .eq('surah_number', state.config.surahId)
+          .gte('ayah_number', state.config.ayahStart)
+          .lte('ayah_number', state.config.ayahEnd);
+        if (!error) setMistakeCount(count ?? 0);
+      } catch {}
+    };
+    fetchMistakeCount();
+  }, [state?.phase, state?.config.surahId, state?.config.ayahStart, state?.config.ayahEnd, user]);
 
   useEffect(() => {
     if (!state) {
