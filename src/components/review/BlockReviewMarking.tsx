@@ -1,15 +1,24 @@
 /**
  * Word-level mistake marking during block review.
- * Users tap words to mark mistakes; highlighted words show mistake type.
+ * Mushaf-like layout: RTL, tight spacing, blurred words with hover reveal,
+ * verse numbers from API, single card with dividers, memorization-style mistake popup.
  */
 
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetClose,
+} from '@/components/ui/sheet';
+import {
+  Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter, DrawerClose,
+} from '@/components/ui/drawer';
 import { QuranVerse } from '@/services/quranApi';
 import { MistakeType, getMistakeTypeLabel } from '@/lib/reviewScheduler';
 import { X } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Props {
   verses: QuranVerse[];
@@ -20,20 +29,17 @@ interface Props {
   surahName: string;
 }
 
-const MISTAKE_TYPES: { type: MistakeType; label: string; colorClass: string; borderClass: string }[] = [
-  { type: 'incorrect', label: 'Incorrect', colorClass: 'bg-mistake-incorrect/30', borderClass: 'border-mistake-incorrect-border' },
-  { type: 'missed', label: 'Missed', colorClass: 'bg-mistake-missed/30', borderClass: 'border-mistake-missed-border' },
-  { type: 'tajweed', label: 'Tajweed', colorClass: 'bg-mistake-tajweed/30', borderClass: 'border-mistake-tajweed-border' },
-  { type: 'forgot', label: 'Forgot', colorClass: 'bg-destructive/20', borderClass: 'border-destructive' },
+type MistakeCategory = MistakeType;
+
+const MISTAKE_CATEGORIES: { type: MistakeCategory; label: string; color: string }[] = [
+  { type: 'incorrect', label: 'Incorrect', color: '#f28a8a' },
+  { type: 'missed',    label: 'Missed',    color: '#FFE0B2' },
+  { type: 'tajweed',   label: 'Tajweed',   color: '#D3e7ee' },
+  { type: 'forgot',    label: 'Forgot',    color: '#bec4ed' },
 ];
 
-function getMistakeStyle(type: MistakeType): string {
-  switch (type) {
-    case 'incorrect': return 'bg-mistake-incorrect/30 border-2 border-mistake-incorrect-border';
-    case 'missed': return 'bg-mistake-missed/30 border-2 border-mistake-missed-border';
-    case 'tajweed': return 'bg-mistake-tajweed/30 border-2 border-mistake-tajweed-border';
-    case 'forgot': return 'bg-destructive/20 border-2 border-destructive';
-  }
+function getCategoryColor(type: MistakeCategory): string {
+  return MISTAKE_CATEGORIES.find(c => c.type === type)?.color || '#f28a8a';
 }
 
 export const BlockReviewMarking = ({
@@ -44,31 +50,53 @@ export const BlockReviewMarking = ({
   onFinishMarking,
   surahName,
 }: Props) => {
+  const isMobile = useIsMobile();
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+
+  // Selected word state (for mistake popup)
   const [selectedWord, setSelectedWord] = useState<{
     ayahNumber: number;
     wordIndex: number;
     wordText: string;
   } | null>(null);
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
 
-  const handleWordTap = (ayahNumber: number, wordIndex: number, wordText: string) => {
-    const existing = getMistakeForWord(ayahNumber, wordIndex);
-    if (existing) {
-      // Show menu to change or remove
-      setSelectedWord({ ayahNumber, wordIndex, wordText });
-    } else {
-      setSelectedWord({ ayahNumber, wordIndex, wordText });
+  // Note drawer
+  const [noteDrawerOpen, setNoteDrawerOpen] = useState(false);
+  const [currentNote, setCurrentNote] = useState('');
+
+  // Close popover on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+        setPopoverOpen(false);
+      }
+    };
+    if (popoverOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
     }
+    return () => { document.removeEventListener('mousedown', handleClickOutside); };
+  }, [popoverOpen]);
+
+  const handleWordClick = (ayahNumber: number, wordIndex: number, wordText: string, event: React.MouseEvent) => {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    setPopoverPosition({ x: rect.left + rect.width / 2, y: rect.top });
+    setSelectedWord({ ayahNumber, wordIndex, wordText });
+    setPopoverOpen(true);
   };
 
-  const handleSelectMistakeType = (type: MistakeType) => {
+  const handleSelectCategory = (type: MistakeCategory) => {
     if (!selectedWord) return;
     onToggleMistake(selectedWord.ayahNumber, selectedWord.wordIndex, selectedWord.wordText, type);
+    setPopoverOpen(false);
     setSelectedWord(null);
   };
 
   const handleRemove = () => {
     if (!selectedWord) return;
     onRemoveMistake(selectedWord.ayahNumber, selectedWord.wordIndex);
+    setPopoverOpen(false);
     setSelectedWord(null);
   };
 
@@ -76,6 +104,19 @@ export const BlockReviewMarking = ({
     const words = v.words?.filter(w => w.char_type_name !== 'end') || [];
     return sum + words.filter((_, i) => getMistakeForWord(v.verse_number, i) !== null).length;
   }, 0);
+
+  // Note content (placeholder — notes not stored in block review mistakes currently)
+  const NoteContent = () => (
+    <div className="space-y-3">
+      <p className="text-center text-xl font-arabic" dir="rtl">{selectedWord?.wordText}</p>
+      <Textarea
+        value={currentNote}
+        onChange={e => setCurrentNote(e.target.value)}
+        placeholder="Add a note about this mistake..."
+        className="min-h-[80px]"
+      />
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -102,95 +143,136 @@ export const BlockReviewMarking = ({
       {/* Legend */}
       <div className="max-w-2xl mx-auto px-4 py-2">
         <div className="flex gap-3 text-xs flex-wrap">
-          {MISTAKE_TYPES.map(mt => (
+          {MISTAKE_CATEGORIES.map(mt => (
             <div key={mt.type} className="flex items-center gap-1.5">
-              <div className={`w-3 h-3 rounded ${mt.colorClass} border ${mt.borderClass}`} />
+              <div className="w-3 h-3 rounded" style={{ backgroundColor: mt.color }} />
               <span className="text-muted-foreground">{mt.label}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Verses */}
-      <div className="max-w-2xl mx-auto px-4 py-4 space-y-6">
-        {verses.map(verse => {
-          const words = verse.words?.filter(w => w.char_type_name !== 'end') || [];
-          const verseNum = verse.verse_number;
+      {/* All verses in a single card */}
+      <div className="max-w-2xl mx-auto px-4 py-4">
+        <Card className="overflow-hidden">
+          <CardContent className="p-4">
+            {verses.map((verse, vIdx) => {
+              const allWords = verse.words || [];
+              const contentWords = allWords.filter(w => w.char_type_name !== 'end');
+              const endWord = allWords.find(w => w.char_type_name === 'end');
+              const verseNum = verse.verse_number;
 
-          return (
-            <Card key={verse.verse_key} className="overflow-hidden">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <Badge variant="outline" className="text-xs">{verse.verse_key}</Badge>
+              return (
+                <div key={verse.verse_key}>
+                  <div className="flex flex-wrap gap-x-1 gap-y-1 items-baseline" dir="rtl">
+                    {contentWords.map((word, idx) => {
+                      const mistake = getMistakeForWord(verseNum, idx);
+                      return (
+                        <span
+                          key={idx}
+                          onClick={(e) => handleWordClick(verseNum, idx, word.text_uthmani, e)}
+                          className={`px-1 py-0.5 rounded cursor-pointer text-xl leading-loose font-arabic transition-all
+                            ${mistake ? '' : 'blur-sm hover:blur-none'}
+                            ${!mistake ? 'hover:bg-muted/50' : ''}
+                            dark:text-black`}
+                          style={mistake ? {
+                            backgroundColor: getCategoryColor(mistake),
+                          } : undefined}
+                        >
+                          {word.text_uthmani}
+                        </span>
+                      );
+                    })}
+                    {/* Verse end marker from API */}
+                    {endWord && (
+                      <span className="text-xl leading-loose font-arabic text-muted-foreground px-0.5">
+                        {endWord.text_uthmani}
+                      </span>
+                    )}
+                  </div>
+                  {/* Thin divider between verses (not after last) */}
+                  {vIdx < verses.length - 1 && (
+                    <hr className="border-border/40 my-3" />
+                  )}
                 </div>
-                <div className="flex flex-wrap gap-2 justify-end" dir="rtl">
-                  {words.map((word, idx) => {
-                    const mistake = getMistakeForWord(verseNum, idx);
-                    return (
-                      <button
-                        key={idx}
-                        onClick={() => handleWordTap(verseNum, idx, word.text_uthmani)}
-                        className={`px-2 py-1 rounded-md text-xl leading-loose transition-all cursor-pointer font-arabic
-                          ${mistake
-                            ? getMistakeStyle(mistake)
-                            : 'hover:bg-muted/50'
-                          }`}
-                      >
-                        {word.text_uthmani}
-                      </button>
-                    );
-                  })}
-                </div>
-                {verse.translations?.[0]?.text && (
-                  <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
-                    {verse.translations[0].text.replace(/<sup[^>]*>.*?<\/sup>/gi, '').replace(/<[^>]*>/g, '').trim()}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
+              );
+            })}
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Mistake type selector popup */}
-      {selectedWord && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-background/60 backdrop-blur-sm" onClick={() => setSelectedWord(null)} />
-          <div className="relative bg-card border border-border rounded-t-2xl sm:rounded-2xl p-5 w-full max-w-sm shadow-lg mx-4 mb-0 sm:mb-0">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-foreground text-sm">Mark Mistake</h3>
-              <button onClick={() => setSelectedWord(null)} className="text-muted-foreground hover:text-foreground">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <p className="text-xl text-center mb-4 text-foreground font-arabic" dir="rtl">
-              {selectedWord.wordText}
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {MISTAKE_TYPES.map(mt => {
-                const isActive = getMistakeForWord(selectedWord.ayahNumber, selectedWord.wordIndex) === mt.type;
-                return (
-                  <button
-                    key={mt.type}
-                    onClick={() => handleSelectMistakeType(mt.type)}
-                    className={`px-3 py-3 rounded-lg border-2 text-sm font-medium transition-all
-                      ${isActive
-                        ? `${mt.colorClass} ${mt.borderClass}`
-                        : 'border-border hover:border-muted-foreground/30'
-                      }`}
-                  >
-                    {mt.label}
-                  </button>
-                );
-              })}
-            </div>
+      {/* Mistake popup — positioned near the word (matches memorization style) */}
+      {popoverOpen && selectedWord && popoverPosition && (
+        <div
+          ref={popoverRef}
+          className="fixed z-50 bg-card border border-border rounded-xl shadow-lg p-3 w-48"
+          style={{
+            left: `${Math.min(popoverPosition.x - 96, window.innerWidth - 200)}px`,
+            top: `${popoverPosition.y - 10}px`,
+            transform: 'translateY(-100%)',
+          }}
+        >
+          <div className="grid grid-cols-2 gap-1.5">
+            {MISTAKE_CATEGORIES.map(cat => {
+              const isActive = getMistakeForWord(selectedWord.ayahNumber, selectedWord.wordIndex) === cat.type;
+              return (
+                <button
+                  key={cat.type}
+                  onClick={() => handleSelectCategory(cat.type)}
+                  className={`px-2 py-2 rounded-md text-xs font-medium transition-all border
+                    ${isActive ? 'border-foreground/50 ring-1 ring-foreground/20' : 'border-transparent hover:border-muted-foreground/30'}`}
+                  style={{ backgroundColor: isActive ? cat.color : `${cat.color}50` }}
+                >
+                  {cat.label}
+                </button>
+              );
+            })}
+          </div>
+          {/* Note + Delete row */}
+          <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/40">
+            <button
+              onClick={() => { setNoteDrawerOpen(true); setPopoverOpen(false); }}
+              className="text-[11px] text-muted-foreground hover:text-foreground"
+            >
+              Add note
+            </button>
             {getMistakeForWord(selectedWord.ayahNumber, selectedWord.wordIndex) && (
-              <Button variant="ghost" size="sm" className="w-full mt-3 text-muted-foreground" onClick={handleRemove}>
-                Remove Mistake
-              </Button>
+              <button
+                onClick={handleRemove}
+                className="text-[11px] text-destructive hover:text-destructive/80"
+              >
+                Delete
+              </button>
             )}
           </div>
         </div>
+      )}
+
+      {/* Note drawer/sheet */}
+      {isMobile ? (
+        <Drawer open={noteDrawerOpen} onOpenChange={setNoteDrawerOpen}>
+          <DrawerContent>
+            <DrawerHeader><DrawerTitle>Mistake Note</DrawerTitle></DrawerHeader>
+            <div className="px-4 pb-2"><NoteContent /></div>
+            <DrawerFooter>
+              <DrawerClose asChild>
+                <Button variant="outline" onClick={() => setNoteDrawerOpen(false)}>Close</Button>
+              </DrawerClose>
+            </DrawerFooter>
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Sheet open={noteDrawerOpen} onOpenChange={setNoteDrawerOpen}>
+          <SheetContent>
+            <SheetHeader><SheetTitle>Mistake Note</SheetTitle></SheetHeader>
+            <div className="py-4"><NoteContent /></div>
+            <SheetFooter>
+              <SheetClose asChild>
+                <Button variant="outline">Close</Button>
+              </SheetClose>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
       )}
     </div>
   );
