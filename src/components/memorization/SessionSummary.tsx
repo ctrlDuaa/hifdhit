@@ -76,9 +76,8 @@ function WeekCalendarStrip({ reviewDays }: { reviewDays: number[] }) {
     </div>
   );
 }
-export const SessionSummary = ({ state, confidenceSummary, weakPassages, onFinish, onStartRevision }: Props) => {
+export const SessionSummary = ({ state, confidenceSummary, weakPassages, mistakeCount, onFinish, onStartRevision }: Props) => {
   const totalAyahs = state.config.ayahEnd - state.config.ayahStart + 1;
-  const duration = formatDuration(state.startedAt, state.completedAt);
   const reviewScheduleDays = getBlockReviewSchedule(confidenceSummary);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const qfConnected = isQfSessionValid();
@@ -112,8 +111,8 @@ export const SessionSummary = ({ state, confidenceSummary, weakPassages, onFinis
           </Card>
           <Card>
             <CardContent className="p-5 text-center">
-              <p className="text-2xl font-bold text-foreground">{duration}</p>
-              <p className="text-xs text-muted-foreground">Time Spent</p>
+              <p className="text-2xl font-bold text-foreground">{mistakeCount}</p>
+              <p className="text-xs text-muted-foreground">Mistakes Marked</p>
             </CardContent>
           </Card>
         </div>
