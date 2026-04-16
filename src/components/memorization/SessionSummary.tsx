@@ -11,17 +11,9 @@ interface Props {
   state: MemorizationSessionState;
   confidenceSummary: { easy: number; shaky: number; hard: number };
   weakPassages: AyahPerformance[];
+  mistakeCount: number;
   onFinish: () => void;
   onStartRevision: () => void;
-}
-
-function formatDuration(startISO: string, endISO: string | null): string {
-  const start = new Date(startISO).getTime();
-  const end = endISO ? new Date(endISO).getTime() : Date.now();
-  const mins = Math.floor((end - start) / 60000);
-  if (mins < 1) return 'Less than a minute';
-  if (mins === 1) return '1 minute';
-  return `${mins} minutes`;
 }
 
 function getBlockReviewSchedule(summary: { easy: number; shaky: number; hard: number }): number[] {
