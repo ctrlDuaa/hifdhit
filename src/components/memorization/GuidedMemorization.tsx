@@ -5,16 +5,33 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
-  Play, Pause, RotateCcw, ChevronRight, ChevronLeft, LogOut,
+  Play, Pause, RotateCcw, ChevronRight, ChevronLeft, LogOut, FileText,
 } from 'lucide-react';
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetClose,
+} from '@/components/ui/sheet';
+import {
+  Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter, DrawerClose,
+} from '@/components/ui/drawer';
 import { MemorizationSessionState, MemorizationStage, ConfidenceRating } from '@/types/memorization';
 import { MemorizationAyah } from '@/hooks/useMemorizationSession';
 import { cn } from '@/lib/utils';
 import { isQfSessionValid } from '@/services/qfAuth';
 import { SaveToCollectionDialog } from '@/components/memorization/SaveToCollectionDialog';
 import { BookmarkPlus } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
+// ── Mistake types ────────────────────────────────────────────
+type MistakeCategory = 'tajweed' | 'missed' | 'harakah' | 'incorrect';
+
+interface MistakeData {
+  category: MistakeCategory;
+  note: string;
+}
+
+// ── Stage config ─────────────────────────────────────────────
 interface Props {
   state: MemorizationSessionState;
   currentAyah: MemorizationAyah | null;
@@ -35,7 +52,7 @@ const STAGE_LABELS: Record<MemorizationStage, string> = {
 };
 
 const STAGE_PROMPTS: Record<MemorizationStage, string> = {
-  'listen': 'Listen carefully and follow along with the text',
+  'listen': 'Listen carefully and follow along with the text. Tap any word to mark a mistake.',
   'hide-third': 'Some words are hidden — try to recall them',
   'hide-half': 'Half the words are hidden — keep going!',
   'first-letters': 'Only first letters shown — recall the full words',
@@ -45,37 +62,15 @@ const STAGE_PROMPTS: Record<MemorizationStage, string> = {
 
 const ACTIVE_STAGES = ['listen', 'hide-third', 'hide-half', 'first-letters', 'self-assess'];
 
-function renderArabicText(ayah: MemorizationAyah, stage: MemorizationStage): React.ReactNode {
-  const words = ayah.words;
-
-  if (stage === 'listen') {
-    return <span>{ayah.text}</span>;
+// ── Category colors (match SessionMushafViewer) ──────────────
+function getCategoryColor(category: MistakeCategory): string {
+  switch (category) {
+    case 'tajweed':   return '#D3e7ee';
+    case 'missed':    return '#FFE0B2';
+    case 'harakah':   return '#bec4ed';
+    case 'incorrect': return '#f28a8a';
+    default:          return 'hsl(var(--mistake) / 0.3)';
   }
-  if (stage === 'full-hide') {
-    return <span className="text-muted-foreground/30 select-none blur-md">{ayah.text}</span>;
-  }
-
-  return (
-    <span className="flex flex-wrap justify-center gap-x-3 gap-y-1" dir="rtl">
-      {words.map((word, i) => {
-        let hidden = false;
-        let showFirstLetter = false;
-
-        if (stage === 'hide-third') hidden = i % 3 === 2;
-        if (stage === 'hide-half') hidden = i % 2 === 1;
-        if (stage === 'first-letters') { hidden = true; showFirstLetter = true; }
-
-        if (hidden) {
-          return (
-            <span key={i} className="inline-block px-2 py-1 rounded bg-muted/60 text-muted-foreground/40 min-w-[2rem] text-center transition-all">
-              {showFirstLetter ? word.charAt(0) + '...' : '•••'}
-            </span>
-          );
-        }
-        return <span key={i}>{word}</span>;
-      })}
-    </span>
-  );
 }
 
 export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateAyah, onToggleWeak, onExit, onGoBack }: Props) => {
@@ -84,6 +79,17 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   const [showTranslation, setShowTranslation] = useState(state.config.showTranslation);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const qfConnected = isQfSessionValid();
+  const isMobile = useIsMobile();
+
+  // ── Mistake state ────────────────────────────────────────
+  // Key: "ayahNum-wordIndex"
+  const [mistakes, setMistakes] = useState<Map<string, MistakeData>>(new Map());
+  const [selectedWordKey, setSelectedWordKey] = useState<string | null>(null);
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+  const [noteDrawerOpen, setNoteDrawerOpen] = useState(false);
+  const [currentNote, setCurrentNote] = useState('');
 
   const chunk = state.chunks[state.currentChunkIndex];
   const currentAyahNum = chunk ? chunk.ayahStart + state.currentAyahInChunk : 0;
@@ -96,7 +102,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   const stageIndex = ACTIVE_STAGES.indexOf(state.currentStage);
   const isSelfAssess = state.currentStage === 'self-assess';
 
-  // Audio management
+  // ── Audio management ─────────────────────────────────────
   useEffect(() => {
     if (currentAyah?.audioUrl) {
       const audio = new Audio(currentAyah.audioUrl);
@@ -121,6 +127,134 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
     setIsPlaying(true);
   }, []);
 
+  // ── Close popover on click outside ───────────────────────
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+        setPopoverOpen(false);
+      }
+    };
+    if (popoverOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => { document.removeEventListener('mousedown', handleClickOutside); };
+  }, [popoverOpen]);
+
+  // ── Mistake handlers ─────────────────────────────────────
+  const handleWordClick = (ayahNum: number, wordIndex: number, event: React.MouseEvent<HTMLSpanElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setPopoverPosition({ x: rect.left + rect.width / 2, y: rect.top });
+    setSelectedWordKey(`${ayahNum}-${wordIndex}`);
+    setPopoverOpen(true);
+  };
+
+  const handleCategorySelect = (category: MistakeCategory) => {
+    if (!selectedWordKey) return;
+    setMistakes(prev => {
+      const updated = new Map(prev);
+      const existing = updated.get(selectedWordKey);
+      updated.set(selectedWordKey, { category, note: existing?.note ?? '' });
+      return updated;
+    });
+    setPopoverOpen(false);
+    setSelectedWordKey(null);
+  };
+
+  const handleRemoveMistake = () => {
+    if (!selectedWordKey) return;
+    setMistakes(prev => {
+      const updated = new Map(prev);
+      updated.delete(selectedWordKey);
+      return updated;
+    });
+    setPopoverOpen(false);
+    setSelectedWordKey(null);
+  };
+
+  const handleOpenNoteDrawer = () => {
+    setPopoverOpen(false);
+    if (!selectedWordKey) return;
+    const existing = mistakes.get(selectedWordKey);
+    setCurrentNote(existing?.note ?? '');
+    setNoteDrawerOpen(true);
+  };
+
+  const handleSaveNote = () => {
+    if (!selectedWordKey) return;
+    setMistakes(prev => {
+      const updated = new Map(prev);
+      const existing = updated.get(selectedWordKey);
+      if (existing) {
+        updated.set(selectedWordKey, { ...existing, note: currentNote });
+      }
+      return updated;
+    });
+    setNoteDrawerOpen(false);
+    setCurrentNote('');
+    setSelectedWordKey(null);
+  };
+
+  // ── Render Arabic text with mistake highlighting ─────────
+  function renderArabicText(ayah: MemorizationAyah, stage: MemorizationStage): React.ReactNode {
+    const words = ayah.words;
+    const ayahNum = ayah.number;
+
+    if (stage === 'full-hide') {
+      return <span className="text-muted-foreground/30 select-none blur-md">{ayah.text}</span>;
+    }
+
+    return (
+      <span className="flex flex-wrap justify-center gap-x-3 gap-y-1" dir="rtl">
+        {words.map((word, i) => {
+          let hidden = false;
+          let showFirstLetter = false;
+
+          if (stage === 'hide-third') hidden = i % 3 === 2;
+          if (stage === 'hide-half') hidden = i % 2 === 1;
+          if (stage === 'first-letters') { hidden = true; showFirstLetter = true; }
+
+          const wordKey = `${ayahNum}-${i}`;
+          const mistake = mistakes.get(wordKey);
+          const hasMistake = !!mistake;
+
+          return (
+            <span
+              key={i}
+              className={cn(
+                'relative inline-block cursor-pointer transition-opacity hover:opacity-70',
+              )}
+              onClick={(e) => handleWordClick(ayahNum, i, e)}
+            >
+              {hasMistake && mistake && (
+                <span
+                  className="absolute rounded-sm pointer-events-none"
+                  style={{
+                    backgroundColor: getCategoryColor(mistake.category),
+                    top: '1px',
+                    left: '-2px',
+                    right: '-2px',
+                    bottom: '1px',
+                    zIndex: 0,
+                  }}
+                />
+              )}
+              <span className={cn('relative', hasMistake && 'dark:text-black')} style={{ zIndex: 1 }}>
+                {hidden
+                  ? (
+                    <span className="inline-block px-2 py-1 rounded bg-muted/60 text-muted-foreground/40 min-w-[2rem] text-center transition-all">
+                      {showFirstLetter ? word.charAt(0) + '...' : '•••'}
+                    </span>
+                  )
+                  : word
+                }
+              </span>
+            </span>
+          );
+        })}
+      </span>
+    );
+  }
+
   if (!currentAyah) {
     return (
       <div className="min-h-screen flex items-center justify-center text-muted-foreground p-4 text-center">
@@ -131,6 +265,8 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
       </div>
     );
   }
+
+  const hasMistakeOnSelected = selectedWordKey ? mistakes.has(selectedWordKey) : false;
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-background">
@@ -177,7 +313,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
         <Card className="shadow-lg border-border/50">
           <CardContent className="p-8 space-y-6">
             {isSelfAssess ? (
-              /* Self-assessment UI — replaces the verse display */
+              /* Self-assessment UI */
               <div className="space-y-6 py-8">
                 <p className="text-center text-xl font-medium text-foreground">How did that feel?</p>
                 <div className="grid grid-cols-3 gap-3">
@@ -250,6 +386,16 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
           </CardContent>
         </Card>
 
+        {/* Mistake legend — only show if there are mistakes */}
+        {mistakes.size > 0 && (
+          <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm" style={{ backgroundColor: '#f28a8a' }} /> Incorrect</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm" style={{ backgroundColor: '#FFE0B2' }} /> Missed</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm" style={{ backgroundColor: '#D3e7ee' }} /> Tajweed</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm" style={{ backgroundColor: '#bec4ed' }} /> Harakah</span>
+          </div>
+        )}
+
         {/* Save to collection CTA */}
         {qfConnected && (
           <>
@@ -269,6 +415,129 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
           </>
         )}
       </div>
+
+      {/* ── Mistake category popover (same layout as SessionMushafViewer) ── */}
+      {popoverOpen && popoverPosition && (
+        isMobile ? (
+          <div
+            ref={popoverRef}
+            className="fixed bottom-0 left-0 right-0 z-50 p-2 bg-background border-t shadow-lg safe-bottom"
+          >
+            <div className="flex flex-wrap justify-center gap-1.5">
+              <Button variant="ghost" size="sm" className="px-2.5 py-1.5 text-xs h-8" onClick={() => handleCategorySelect('incorrect')}>
+                Incorrect
+              </Button>
+              <Button variant="ghost" size="sm" className="px-2.5 py-1.5 text-xs h-8" onClick={() => handleCategorySelect('missed')}>
+                Missed
+              </Button>
+              <Button variant="ghost" size="sm" className="px-2.5 py-1.5 text-xs h-8" onClick={() => handleCategorySelect('tajweed')}>
+                Tajweed
+              </Button>
+              <Button variant="ghost" size="sm" className="px-2.5 py-1.5 text-xs h-8" onClick={() => handleCategorySelect('harakah')}>
+                Harakah
+              </Button>
+              {hasMistakeOnSelected && (
+                <>
+                  <Button variant="ghost" size="sm" className="px-2.5 py-1.5 text-xs h-8" onClick={handleOpenNoteDrawer}>
+                    <FileText className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="px-2.5 py-1.5 text-xs h-8 text-destructive hover:text-destructive" onClick={handleRemoveMistake}>
+                    Remove
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div
+            ref={popoverRef}
+            className="fixed z-50"
+            style={{
+              left: `${popoverPosition.x}px`,
+              top: `${popoverPosition.y - 60}px`,
+              transform: 'translateX(-50%)',
+            }}
+          >
+            <Card className="p-2 shadow-lg border">
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm" className="px-3 py-2" onClick={() => handleCategorySelect('incorrect')} title="Incorrect word">
+                  Incorrect
+                </Button>
+                <Button variant="ghost" size="sm" className="px-3 py-2" onClick={() => handleCategorySelect('missed')} title="Missed word">
+                  Missed
+                </Button>
+                <Button variant="ghost" size="sm" className="px-3 py-2" onClick={() => handleCategorySelect('tajweed')} title="Tajweed mistake">
+                  Tajweed
+                </Button>
+                <Button variant="ghost" size="sm" className="px-3 py-2" onClick={() => handleCategorySelect('harakah')} title="Harakah mistake">
+                  Harakah
+                </Button>
+                {hasMistakeOnSelected && (
+                  <>
+                    <Button variant="ghost" size="sm" className="px-3 py-2" onClick={handleOpenNoteDrawer} title="Add note">
+                      <FileText className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="px-3 py-2 text-destructive hover:text-destructive" onClick={handleRemoveMistake} title="Remove mistake">
+                      Remove
+                    </Button>
+                  </>
+                )}
+              </div>
+            </Card>
+          </div>
+        )
+      )}
+
+      {/* ── Note Drawer/Sheet (same as SessionMushafViewer) ── */}
+      {isMobile ? (
+        <Sheet open={noteDrawerOpen} onOpenChange={setNoteDrawerOpen}>
+          <SheetContent side="bottom" className="h-[400px]">
+            <SheetHeader>
+              <SheetTitle>Add Note</SheetTitle>
+            </SheetHeader>
+            <div className="py-4">
+              <Label htmlFor="mem-mistake-note" className="mb-2">Note</Label>
+              <Textarea
+                id="mem-mistake-note"
+                placeholder="Type your note here..."
+                value={currentNote}
+                onChange={(e) => setCurrentNote(e.target.value)}
+                className="min-h-[200px]"
+              />
+            </div>
+            <SheetFooter>
+              <SheetClose asChild>
+                <Button variant="outline">Cancel</Button>
+              </SheetClose>
+              <Button onClick={handleSaveNote}>Save</Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <Drawer open={noteDrawerOpen} onOpenChange={setNoteDrawerOpen}>
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>Add Note</DrawerTitle>
+            </DrawerHeader>
+            <div className="px-4 py-4">
+              <Label htmlFor="mem-mistake-note-desktop" className="mb-2">Note</Label>
+              <Textarea
+                id="mem-mistake-note-desktop"
+                placeholder="Type your note here..."
+                value={currentNote}
+                onChange={(e) => setCurrentNote(e.target.value)}
+                className="min-h-[200px]"
+              />
+            </div>
+            <DrawerFooter>
+              <Button onClick={handleSaveNote}>Save</Button>
+              <DrawerClose asChild>
+                <Button variant="outline">Cancel</Button>
+              </DrawerClose>
+            </DrawerFooter>
+          </DrawerContent>
+        </Drawer>
+      )}
     </div>
   );
 };
