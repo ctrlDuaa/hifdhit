@@ -375,37 +375,69 @@ const SurahViewer = () => {
   const loadMistakesForPage = async (page: number) => {
     if (!user) return;
     try {
-      console.log('📋 [SurahViewer] Loading mistakes for user:', user.id, 'page:', page);
-      const {
-        data,
-        error
-      } = await supabase.from('mistakes').select('*').eq('reciter_id', user.id).eq('page_number', page);
-      if (error) throw error;
-      console.log('✅ [SurahViewer] Mistakes loaded:', data?.length || 0, 'mistakes', data);
-      const mistakeMap = new Map<string, {
-        category: string;
-        date?: string;
-      }>();
+      // Query mistakes by page_number OR by surah where page_number is null (memorization mistakes)
+      const { data: pageData1, error: err1 } = await supabase
+        .from('mistakes')
+        .select('*')
+        .eq('reciter_id', user.id)
+        .eq('page_number', page);
+
+      const { data: noPageData, error: err2 } = await supabase
+        .from('mistakes')
+        .select('*')
+        .eq('reciter_id', user.id)
+        .is('page_number', null)
+        .eq('surah_number', currentSurahNumber || parseInt(surahNumber || '1'));
+
+      if (err1) throw err1;
+      if (err2) throw err2;
+
+      // Also load block review mistakes for this surah
+      const { data: blockMistakes, error: err3 } = await supabase
+        .from('block_review_mistakes')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('surah_id', currentSurahNumber || parseInt(surahNumber || '1'));
+
+      const allMistakes = [...(pageData1 || []), ...(noPageData || [])];
+      // Deduplicate by word key (prefer the one with page_number set)
+      const mistakeMap = new Map<string, { category: string; date?: string }>();
       const notesWithData: MistakeNote[] = [];
-      data?.forEach(mistake => {
+      const seenKeys = new Set<string>();
+
+      allMistakes.forEach(mistake => {
         const wordKey = `${mistake.surah_number}-${mistake.ayah_number}-${mistake.word_index}`;
-        mistakeMap.set(wordKey, {
-          category: mistake.mistake_category || 'tajweed',
-          date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : undefined
-        });
-        console.log('  → Mistake word:', wordKey, 'category:', mistake.mistake_category);
-        
-        // Collect mistakes with notes
-        if (mistake.note) {
-          notesWithData.push({
-            id: mistake.id,
-            ayah_number: mistake.ayah_number,
-            note: mistake.note,
-            mistake_category: mistake.mistake_category || 'tajweed'
+        if (!seenKeys.has(wordKey)) {
+          seenKeys.add(wordKey);
+          mistakeMap.set(wordKey, {
+            category: mistake.mistake_category || 'tajweed',
+            date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : undefined
           });
+          if (mistake.note) {
+            notesWithData.push({
+              id: mistake.id,
+              ayah_number: mistake.ayah_number,
+              note: mistake.note,
+              mistake_category: mistake.mistake_category || 'tajweed'
+            });
+          }
         }
       });
-      console.log('✅ [SurahViewer] Setting highlightedWords with', mistakeMap.size, 'mistakes');
+
+      // Merge block review mistakes (different table schema)
+      if (!err3 && blockMistakes) {
+        blockMistakes.forEach(bm => {
+          const wordKey = `${bm.surah_id}-${bm.ayah_number}-${bm.word_index}`;
+          if (!seenKeys.has(wordKey)) {
+            seenKeys.add(wordKey);
+            mistakeMap.set(wordKey, {
+              category: bm.mistake_type || 'incorrect',
+              date: bm.created_at ? format(new Date(bm.created_at), 'MMM dd, yyyy') : undefined
+            });
+          }
+        });
+      }
+
       setHighlightedWords(mistakeMap);
       setMistakeNotes(notesWithData);
     } catch (err) {
