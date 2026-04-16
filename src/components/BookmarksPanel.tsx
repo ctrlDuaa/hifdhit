@@ -121,8 +121,21 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     if (bookmarksMap[collectionId]) return;
     setLoadingBookmarks(collectionId);
     try {
-      const res = await callQfUserApi(`/auth/v1/collections/${collectionId}?first=50`) as any;
-      
+      // Retry up to 3 times to handle transient edge function failures
+      let res: any = null;
+      let lastErr: unknown = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          if (attempt > 0) await new Promise(r => setTimeout(r, 500 * attempt));
+          res = await callQfUserApi(`/auth/v1/collections/${collectionId}?first=50`);
+          lastErr = null;
+          break;
+        } catch (e) {
+          lastErr = e;
+        }
+      }
+      if (lastErr) throw lastErr;
+
       const resData = res?.data?.data ?? res?.data;
       
       let rawItems: any[] = [];
@@ -140,7 +153,6 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
       }
 
       const normalized: Bookmark[] = [];
-      const skipped: any[] = [];
       for (const raw of rawItems) {
         const id = raw.id ?? raw.verseKey ?? `${raw.key ?? raw.chapterId}:${raw.verseNumber ?? raw.ayah}`;
         const key = raw.key ?? raw.chapterId ?? raw.chapter_id ?? raw.surahId 
@@ -150,32 +162,12 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
         
         if (key != null && verseNumber != null && !isNaN(Number(key)) && !isNaN(Number(verseNumber))) {
           normalized.push({ id: String(id), key: Number(key), verseNumber: Number(verseNumber) });
-        } else {
-          skipped.push(raw);
         }
       }
 
-      setDebugInfo(prev => ({
-        ...prev,
-        [collectionId]: {
-          resTopKeys: res ? Object.keys(res) : null,
-          resDataKeys: res?.data ? Object.keys(res.data) : null,
-          resDataDataKeys: res?.data?.data ? Object.keys(res.data.data) : null,
-          rawItemsCount: rawItems.length,
-          firstRawItem: rawItems.length > 0 ? rawItems[0] : null,
-          normalizedCount: normalized.length,
-          skippedCount: skipped.length,
-          firstSkipped: skipped.length > 0 ? skipped[0] : null,
-        }
-      }));
-
       setBookmarksMap(prev => ({ ...prev, [collectionId]: normalized }));
     } catch (err) {
-      setDebugInfo(prev => ({
-        ...prev,
-        [collectionId]: { error: err instanceof Error ? err.message : String(err) }
-      }));
-      toast({ title: 'Failed to load bookmarks', variant: 'destructive' });
+      toast({ title: 'Failed to load bookmarks', description: 'Tap to retry', variant: 'destructive' });
     } finally {
       setLoadingBookmarks(null);
     }
