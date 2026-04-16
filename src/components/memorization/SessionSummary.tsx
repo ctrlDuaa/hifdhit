@@ -11,17 +11,9 @@ interface Props {
   state: MemorizationSessionState;
   confidenceSummary: { easy: number; shaky: number; hard: number };
   weakPassages: AyahPerformance[];
+  mistakeCount: number;
   onFinish: () => void;
   onStartRevision: () => void;
-}
-
-function formatDuration(startISO: string, endISO: string | null): string {
-  const start = new Date(startISO).getTime();
-  const end = endISO ? new Date(endISO).getTime() : Date.now();
-  const mins = Math.floor((end - start) / 60000);
-  if (mins < 1) return 'Less than a minute';
-  if (mins === 1) return '1 minute';
-  return `${mins} minutes`;
 }
 
 function getBlockReviewSchedule(summary: { easy: number; shaky: number; hard: number }): number[] {
@@ -84,9 +76,8 @@ function WeekCalendarStrip({ reviewDays }: { reviewDays: number[] }) {
     </div>
   );
 }
-export const SessionSummary = ({ state, confidenceSummary, weakPassages, onFinish, onStartRevision }: Props) => {
+export const SessionSummary = ({ state, confidenceSummary, weakPassages, mistakeCount, onFinish, onStartRevision }: Props) => {
   const totalAyahs = state.config.ayahEnd - state.config.ayahStart + 1;
-  const duration = formatDuration(state.startedAt, state.completedAt);
   const reviewScheduleDays = getBlockReviewSchedule(confidenceSummary);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const qfConnected = isQfSessionValid();
@@ -120,8 +111,8 @@ export const SessionSummary = ({ state, confidenceSummary, weakPassages, onFinis
           </Card>
           <Card>
             <CardContent className="p-5 text-center">
-              <p className="text-2xl font-bold text-foreground">{duration}</p>
-              <p className="text-xs text-muted-foreground">Time Spent</p>
+              <p className="text-2xl font-bold text-foreground">{mistakeCount}</p>
+              <p className="text-xs text-muted-foreground">Mistakes Marked</p>
             </CardContent>
           </Card>
         </div>

@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useMemorizationSession } from '@/hooks/useMemorizationSession';
 import { MemorizationSetup } from '@/components/memorization/MemorizationSetup';
 import { GuidedMemorization } from '@/components/memorization/GuidedMemorization';
@@ -9,7 +9,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { useCallback } from 'react';
+
 import { MemorizationSessionState, MemorizationSessionConfig } from '@/types/memorization';
 import { createDefaultBlockState } from '@/lib/reviewScheduler';
 import {
@@ -52,6 +52,25 @@ const Memorization = () => {
   const [showResumeDialog, setShowResumeDialog] = useState(false);
   const [savedInfo, setSavedInfo] = useState<ReturnType<typeof getSavedSessionInfo>>(null);
   const [showSetup, setShowSetup] = useState(false);
+  const [mistakeCount, setMistakeCount] = useState(0);
+
+  // Fetch mistake count when entering summary phase
+  useEffect(() => {
+    if (!state || state.phase !== 'summary' || !user) return;
+    const fetchMistakeCount = async () => {
+      try {
+        const { count, error } = await supabase
+          .from('mistakes')
+          .select('*', { count: 'exact', head: true })
+          .eq('reciter_id', user.id)
+          .eq('surah_number', state.config.surahId)
+          .gte('ayah_number', state.config.ayahStart)
+          .lte('ayah_number', state.config.ayahEnd);
+        if (!error) setMistakeCount(count ?? 0);
+      } catch {}
+    };
+    fetchMistakeCount();
+  }, [state?.phase, state?.config.surahId, state?.config.ayahStart, state?.config.ayahEnd, user]);
 
   useEffect(() => {
     if (!state) {
@@ -316,6 +335,7 @@ const Memorization = () => {
           state={state}
           confidenceSummary={getConfidenceSummary()}
           weakPassages={getWeakPassages()}
+          mistakeCount={mistakeCount}
           onFinish={handleFinish}
           onStartRevision={async () => {
             if (state) await saveSessionStats(state);
