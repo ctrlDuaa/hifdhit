@@ -338,26 +338,6 @@ const SurahViewer = () => {
     return ayahCounts[surahNum] || 0;
   };
 
-  // Load initial page based on surah
-  useEffect(() => {
-    const loadSurahPage = async () => {
-      if (surahNumber) {
-        const surahNum = parseInt(surahNumber);
-        console.log('📚 Loading surah data for:', surahNum);
-        const pageNum = await getSurahStartPage(surahNum);
-        console.log('📄 Surah start page:', pageNum);
-        if (pageNum) {
-          // Update surah metadata first
-          await updateSurahMetadata(surahNum);
-          // Then load the page
-          loadPageData(pageNum);
-        } else {
-          console.error(`Could not find starting page for Surah ${surahNum}`);
-        }
-      }
-    };
-    loadSurahPage();
-  }, [surahNumber, getSurahStartPage]);
   const loadPageData = useCallback(async (pageNumber: number) => {
     try {
       const page = await loadPage(pageNumber);
@@ -453,6 +433,126 @@ const SurahViewer = () => {
       console.error('Error loading mistakes:', err);
     }
   };
+  const resolveMistakeToPage = useCallback(async (surahNum: number, ayahNum: number, wordIndex?: number | null) => {
+    const wordCandidates = typeof wordIndex === 'number'
+      ? [...new Set([wordIndex, wordIndex + 1].filter((value) => value >= 1))]
+      : [];
+
+    let wordQuery = supabase
+      .from('words')
+      .select('id')
+      .eq('surah', surahNum)
+      .eq('ayah', ayahNum)
+      .order('word', { ascending: true })
+      .limit(1);
+
+    if (wordCandidates.length > 0) {
+      wordQuery = wordQuery.in('word', wordCandidates);
+    }
+
+    let { data: wordData, error: wordError } = await wordQuery.maybeSingle();
+
+    if (wordError && wordCandidates.length > 0) {
+      const fallbackWordResponse = await supabase
+        .from('words')
+        .select('id')
+        .eq('surah', surahNum)
+        .eq('ayah', ayahNum)
+        .order('word', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      wordData = fallbackWordResponse.data;
+      wordError = fallbackWordResponse.error;
+    }
+
+    if (wordError) throw wordError;
+    if (!wordData) return null;
+
+    const { data: pageData, error: pageError } = await supabase
+      .from('pages')
+      .select('page_number')
+      .lte('first_word_id', wordData.id)
+      .gte('last_word_id', wordData.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (pageError) throw pageError;
+    return pageData?.page_number || null;
+  }, []);
+
+  const findFirstMistakePageForSurah = useCallback(async (surahNum: number) => {
+    if (!user) return null;
+
+    const [pageMistakeResult, memorizationMistakeResult, reviewMistakeResult] = await Promise.all([
+      supabase
+        .from('mistakes')
+        .select('page_number, ayah_number, word_index')
+        .eq('reciter_id', user.id)
+        .eq('surah_number', surahNum)
+        .not('page_number', 'is', null)
+        .order('page_number', { ascending: true })
+        .order('ayah_number', { ascending: true })
+        .order('word_index', { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('mistakes')
+        .select('surah_number, ayah_number, word_index')
+        .eq('reciter_id', user.id)
+        .eq('surah_number', surahNum)
+        .is('page_number', null)
+        .order('ayah_number', { ascending: true })
+        .order('word_index', { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('block_review_mistakes')
+        .select('surah_id, ayah_number, word_index')
+        .eq('user_id', user.id)
+        .eq('surah_id', surahNum)
+        .order('ayah_number', { ascending: true })
+        .order('word_index', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+    ]);
+
+    if (pageMistakeResult.error) throw pageMistakeResult.error;
+    if (memorizationMistakeResult.error) throw memorizationMistakeResult.error;
+    if (reviewMistakeResult.error) throw reviewMistakeResult.error;
+
+    const candidatePages = new Set<number>();
+
+    if (pageMistakeResult.data?.page_number) {
+      candidatePages.add(pageMistakeResult.data.page_number);
+    }
+
+    const resolvedPages = await Promise.all([
+      memorizationMistakeResult.data
+        ? resolveMistakeToPage(
+            memorizationMistakeResult.data.surah_number,
+            memorizationMistakeResult.data.ayah_number,
+            memorizationMistakeResult.data.word_index
+          )
+        : Promise.resolve(null),
+      reviewMistakeResult.data
+        ? resolveMistakeToPage(
+            reviewMistakeResult.data.surah_id,
+            reviewMistakeResult.data.ayah_number,
+            reviewMistakeResult.data.word_index
+          )
+        : Promise.resolve(null)
+    ]);
+
+    resolvedPages.forEach((pageNumber) => {
+      if (pageNumber) {
+        candidatePages.add(pageNumber);
+      }
+    });
+
+    return candidatePages.size > 0 ? Math.min(...candidatePages) : null;
+  }, [resolveMistakeToPage, user]);
+
   const updateSurahMetadata = async (surahNum: number) => {
     console.log('🔄 Updating surah metadata for surah:', surahNum);
 
@@ -496,6 +596,37 @@ const SurahViewer = () => {
       console.error('Error updating surah metadata:', err);
     }
   };
+
+  // Load initial page based on surah
+  useEffect(() => {
+    const loadSurahPage = async () => {
+      if (!surahNumber) return;
+
+      const surahNum = parseInt(surahNumber);
+      console.log('📚 Loading surah data for:', surahNum);
+
+      try {
+        const [defaultPageNum, firstMistakePage] = await Promise.all([
+          getSurahStartPage(surahNum),
+          findFirstMistakePageForSurah(surahNum),
+          updateSurahMetadata(surahNum)
+        ]);
+
+        const targetPage = firstMistakePage || defaultPageNum;
+        console.log('📄 Target surah page:', targetPage, 'first mistake page:', firstMistakePage);
+
+        if (targetPage) {
+          loadPageData(targetPage);
+        } else {
+          console.error(`Could not find starting page for Surah ${surahNum}`);
+        }
+      } catch (err) {
+        console.error('Failed to load surah page:', err);
+      }
+    };
+
+    loadSurahPage();
+  }, [surahNumber, getSurahStartPage, findFirstMistakePageForSurah, loadPageData]);
 
   // Detect surah changes when page data changes
   useEffect(() => {
