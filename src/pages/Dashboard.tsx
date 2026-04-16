@@ -978,18 +978,30 @@ const Dashboard = () => {
   const loadUserMistakes = async () => {
     if (!user) return;
     try {
-      const { data, error } = await supabase
+      // Load from mistakes table
+      const { data: mistakesData, error: err1 } = await supabase
         .from('mistakes')
         .select('surah_number')
         .eq('reciter_id', user.id);
       
-      if (error) throw error;
+      // Load from block_review_mistakes table
+      const { data: blockData, error: err2 } = await supabase
+        .from('block_review_mistakes')
+        .select('surah_id')
+        .eq('user_id', user.id);
+
+      if (err1) throw err1;
       
-      // Count mistakes per surah
+      // Count mistakes per surah from both sources
       const mistakeCount: { [key: number]: number } = {};
-      data?.forEach(mistake => {
+      mistakesData?.forEach(mistake => {
         mistakeCount[mistake.surah_number] = (mistakeCount[mistake.surah_number] || 0) + 1;
       });
+      if (!err2 && blockData) {
+        blockData.forEach(bm => {
+          mistakeCount[bm.surah_id] = (mistakeCount[bm.surah_id] || 0) + 1;
+        });
+      }
       
       setSurahMistakes(mistakeCount);
     } catch (error) {

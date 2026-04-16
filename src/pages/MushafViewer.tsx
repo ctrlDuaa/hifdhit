@@ -103,23 +103,73 @@ const MushafViewer = () => {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
+      // 1. Mistakes with page_number set (session mistakes)
+      const { data: pageMistakes, error: err1 } = await supabase
         .from('mistakes')
         .select('*')
         .eq('reciter_id', user.id)
         .eq('page_number', page);
 
-      if (error) throw error;
+      if (err1) throw err1;
+
+      // 2. Find which surahs are on this page to also load memorization mistakes (no page_number)
+      const surahsOnPage = new Set<number>();
+      if (pageData?.lines) {
+        for (const line of pageData.lines) {
+          if (line.words) {
+            for (const w of line.words) {
+              if (w.surah) surahsOnPage.add(w.surah);
+            }
+          }
+        }
+      }
+
+      let noPageMistakes: any[] = [];
+      let blockMistakes: any[] = [];
+
+      for (const surahId of surahsOnPage) {
+        const { data: d1 } = await supabase
+          .from('mistakes')
+          .select('*')
+          .eq('reciter_id', user.id)
+          .is('page_number', null)
+          .eq('surah_number', surahId);
+        if (d1) noPageMistakes.push(...d1);
+
+        const { data: d2 } = await supabase
+          .from('block_review_mistakes')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('surah_id', surahId);
+        if (d2) blockMistakes.push(...d2);
+      }
 
       const mistakes = new Map<string, MistakeData>();
-      data?.forEach(mistake => {
+      const seenKeys = new Set<string>();
+
+      // Merge all sources
+      [...(pageMistakes || []), ...noPageMistakes].forEach(mistake => {
         const wordKey = `${mistake.surah_number}-${mistake.ayah_number}-${mistake.word_index}`;
-        mistakes.set(wordKey, {
-          category: (mistake.mistake_category as MistakeCategory) || 'tajweed',
-          date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : '',
-          mistakeId: mistake.id,
-          note: mistake.note || undefined
-        });
+        if (!seenKeys.has(wordKey)) {
+          seenKeys.add(wordKey);
+          mistakes.set(wordKey, {
+            category: (mistake.mistake_category as MistakeCategory) || 'tajweed',
+            date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : '',
+            mistakeId: mistake.id,
+            note: mistake.note || undefined
+          });
+        }
+      });
+
+      blockMistakes.forEach(bm => {
+        const wordKey = `${bm.surah_id}-${bm.ayah_number}-${bm.word_index}`;
+        if (!seenKeys.has(wordKey)) {
+          seenKeys.add(wordKey);
+          mistakes.set(wordKey, {
+            category: (bm.mistake_type as MistakeCategory) || 'incorrect',
+            date: bm.created_at ? format(new Date(bm.created_at), 'MMM dd, yyyy') : '',
+          });
+        }
       });
       
       setHighlightedWords(mistakes);
