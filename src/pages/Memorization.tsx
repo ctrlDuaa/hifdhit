@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useMemorizationSession } from '@/hooks/useMemorizationSession';
 import { MemorizationSetup } from '@/components/memorization/MemorizationSetup';
 import { GuidedMemorization } from '@/components/memorization/GuidedMemorization';
