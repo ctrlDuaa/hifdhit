@@ -45,7 +45,7 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
   const [deletingCollection, setDeletingCollection] = useState<Collection | null>(null);
   const [deletingBookmark, setDeletingBookmark] = useState<{ collectionId: string; bookmark: Bookmark } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<Record<string, any>>({});
+  
 
   const { data: chapters } = useSurahList();
   const surahNameMap = useMemo(() => {
