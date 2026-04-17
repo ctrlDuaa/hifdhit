@@ -531,7 +531,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
                 {/* Continue + Back buttons */}
                 <div className="flex justify-center gap-3 pt-4 border-t">
                   {onGoBack && stageIndex > 0 && (
-                    <Button onClick={onGoBack} variant="outline" className="border-[#C6A477] text-[#C6A477] hover:bg-[#C6A477]/10">
+                    <Button onClick={onGoBack} size="lg" variant="outline" className="border-[#C6A477] text-[#C6A477] hover:bg-[#C6A477]/10">
                       <ChevronLeft className="w-4 h-4 mr-1" /> Back
                     </Button>
                   )}

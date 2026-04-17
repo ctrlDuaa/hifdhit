@@ -886,6 +886,7 @@ export const Stats = () => {
           </CardContent>
         </Card>
 
+        {false && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <CardTitle className="text-sm font-medium text-muted-foreground">Recent Activity</CardTitle>
@@ -939,6 +940,7 @@ export const Stats = () => {
               </>}
           </CardContent>
         </Card>
+        )}
       </main>
     </div>;
 };
