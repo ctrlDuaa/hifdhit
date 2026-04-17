@@ -71,31 +71,40 @@ const MushafViewer = () => {
     }
   };
 
-  // Add real-time subscription for mistake updates
+  // Add real-time subscription for mistake updates (mistakes table + block review mistakes)
   useEffect(() => {
     if (!user || !currentPage) return;
 
-    console.log('📡 Setting up real-time mistake subscription for page:', currentPage);
+    console.log('📡 Setting up real-time mistake subscriptions for page:', currentPage);
 
-    const channel = supabase
+    const mistakesChannel = supabase
       .channel(`mistakes-page-${currentPage}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'mistakes',
         filter: `reciter_id=eq.${user.id}`
-      }, (payload) => {
-        console.log('📡 Mistake change detected:', payload);
-        // Check if this mistake is on the current page
-        const mistakePageNumber = (payload.new as any)?.page_number || (payload.old as any)?.page_number;
-        if (mistakePageNumber === currentPage) {
-          loadMistakesForPage(currentPage);
-        }
+      }, () => {
+        // Reload regardless of page_number — covers session, memorization, and any source
+        loadMistakesForPage(currentPage);
+      })
+      .subscribe();
+
+    const blockChannel = supabase
+      .channel(`block-mistakes-page-${currentPage}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'block_review_mistakes',
+        filter: `user_id=eq.${user.id}`
+      }, () => {
+        loadMistakesForPage(currentPage);
       })
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(mistakesChannel);
+      supabase.removeChannel(blockChannel);
     };
   }, [user?.id, currentPage]);
 
