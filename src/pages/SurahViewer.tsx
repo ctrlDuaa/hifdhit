@@ -348,7 +348,7 @@ const SurahViewer = () => {
 
       // Load mistakes for this page
       if (user && page) {
-        await loadMistakesForPage(pageNumber);
+        await loadMistakesForPage(pageNumber, page);
       }
     } catch (err) {
       console.error('Failed to load page:', err);
@@ -389,10 +389,10 @@ const SurahViewer = () => {
     };
   }, [user?.id, currentPage]);
 
-  const loadMistakesForPage = async (page: number) => {
+  const loadMistakesForPage = async (page: number, pageOverride?: any) => {
     if (!user) return;
     try {
-      const pageWordKeys = buildPageWordKeySet(pageData);
+      const pageWordKeys = buildPageWordKeySet(pageOverride ?? pageData);
       // Query mistakes by page_number OR by surah where page_number is null (memorization mistakes)
       const { data: pageData1, error: err1 } = await supabase
         .from('mistakes')
