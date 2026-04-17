@@ -1,19 +1,17 @@
 import { Button } from '@/components/ui/button';
-import { LogOut, Link2, Bookmark } from 'lucide-react';
+import { LogOut, Link2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Link } from 'react-router-dom';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { startQfLogin, isQfSessionValid, logoutQf } from '@/services/qfAuth';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { BookmarksPanel } from '@/components/BookmarksPanel';
 
 export const AppHeader = () => {
   const { signOut } = useAuth();
   const { toast } = useToast();
   const [qfConnected, setQfConnected] = useState(isQfSessionValid());
   const [qfLoading, setQfLoading] = useState(false);
-  const [bookmarksOpen, setBookmarksOpen] = useState(false);
 
   const handleQfConnect = async () => {
     setQfLoading(true);
@@ -43,17 +41,6 @@ export const AppHeader = () => {
             <h1 className="text-2xl font-bold text-white cursor-pointer hover:opacity-80 transition-opacity">Hifdh it</h1>
           </Link>
           <div className="flex items-center gap-2">
-            {qfConnected && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setBookmarksOpen(true)}
-                className="text-white hover:bg-white/10"
-                title="Your Collections"
-              >
-                <Bookmark className="w-4 h-4" />
-              </Button>
-            )}
             <ThemeToggle />
             {qfConnected ? (
               <Button variant="outline" size="sm" onClick={handleQfDisconnect} className="text-xs bg-[#c6a477]">
@@ -79,7 +66,6 @@ export const AppHeader = () => {
           </div>
         </div>
       </div>
-      <BookmarksPanel open={bookmarksOpen} onOpenChange={setBookmarksOpen} />
     </header>
   );
 };

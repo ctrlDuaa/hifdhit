@@ -21,7 +21,9 @@ import { getMasteryLabel, getMasteryColor, formatNextReview, SessionRating } fro
 import { getQuickInsight } from '@/lib/reviewInsights';
 import { getBlockProjectedReviewDates, getCurrentProjectedReviewDate } from '@/lib/memorizationReviewTimeline';
 import { AppHeader } from '@/components/AppHeader';
-import { Plus, Play, Trash2, AlertTriangle, Shield, Calendar, Lightbulb, ChevronLeft } from 'lucide-react';
+import { StartSessionDialog } from '@/components/StartSessionDialog';
+import { JoinSessionDialog } from '@/components/JoinSessionDialog';
+import { Plus, Play, Trash2, AlertTriangle, Shield, Calendar, Lightbulb, ChevronLeft, Users } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 const BlockReviewPage = () => {
@@ -322,16 +324,30 @@ const BlockReviewPage = () => {
                       }}>
                         <Play className="w-3 h-3" />
                       </Button>
-                      <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => {
-                        if (confirm('Delete this block?')) deleteBlock.mutate(b.id);
+                      <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={() => {
+                        if (confirm('Delete this revision session?')) deleteBlock.mutate(b.id);
                       }}>
-                        <Trash2 className="w-3 h-3" />
+                        <Trash2 className="w-3 h-3 mr-1" /> Delete
                       </Button>
                     </div>
                   </div>
                 );
               })}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Live revision with a friend */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="w-4 h-4 text-[#C6A477]" />
+              Revising with a friend?
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <StartSessionDialog />
+            <JoinSessionDialog />
           </CardContent>
         </Card>
       </main>

@@ -103,50 +103,6 @@ const QFCallback = () => {
                   <p className="text-xs text-muted-foreground mt-2">
                     Your Quran.com bookmarks, collections, and reading progress are now synced.
                   </p>
-                  {session.scope && (
-                    <div className="mt-2 w-full">
-                      <p className="text-xs font-medium text-muted-foreground mb-1">Granted Scopes:</p>
-                      <p className="text-[10px] font-mono bg-muted p-2 rounded border border-border break-all">
-                        {session.scope}
-                      </p>
-                    </div>
-                  )}
-                  {session.accessToken && (
-                    <div className="mt-3 w-full">
-                      <p className="text-xs font-medium text-muted-foreground mb-1">Access Token:</p>
-                      <textarea
-                        readOnly
-                        value={session.accessToken}
-                        rows={3}
-                        className="w-full text-[10px] font-mono bg-muted p-2 rounded border border-border break-all resize-none"
-                        onClick={(e) => (e.target as HTMLTextAreaElement).select()}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* Debug: Test collections endpoint */}
-                <div className="w-full border-t border-border/50 pt-3 mt-2">
-                  <Button
-                    onClick={runCollectionsDebug}
-                    disabled={debugLoading}
-                    variant="outline"
-                    size="sm"
-                    className="w-full text-xs"
-                  >
-                    {debugLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-                    🔍 Debug: Test Collections Endpoint
-                  </Button>
-                  {debugResults.map((r, i) => (
-                    <div key={i} className="mt-2 text-left">
-                      <p className="text-[10px] font-mono text-muted-foreground">Path: {r.path}</p>
-                      <p className="text-[10px] font-mono text-muted-foreground">Upstream Status: {r.status}</p>
-                      {r.error && <p className="text-[10px] font-mono text-destructive">Error: {r.error}</p>}
-                      <pre className="mt-1 text-[9px] font-mono bg-muted p-2 rounded max-h-60 overflow-auto whitespace-pre-wrap break-all">
-                        {JSON.stringify(r.parsed, null, 2)}
-                      </pre>
-                    </div>
-                  ))}
                 </div>
 
                 <Button
