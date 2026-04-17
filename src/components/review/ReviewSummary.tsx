@@ -82,6 +82,7 @@ export const ReviewSummary = ({
               <Badge className={`text-[10px] ${getMasteryColor(ns.masteryStatus)}`}>
                 {getMasteryLabel(ns.masteryStatus)}
               </Badge>
+              <p className="text-[10px] text-muted-foreground mt-1">Mastery</p>
             </CardContent>
           </Card>
           <Card>
@@ -113,7 +114,7 @@ export const ReviewSummary = ({
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Streak</span>
-              <span className="text-sm font-medium text-foreground">{ns.currentStreak} sessions</span>
+              <span className="text-sm font-medium text-foreground">{ns.currentStreak}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Interval</span>

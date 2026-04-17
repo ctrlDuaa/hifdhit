@@ -248,59 +248,6 @@ const ReviewSchedule = () => {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <BookOpen className="w-5 h-5" /> All Memorization Blocks
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">{blocks.length} {blocks.length === 1 ? 'block' : 'blocks'} total</p>
-          </CardHeader>
-          <CardContent>
-            {blocks.length > 0 ? (
-              <div className="space-y-3">
-                {blocks.map(b => {
-                  const status = getReviewStatus(b);
-                  return (
-                    <div key={b.id} className="p-4 rounded-lg bg-muted/50 space-y-2 border border-border/30">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold">{getSurahName(b.surah_id)}</p>
-                          <span className="text-xs text-muted-foreground">Ayah {b.start_ayah === b.end_ayah ? b.start_ayah : `${b.start_ayah}–${b.end_ayah}`}</span>
-                        </div>
-                        <Badge className={`text-[9px] px-1.5 py-0 ${getMasteryColor(b.mastery_status as any)}`}>
-                          {getMasteryLabel(b.mastery_status as any)}
-                        </Badge>
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-3">
-                          <span className="text-muted-foreground flex items-center gap-1"><Shield className="w-3 h-3" /> {b.strength_score}</span>
-                          <span className="text-muted-foreground">{b.total_reviews} {b.total_reviews === 1 ? 'review' : 'reviews'}</span>
-                          <span className={status.color}>{status.label}</span>
-                        </div>
-                        <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => navigate(`/review?blockId=${b.id}`)}>
-                          <Play className="w-2.5 h-2.5 mr-1" /> Review
-                        </Button>
-                      </div>
-
-                      {getCurrentProjectedReviewDate(b) && (
-                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                          <CalendarDays className="w-3 h-3" />
-                          Next review: {format(getCurrentProjectedReviewDate(b)!, 'EEE, MMM d')}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <BookOpen className="w-8 h-8 text-muted-foreground/50 mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">No blocks yet. Complete a memorization session to create your first block.</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </main>
     </div>
   );

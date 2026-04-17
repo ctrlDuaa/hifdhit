@@ -163,17 +163,11 @@ const BlockReviewPage = () => {
         </div>
 
         {/* Quick stats */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <Card>
             <CardContent className="p-3 text-center">
               <p className="text-2xl font-bold text-foreground">{dueToday.length}</p>
               <p className="text-xs text-muted-foreground">Due Today</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3 text-center">
-              <p className="text-2xl font-bold text-foreground">{focusReviewBlocks.length}</p>
-              <p className="text-xs text-muted-foreground">Focus Review</p>
             </CardContent>
           </Card>
           <Card>
