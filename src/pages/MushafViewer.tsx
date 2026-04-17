@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePageFont } from '@/hooks/usePageFont';
 import { AppHeader } from '@/components/AppHeader';
 import { format } from 'date-fns';
+import { buildPageWordKeySet, getNormalizedMistakeWordKey } from '@/lib/mushafMistakeUtils';
 
 type MistakeCategory = 'tajweed' | 'missed' | 'harakah' | 'incorrect';
 
@@ -112,6 +113,7 @@ const MushafViewer = () => {
     if (!user) return;
 
     try {
+      const pageWordKeys = buildPageWordKeySet(pageData);
       // 1. Mistakes with page_number set (session mistakes)
       const { data: pageMistakes, error: err1 } = await supabase
         .from('mistakes')
@@ -158,7 +160,13 @@ const MushafViewer = () => {
 
       // Merge all sources
       [...(pageMistakes || []), ...noPageMistakes].forEach(mistake => {
-        const wordKey = `${mistake.surah_number}-${mistake.ayah_number}-${mistake.word_index}`;
+        const wordKey = getNormalizedMistakeWordKey(
+          mistake.surah_number,
+          mistake.ayah_number,
+          mistake.word_index,
+          pageWordKeys
+        );
+        if (!wordKey) return;
         if (!seenKeys.has(wordKey)) {
           seenKeys.add(wordKey);
           mistakes.set(wordKey, {
@@ -171,7 +179,13 @@ const MushafViewer = () => {
       });
 
       blockMistakes.forEach(bm => {
-        const wordKey = `${bm.surah_id}-${bm.ayah_number}-${bm.word_index}`;
+        const wordKey = getNormalizedMistakeWordKey(
+          bm.surah_id,
+          bm.ayah_number,
+          bm.word_index,
+          pageWordKeys
+        );
+        if (!wordKey) return;
         if (!seenKeys.has(wordKey)) {
           seenKeys.add(wordKey);
           mistakes.set(wordKey, {
