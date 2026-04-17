@@ -113,7 +113,8 @@ const MushafViewer = () => {
     if (!user) return;
 
     try {
-      const pageWordKeys = buildPageWordKeySet(pageOverride ?? pageData);
+      const activePageData = pageOverride ?? pageData;
+      const pageWordKeys = buildPageWordKeySet(activePageData);
       // 1. Mistakes with page_number set (session mistakes)
       const { data: pageMistakes, error: err1 } = await supabase
         .from('mistakes')
@@ -125,8 +126,8 @@ const MushafViewer = () => {
 
       // 2. Find which surahs are on this page to also load memorization mistakes (no page_number)
       const surahsOnPage = new Set<number>();
-      if (pageData?.lines) {
-        for (const line of pageData.lines) {
+      if (activePageData?.lines) {
+        for (const line of activePageData.lines) {
           if (line.words) {
             for (const w of line.words) {
               if (w.surah) surahsOnPage.add(w.surah);

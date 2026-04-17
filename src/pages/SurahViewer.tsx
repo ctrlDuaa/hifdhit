@@ -392,7 +392,9 @@ const SurahViewer = () => {
   const loadMistakesForPage = async (page: number, pageOverride?: any) => {
     if (!user) return;
     try {
-      const pageWordKeys = buildPageWordKeySet(pageOverride ?? pageData);
+      const activePageData = pageOverride ?? pageData;
+      const activeSurahNumber = currentSurahNumber || parseInt(surahNumber || '1');
+      const pageWordKeys = buildPageWordKeySet(activePageData);
       // Query mistakes by page_number OR by surah where page_number is null (memorization mistakes)
       const { data: pageData1, error: err1 } = await supabase
         .from('mistakes')
@@ -405,7 +407,7 @@ const SurahViewer = () => {
         .select('*')
         .eq('reciter_id', user.id)
         .is('page_number', null)
-        .eq('surah_number', currentSurahNumber || parseInt(surahNumber || '1'));
+        .eq('surah_number', activeSurahNumber);
 
       if (err1) throw err1;
       if (err2) throw err2;
@@ -415,7 +417,7 @@ const SurahViewer = () => {
         .from('block_review_mistakes')
         .select('*')
         .eq('user_id', user.id)
-        .eq('surah_id', currentSurahNumber || parseInt(surahNumber || '1'));
+        .eq('surah_id', activeSurahNumber);
 
       const allMistakes = [...(pageData1 || []), ...(noPageData || [])];
       // Deduplicate by word key (prefer the one with page_number set)
