@@ -19,10 +19,12 @@ import { Label } from '@/components/ui/label';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { AppHeader } from '@/components/AppHeader';
+import { buildPageWordKeySet, getNormalizedMistakeWordKey } from '@/lib/mushafMistakeUtils';
 
 interface MistakeNote {
   id: string;
   ayah_number: number;
+  word_key: string;
   note: string;
   mistake_category: string;
 }
@@ -390,6 +392,7 @@ const SurahViewer = () => {
   const loadMistakesForPage = async (page: number) => {
     if (!user) return;
     try {
+      const pageWordKeys = buildPageWordKeySet(pageData);
       // Query mistakes by page_number OR by surah where page_number is null (memorization mistakes)
       const { data: pageData1, error: err1 } = await supabase
         .from('mistakes')
@@ -421,7 +424,13 @@ const SurahViewer = () => {
       const seenKeys = new Set<string>();
 
       allMistakes.forEach(mistake => {
-        const wordKey = `${mistake.surah_number}-${mistake.ayah_number}-${mistake.word_index}`;
+        const wordKey = getNormalizedMistakeWordKey(
+          mistake.surah_number,
+          mistake.ayah_number,
+          mistake.word_index,
+          pageWordKeys
+        );
+        if (!wordKey) return;
         if (!seenKeys.has(wordKey)) {
           seenKeys.add(wordKey);
           mistakeMap.set(wordKey, {
@@ -432,6 +441,7 @@ const SurahViewer = () => {
             notesWithData.push({
               id: mistake.id,
               ayah_number: mistake.ayah_number,
+              word_key: wordKey,
               note: mistake.note,
               mistake_category: mistake.mistake_category || 'tajweed'
             });
@@ -441,7 +451,13 @@ const SurahViewer = () => {
 
       if (!err3 && blockMistakes) {
         blockMistakes.forEach(bm => {
-          const wordKey = `${bm.surah_id}-${bm.ayah_number}-${bm.word_index}`;
+          const wordKey = getNormalizedMistakeWordKey(
+            bm.surah_id,
+            bm.ayah_number,
+            bm.word_index,
+            pageWordKeys
+          );
+          if (!wordKey) return;
           if (!seenKeys.has(wordKey)) {
             seenKeys.add(wordKey);
             mistakeMap.set(wordKey, {
