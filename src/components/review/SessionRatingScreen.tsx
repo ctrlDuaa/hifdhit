@@ -54,14 +54,14 @@ export const SessionRatingScreen = ({ surahName, mistakes, verses, onRate, onBac
             <h3 className="text-sm font-medium text-foreground mb-3">Session Summary</h3>
             <div className="grid grid-cols-4 gap-2 text-center">
               {[
-                { type: 'incorrect' as MistakeType, label: 'Incorrect', color: 'bg-mistake-incorrect/20' },
-                { type: 'missed' as MistakeType, label: 'Missed', color: 'bg-mistake-missed/20' },
-                { type: 'tajweed' as MistakeType, label: 'Tajweed', color: 'bg-mistake-tajweed/20' },
-                { type: 'forgot' as MistakeType, label: 'Forgot', color: 'bg-destructive/20' },
+                { type: 'incorrect' as MistakeType, label: 'Incorrect', color: 'hsl(var(--mistake-incorrect))' },
+                { type: 'missed' as MistakeType, label: 'Missed', color: 'hsl(var(--mistake-missed))' },
+                { type: 'tajweed' as MistakeType, label: 'Tajweed', color: 'hsl(var(--mistake-tajweed))' },
+                { type: 'forgot' as MistakeType, label: 'Harakah', color: 'hsl(var(--mistake-harakah))' },
               ].map(item => (
-                <div key={item.type} className={`rounded-lg p-2 ${item.color}`}>
-                  <p className="text-lg font-bold text-foreground">{countByType(item.type)}</p>
-                  <p className="text-[10px] text-muted-foreground">{item.label}</p>
+                <div key={item.type} className="rounded-lg p-2" style={{ backgroundColor: item.color, color: 'hsl(var(--foreground))' }}>
+                  <p className="text-lg font-bold">{countByType(item.type)}</p>
+                  <p className="text-[10px] opacity-80">{item.label}</p>
                 </div>
               ))}
             </div>

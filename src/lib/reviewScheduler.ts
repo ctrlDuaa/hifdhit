@@ -419,7 +419,7 @@ export function getMistakeTypeLabel(type: MistakeType): string {
     incorrect: 'Incorrect',
     missed: 'Missed',
     tajweed: 'Tajweed',
-    forgot: 'Forgot',
+    forgot: 'Harakah',
   };
   return labels[type];
 }

@@ -19,7 +19,7 @@ export const ConsolidationCheckpoint = ({ state, chunkAyahs, onResult }: Props) 
         <CardContent className="p-8 space-y-6 text-center">
           <div>
             <h2 className="text-xl font-semibold text-foreground mb-2">Consolidation Checkpoint</h2>
-            <p className="text-stone-300 text-sm">
+            <p className="text-foreground text-sm">
               Recite the full chunk from memory
             </p>
           </div>
@@ -29,7 +29,7 @@ export const ConsolidationCheckpoint = ({ state, chunkAyahs, onResult }: Props) 
           </Badge>
 
           <div className="bg-muted/30 rounded-xl p-6 space-y-3">
-            <p className="text-sm text-stone-300 mb-3">Try to recite these ayat together:</p>
+            <p className="text-sm text-foreground mb-3">Try to recite these ayat together:</p>
             {chunkAyahs.map(ayah => (
               <div key={ayah.number} className="text-right py-2 border-b border-border/30 last:border-0">
                 <p className="text-lg font-arabic leading-relaxed blur-sm hover:blur-none transition-all cursor-pointer" dir="rtl">
@@ -37,7 +37,7 @@ export const ConsolidationCheckpoint = ({ state, chunkAyahs, onResult }: Props) 
                 </p>
               </div>
             ))}
-            <p className="text-xs text-stone-300 italic mt-2">Hover to reveal text for checking</p>
+            <p className="text-xs text-foreground italic mt-2">Hover to reveal text for checking</p>
           </div>
 
           <div className="grid grid-cols-2 gap-3 pt-2">
