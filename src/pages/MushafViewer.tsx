@@ -58,12 +58,12 @@ const MushafViewer = () => {
       return;
     }
 
-    const data = await loadPage(page);
-    setPageData(data);
+      const data = await loadPage(page);
+      setPageData(data);
     
     // Load mistakes for this page
     if (user && data) {
-      await loadMistakesForPage(page);
+        await loadMistakesForPage(page, data);
     }
 
     // Preload adjacent pages in background
@@ -109,11 +109,11 @@ const MushafViewer = () => {
     };
   }, [user?.id, currentPage]);
 
-  const loadMistakesForPage = async (page: number) => {
+  const loadMistakesForPage = async (page: number, pageOverride?: SupabasePage | null) => {
     if (!user) return;
 
     try {
-      const pageWordKeys = buildPageWordKeySet(pageData);
+      const pageWordKeys = buildPageWordKeySet(pageOverride ?? pageData);
       // 1. Mistakes with page_number set (session mistakes)
       const { data: pageMistakes, error: err1 } = await supabase
         .from('mistakes')
