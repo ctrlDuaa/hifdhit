@@ -118,7 +118,7 @@ export const ContinueMemorizationCard = () => {
       : 0;
     const pausedStrokeDashoffset = circumference - (pausedProgressPercent / 100) * circumference;
     const pausedSurah = chapters?.find(c => c.id === savedSession.config.surahId);
-    const pausedEnglishName = pausedSurah?.translated_name?.name || pausedSurah?.name_simple;
+    const pausedEnglishName = pausedSurah?.name_simple;
 
     return (
       <>
