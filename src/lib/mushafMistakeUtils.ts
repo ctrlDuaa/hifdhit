@@ -59,3 +59,20 @@ export const getNormalizedMistakeWordKey = (
 
   return null;
 };
+
+export const getPageWordIndexCandidates = (
+  wordIndex: number | null | undefined,
+  options?: { preferOneBased?: boolean }
+): number[] => {
+  if (typeof wordIndex !== 'number') {
+    return [];
+  }
+
+  const baseCandidates = [wordIndex, wordIndex + 1].filter((value) => value >= 1);
+
+  if (options?.preferOneBased) {
+    return [...new Set([wordIndex + 1, wordIndex, ...baseCandidates].filter((value) => value >= 1))];
+  }
+
+  return [...new Set(baseCandidates)];
+};

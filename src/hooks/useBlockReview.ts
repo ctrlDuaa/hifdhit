@@ -145,7 +145,7 @@ export function useBlockReview() {
     const recentWordMistakes7d = new Map<string, number>();
     const recentWordMistakes14d = new Map<string, number>();
     for (const rm of recentMistakes || []) {
-      const key = `${rm.ayah_number}:${rm.word_index}`;
+      const key = `${rm.ayah_number}:${Math.max(0, rm.word_index - 1)}`;
       recentWordMistakes14d.set(key, (recentWordMistakes14d.get(key) || 0) + 1);
       if (new Date(rm.created_at) >= sevenDaysAgo) {
         recentWordMistakes7d.set(key, (recentWordMistakes7d.get(key) || 0) + 1);
@@ -195,7 +195,7 @@ export function useBlockReview() {
         review_id: review.id,
         surah_id: block.surahId,
         ayah_number: m.ayahNumber,
-        word_index: m.wordIndex,
+        word_index: m.wordIndex + 1,
         word_text: m.wordText,
         mistake_type: m.mistakeType,
       }));
@@ -236,7 +236,7 @@ export function useBlockReview() {
         .select('id, total_incorrect_count, total_missed_count, total_tajweed_count, total_forgot_count, recent_mistake_count_7d')
         .eq('block_id', block.id)
         .eq('ayah_number', m.ayahNumber)
-        .eq('word_index', m.wordIndex)
+        .eq('word_index', m.wordIndex + 1)
         .maybeSingle();
 
       if (existing) {
@@ -254,7 +254,7 @@ export function useBlockReview() {
           user_id: user.id,
           block_id: block.id,
           ayah_number: m.ayahNumber,
-          word_index: m.wordIndex,
+          word_index: m.wordIndex + 1,
           word_text: m.wordText,
           total_incorrect_count: m.mistakeType === 'incorrect' ? 1 : 0,
           total_missed_count: m.mistakeType === 'missed' ? 1 : 0,
