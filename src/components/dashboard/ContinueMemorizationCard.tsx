@@ -117,6 +117,8 @@ export const ContinueMemorizationCard = () => {
       ? Math.round((savedSession.completedAyahs / savedSession.totalAyahs) * 100)
       : 0;
     const pausedStrokeDashoffset = circumference - (pausedProgressPercent / 100) * circumference;
+    const pausedSurah = chapters?.find(c => c.id === savedSession.config.surahId);
+    const pausedEnglishName = pausedSurah?.translated_name?.name || pausedSurah?.name_simple;
 
     return (
       <>
@@ -146,6 +148,9 @@ export const ContinueMemorizationCard = () => {
                 </p>
                 <h3 className="text-lg font-semibold text-[#fbf6ed]">
                   {savedSession.config.surahName}
+                  {pausedEnglishName && pausedEnglishName !== savedSession.config.surahName && (
+                    <span className="text-stone-400 font-normal text-base ml-2">({pausedEnglishName})</span>
+                  )}
                 </h3>
                 <p className="text-sm text-stone-400">
                   Ayah {savedSession.currentAyah}
