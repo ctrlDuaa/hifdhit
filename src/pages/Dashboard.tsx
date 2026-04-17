@@ -813,6 +813,15 @@ const Dashboard = () => {
         console.log('📊 Mistakes change detected — refreshing dashboard');
         loadUserMistakes();
       })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'block_review_mistakes',
+        filter: `user_id=eq.${user.id}`,
+      }, () => {
+        console.log('📊 Block review mistakes change detected — refreshing dashboard');
+        loadUserMistakes();
+      })
       .subscribe();
 
     return () => {
