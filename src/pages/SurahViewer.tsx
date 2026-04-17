@@ -352,6 +352,41 @@ const SurahViewer = () => {
       console.error('Failed to load page:', err);
     }
   }, [loadPage, user]);
+
+  // Real-time subscription: refresh mistakes whenever any mistake (session, memorization, or block review) changes
+  useEffect(() => {
+    if (!user || !currentPage) return;
+
+    const mistakesChannel = supabase
+      .channel(`surahviewer-mistakes-${currentPage}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'mistakes',
+        filter: `reciter_id=eq.${user.id}`,
+      }, () => {
+        loadMistakesForPage(currentPage);
+      })
+      .subscribe();
+
+    const blockChannel = supabase
+      .channel(`surahviewer-block-mistakes-${currentPage}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'block_review_mistakes',
+        filter: `user_id=eq.${user.id}`,
+      }, () => {
+        loadMistakesForPage(currentPage);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(mistakesChannel);
+      supabase.removeChannel(blockChannel);
+    };
+  }, [user?.id, currentPage]);
+
   const loadMistakesForPage = async (page: number) => {
     if (!user) return;
     try {
