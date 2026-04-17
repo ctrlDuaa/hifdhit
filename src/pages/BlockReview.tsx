@@ -261,6 +261,22 @@ const BlockReviewPage = () => {
           </Card>
         )}
 
+        {/* Live revision with a friend */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="w-4 h-4 text-[#C6A477]" />
+              Revising with a friend?
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-2 [&>*]:w-full [&_button]:w-full">
+              <StartSessionDialog />
+              <JoinSessionDialog />
+            </div>
+          </CardContent>
+        </Card>
+
         {/* All blocks */}
         <Card>
           <CardHeader className="pb-2">
@@ -328,20 +344,6 @@ const BlockReviewPage = () => {
                 );
               })}
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Live revision with a friend */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="w-4 h-4 text-[#C6A477]" />
-              Revising with a friend?
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <StartSessionDialog />
-            <JoinSessionDialog />
           </CardContent>
         </Card>
       </main>
