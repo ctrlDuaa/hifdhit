@@ -31,15 +31,15 @@ interface Props {
 
 type MistakeCategory = MistakeType;
 
-const MISTAKE_CATEGORIES: { type: MistakeCategory; label: string; color: string }[] = [
-  { type: 'incorrect', label: 'Incorrect', color: '#f28a8a' },
-  { type: 'missed',    label: 'Missed',    color: '#FFE0B2' },
-  { type: 'tajweed',   label: 'Tajweed',   color: '#D3e7ee' },
-  { type: 'forgot',    label: 'Forgot',    color: '#bec4ed' },
+const MISTAKE_CATEGORIES: { type: MistakeCategory; label: string; color: string; border: string }[] = [
+  { type: 'incorrect', label: 'Incorrect', color: 'hsl(var(--mistake-incorrect))', border: 'hsl(var(--mistake-incorrect-border))' },
+  { type: 'missed',    label: 'Missed',    color: 'hsl(var(--mistake-missed))',    border: 'hsl(var(--mistake-missed-border))' },
+  { type: 'tajweed',   label: 'Tajweed',   color: 'hsl(var(--mistake-tajweed))',   border: 'hsl(var(--mistake-tajweed-border))' },
+  { type: 'forgot',    label: 'Harakah',   color: 'hsl(var(--mistake-harakah))',   border: 'hsl(var(--mistake-harakah-border))' },
 ];
 
 function getCategoryColor(type: MistakeCategory): string {
-  return MISTAKE_CATEGORIES.find(c => c.type === type)?.color || '#f28a8a';
+  return MISTAKE_CATEGORIES.find(c => c.type === type)?.color || 'hsl(var(--mistake-incorrect))';
 }
 
 export const BlockReviewMarking = ({
@@ -221,7 +221,7 @@ export const BlockReviewMarking = ({
                   onClick={() => handleSelectCategory(cat.type)}
                   className={`px-2 py-2 rounded-md text-xs font-medium transition-all border
                     ${isActive ? 'border-foreground/50 ring-1 ring-foreground/20' : 'border-transparent hover:border-muted-foreground/30'}`}
-                  style={{ backgroundColor: isActive ? cat.color : `${cat.color}50` }}
+                  style={{ backgroundColor: cat.color, opacity: isActive ? 1 : 0.6, color: 'hsl(var(--foreground))' }}
                 >
                   {cat.label}
                 </button>
