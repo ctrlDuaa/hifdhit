@@ -32,8 +32,6 @@ const MushafViewer = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [highlightedWords, setHighlightedWords] = useState<Map<string, MistakeData>>(new Map());
   
-  // Load page-specific font
-  const { fontFamily: pageFontFamily, fontLoaded } = usePageFont(currentPage);
 
   useEffect(() => {
     const initializePage = async () => {
