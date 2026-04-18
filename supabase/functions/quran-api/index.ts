@@ -348,7 +348,7 @@ serve(async (req) => {
     }
 
     return err(
-      "Unknown action. Available: config, exchange, refresh, user-api, chapters, chapter, verses, verse, verse-range, page, tafsir, chapter-audio, verse-audio, translations, tafsirs-list, reciters, test-verse"
+      "Unknown action. Available: config, exchange, refresh, user-api, chapters, chapter, verses, verse, verse-range, page, qcf-page, tafsir, chapter-audio, verse-audio, translations, tafsirs-list, reciters, test-verse"
     );
   } catch (error) {
     console.error("Quran API error:", error);
