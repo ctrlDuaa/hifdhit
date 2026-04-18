@@ -55,13 +55,13 @@ const Auth = () => {
           <p className="text-xl md:text-2xl text-white/90 mb-8" style={{
           textShadow: '0 2px 10px rgba(0,0,0,0.6)'
         }}>
-            Your digital companion for hifdh
+            Memorize better. Remember longer.
           </p>
 
           {/* Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" onClick={() => navigate('/login')} className="bg-gradient-to-r from-[#C6A477] to-[#DFCEBF] text-white hover:opacity-90">
-              Start Revising
+              Start Memorizing
             </Button>
             <Button size="lg" onClick={scrollToAbout} className="bg-gradient-to-r from-[#C6A477] to-[#DFCEBF] text-white hover:opacity-90 bg-[#c6a477]">
               Learn More
@@ -73,8 +73,8 @@ const Auth = () => {
       {/* About Section */}
       <section id="about-section" className="px-4 bg-white py-[60px]">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6">Your Qur’an class, now online.</h2>
-          <p className="text-lg text-muted-foreground leading-relaxed">Hifdh it helps you revise your hifdh online as you would in a traditional in-person Qur’an class - with recitation, repetition, and immediate feedback. Join live sessions with a fellow reciter, mark each other's mistakes, and review them later directly on your mushaf, all from one platform. Whether you're revising daily portions or full ajzā', Hifdh it helps you stay connected, consistent, and focused on your hifdh.</p>
+          <h2 className="text-3xl md:text-4xl font-bold mb-6">From your first verse to lifelong hifdh</h2>
+          <p className="text-lg text-muted-foreground leading-relaxed text-stone-500">Hifdh It is built for anyone who wants to build a lasting connection with the Qur'an. Whether you're working through lifelong hidh or simply holding onto a few verses that mean something to you, Hifdh It can help. Memorize at your own pace, choose the verses that matter to you, and revisit them in a way that helps them stay with you. With the option to review on your own or recite alongside a friend, Hifdh It creates a flexible and supportive path that turns memorization into something consistent, personal, and lasting.</p>
         </div>
       </section>
 
@@ -89,9 +89,9 @@ const Auth = () => {
             {/* Feature 1 */}
             <Card className="overflow-hidden flex flex-col">
               <CardHeader>
-                <CardTitle>Live Recitation Sessions</CardTitle>
-                <CardDescription>
-                  Recite to your partner in real-time. Mark each other's mistakes as you go, just like in person.
+                <CardTitle>Guided Memorization</CardTitle>
+                <CardDescription className="text-stone-500">
+                  Verses are shown with words gradually disappearing as you progress, helping you build confidence step-by-step until you can recite on your own.
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex-1 bg-muted/50 flex items-center justify-center p-0 overflow-hidden">
@@ -102,9 +102,9 @@ const Auth = () => {
             {/* Feature 2 */}
             <Card className="overflow-hidden flex flex-col">
               <CardHeader>
-                <CardTitle>Smart Mistake Tracking</CardTitle>
-                <CardDescription>
-                  Instantly see your errors, organized by type (Harakah, Tajweed, or missed-word) and color-coded for clarity.
+                <CardTitle>Adaptive Review System</CardTitle>
+                <CardDescription className="text-stone-500">
+                  Know exactly what to revise. Hifdh It tracks the strength of each verse and brings back weaker ones more often, so your memorization actually sticks.
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex-1 bg-muted/50 flex items-center justify-center p-0 overflow-hidden">
@@ -115,9 +115,9 @@ const Auth = () => {
             {/* Feature 3 */}
             <Card className="overflow-hidden flex flex-col">
               <CardHeader>
-                <CardTitle>Mushaf Revision Mode</CardTitle>
-                <CardDescription>
-                  Revisit pages where you made mistakes, right inside your digital Mushaf. Highlighted words guide your review so that you can target weak spots.
+                <CardTitle>Mistake Tracking and Awareness</CardTitle>
+                <CardDescription className="text-stone-500">
+                  Improve with intention. Mark mistakes by type (incorrect, missed, tajweed, or harakat) and understand where you need to focus.
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex-1 bg-muted/50 flex items-center justify-center p-0 overflow-hidden">
@@ -128,9 +128,9 @@ const Auth = () => {
             {/* Feature 4 */}
             <Card className="overflow-hidden flex flex-col">
               <CardHeader>
-                <CardTitle>Progress Insights</CardTitle>
-                <CardDescription>
-                  See your consistency and improvement across the entire Quran. Visualize how far you've come and what needs attention.
+                <CardTitle>Flexible Review: Solo or Together</CardTitle>
+                <CardDescription className="text-stone-500">
+                  Review in a way that works for you. Do it on your own or revise with a friend in real time, adding accountability and consistency to your routine.
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex-1 bg-muted/50 flex items-center justify-center p-0 overflow-hidden">
