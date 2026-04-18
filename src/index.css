@@ -177,3 +177,30 @@ All colors MUST be HSL.
     border: 2px solid hsl(var(--mistake));
   }
 }
+
+/* Quran Foundation Unicode fallback font (used while QCF V2 page fonts load
+   and for end-of-ayah markers). */
+@font-face {
+  font-family: 'UthmanicHafs';
+  src: url('https://verses.quran.foundation/fonts/quran/hafs/uthmanic_hafs/UthmanicHafs1Ver18.woff2') format('woff2');
+  font-display: swap;
+  font-weight: normal;
+  font-style: normal;
+}
+
+/* QCF V2 Mushaf page container — premium, calm, RTL */
+.qcf-mushaf-page {
+  direction: rtl;
+  text-align: right;
+  unicode-bidi: bidi-override;
+}
+
+.qcf-mushaf-line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: 0.15em;
+  line-height: 2.2;
+  padding: 0.15em 0;
+}

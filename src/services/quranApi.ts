@@ -142,6 +142,14 @@ class QuranApiService {
     return this.invoke({ action: "page", page_number: String(pageNumber) });
   }
 
+  /**
+   * QCF V2 page data — words with `code_v2`, `text_qpc_hafs`, `page_number`,
+   * `line_number`, `char_type_name`, `position`. Use for QCF V2 glyph rendering.
+   */
+  async getQcfPage(pageNumber: number): Promise<{ verses: any[] }> {
+    return this.invoke({ action: "qcf-page", page_number: String(pageNumber) });
+  }
+
   // ── Tafsir ───────────────────────────────────────────────
 
   async getTafsir(
