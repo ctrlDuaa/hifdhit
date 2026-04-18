@@ -828,7 +828,21 @@ const SurahViewer = () => {
       alert('Error finding ayah. Please try again.');
     }
   };
-  if ((loading && !pageData) || !fontLoaded) {
+  // Build QCF highlights map from local mistake state.
+  const qcfHighlights = React.useMemo(() => {
+    const map = new Map<string, QcfWordHighlight>();
+    highlightedWords.forEach((m, key) => {
+      map.set(key, {
+        background: getCategoryColor(m.category),
+        border: getCategoryBorderColor(m.category),
+        title: `${m.category}${m.date ? ` - ${m.date}` : ''}`,
+        darkText: true,
+      });
+    });
+    return map;
+  }, [highlightedWords]);
+
+  if (loading && !pageData) {
     return <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8">
           <Card>
