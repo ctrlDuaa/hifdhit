@@ -1188,8 +1188,6 @@ const SurahViewer = () => {
                   />
                 </div>
               </div>}
-                </div>
-              </div>}
           </CardContent>
           
           
