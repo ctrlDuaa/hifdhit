@@ -8,10 +8,10 @@ import { ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react';
 import { useSupabaseMushaf, SupabasePage, SupabaseWord } from '@/hooks/useSupabaseMushaf';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { usePageFont } from '@/hooks/usePageFont';
 import { AppHeader } from '@/components/AppHeader';
 import { format } from 'date-fns';
 import { buildPageWordKeySet, getNormalizedMistakeWordKey } from '@/lib/mushafMistakeUtils';
+import { QcfMushafPage, type QcfWordHighlight } from '@/components/quran/QcfMushafPage';
 
 type MistakeCategory = 'tajweed' | 'missed' | 'harakah' | 'incorrect';
 
