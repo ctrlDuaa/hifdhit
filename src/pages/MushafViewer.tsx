@@ -278,7 +278,23 @@ const MushafViewer = () => {
     return surahNames[surahNumber] || `سورة ${surahNumber}`;
   };
 
-  if (loading || !fontLoaded) {
+  // Build QCF highlights map from local mistake state.
+  // Local key is `${surah}-${ayah}-${word.word}` where word.word is the
+  // 1-based position within the ayah — same convention QF uses for `position`.
+  const qcfHighlights = React.useMemo(() => {
+    const map = new Map<string, QcfWordHighlight>();
+    highlightedWords.forEach((m, key) => {
+      map.set(key, {
+        background: getCategoryColor(m.category),
+        border: getCategoryBorderColor(m.category),
+        title: `${m.category}${m.date ? ` - ${m.date}` : ''}`,
+        darkText: true,
+      });
+    });
+    return map;
+  }, [highlightedWords]);
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-background p-4">
         <div className="max-w-4xl mx-auto space-y-4">
