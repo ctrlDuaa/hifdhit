@@ -13,7 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
-import { usePageFont } from '@/hooks/usePageFont';
+import { QcfMushafPage, type QcfWordHighlight } from '@/components/quran/QcfMushafPage';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -64,8 +64,7 @@ const SurahViewer = () => {
   const [editNoteText, setEditNoteText] = useState('');
   const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
 
-  // Load page-specific font
-  const { fontFamily: pageFontFamily, fontLoaded } = usePageFont(currentPage);
+  
   const isMobile = useIsMobile();
 
   // Helper functions for mistake categories
