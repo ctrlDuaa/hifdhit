@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -1154,91 +1154,40 @@ const SurahViewer = () => {
                 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
               </div> : <div className="arabic-text text-center leading-normal">
                 <div className="space-y-2">
-                  {pageData.lines?.map((line: any, lineIndex: number) => {
+                  {/* Surah-name + basmallah decorations from local page metadata */}
+                  {pageData.lines?.filter((line: any) =>
+                    line.line_type === 'surah_name' || line.line_type === 'basmallah'
+                  ).map((line: any) => {
                     const isSurahName = line.line_type === 'surah_name';
                     const isBasmallah = line.line_type === 'basmallah';
-                    return <div key={`line-${line.line_number}`}>
+                    return <div key={`deco-${line.line_number}`}>
                       {isSurahName && line.surah_number && <div className="my-8 flex flex-col items-center gap-4">
                         <div className="w-full max-w-xl mx-auto">
                           <div className="h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
-                              <div className="flex items-center justify-center gap-2 -mt-3">
-                                
-                                
-                                
-                              </div>
-                            </div>
-                            <div className="text-center text-2xl md:text-3xl lg:text-4xl text-primary font-bold py-2" style={{
+                          <div className="flex items-center justify-center gap-2 -mt-3" />
+                        </div>
+                        <div className="text-center text-2xl md:text-3xl lg:text-4xl text-primary font-bold py-2" style={{
                           fontFamily: 'DigitalKhattV2'
                         }}>
-                              {getSurahName(line.surah_number)}
-                            </div>
-                          </div>}
-                        {isBasmallah && <div className="text-center text-xl md:text-2xl lg:text-3xl text-muted-foreground py-2" style={{
+                          {getSurahName(line.surah_number)}
+                        </div>
+                      </div>}
+                      {isBasmallah && <div className="text-center text-xl md:text-2xl lg:text-3xl text-muted-foreground py-2" style={{
                         fontFamily: 'DigitalKhattV2'
                       }}>
-                            بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
-                          </div>}
-                       {!isSurahName && !isBasmallah && <div className="text-xl md:text-2xl lg:text-3xl leading-tight w-full mx-auto" style={{
-                        fontFamily: pageFontFamily,
-                        lineHeight: '1.6',
-                        textAlign: 'center',
-                        direction: 'rtl',
-                        wordSpacing: '-0.02em',
-                        maxWidth: isMobile ? '100%' : '36rem'
-                      }}>
-                          {line.words?.map((word: any, wordIndex: number) => {
-                          const wordKey = `${word.surah}-${word.ayah}-${word.word}`;
-                          const mistakeData = highlightedWords.get(wordKey);
-                          const hasMistake = !!mistakeData;
-                          const mistakeCategory = mistakeData?.category;
-                          const mistakeDate = mistakeData?.date;
-                          
-                          const getCategoryLabel = (cat: string) => {
-                            switch (cat) {
-                              case 'tajweed':
-                                return 'Tajweed mistake';
-                              case 'missed':
-                                return 'Missed word';
-                              case 'harakah':
-                                return 'Harakah mistake';
-                              case 'incorrect':
-                                return 'Incorrect word';
-                              default:
-                                return 'Mistake';
-                            }
-                          };
-                          const tooltip = hasMistake && mistakeCategory ? `${getCategoryLabel(mistakeCategory)}${mistakeDate ? ` - ${mistakeDate}` : ''}` : '';
-                          
-                          return <span 
-                            key={`${currentPage}-${line.line_number}-${wordIndex}`} 
-                            className="quran-word relative inline-block" 
-                            data-word-id={word.id} 
-                            data-ayah={word.ayah} 
-                            data-surah={word.surah} 
-                            title={tooltip} 
-                            style={{
-                              margin: '0 0.5px'
-                            }}>
-                            {hasMistake && mistakeCategory && (
-                              <span 
-                                className="absolute rounded-sm pointer-events-none"
-                                style={{
-                                  backgroundColor: getCategoryColor(mistakeCategory),
-                                  top: '1px',
-                                  left: '-2px',
-                                  right: '-2px',
-                                  bottom: '1px',
-                                  zIndex: 0,
-                                  border: 'none'
-                                }}
-                              />
-                            )}
-                            <span className={`relative ${hasMistake ? 'dark:text-black' : ''}`} style={{ zIndex: 1 }}>{word.text}</span>
-                          </span>;
-                        })}
-                        </div>}
-                      </div>;
+                        بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+                      </div>}
+                    </div>;
                   })}
+
+                  {/* QCF V2 glyph-rendered Mushaf body */}
+                  <QcfMushafPage
+                    pageNumber={currentPage}
+                    highlights={qcfHighlights}
+                    className={isMobile ? 'w-full' : 'w-full max-w-xl mx-auto'}
+                  />
+                </div>
+              </div>}
                 </div>
               </div>}
           </CardContent>
