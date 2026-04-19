@@ -95,7 +95,7 @@ const Auth = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex-1 bg-muted/50 flex items-center justify-center p-0 overflow-hidden">
-                <img src={liveSessionDemo} alt="Live Recitation Session Demo" className="w-full h-full object-cover" />
+                <video src={guidedMemorizationDemo} className="w-full h-full object-cover" autoPlay loop muted playsInline />
               </CardContent>
             </Card>
 
@@ -108,7 +108,7 @@ const Auth = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex-1 bg-muted/50 flex items-center justify-center p-0 overflow-hidden">
-                <video src={mistakeTrackingDemo} className="w-full h-full object-cover" autoPlay loop muted playsInline />
+                <img src={adaptiveReviewDemo} alt="Adaptive Review System Demo" className="w-full h-full object-cover" />
               </CardContent>
             </Card>
 
@@ -121,7 +121,7 @@ const Auth = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex-1 bg-muted/50 flex items-center justify-center p-0 overflow-hidden">
-                <img src={mushafRevisionDemo} alt="Mushaf Revision Mode Demo" className="w-full h-full object-cover" />
+                <img src={mistakeTrackingDemo} alt="Mistake Tracking Demo" className="w-full h-full object-cover" />
               </CardContent>
             </Card>
 
@@ -134,7 +134,7 @@ const Auth = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex-1 bg-muted/50 flex items-center justify-center p-0 overflow-hidden">
-                <img src={progressInsightsDemo} alt="Progress Insights Demo" className="w-full h-full object-cover" />
+                <img src={flexibleReviewDemo} alt="Flexible Review Demo" className="w-full h-full object-cover" />
               </CardContent>
             </Card>
           </div>
