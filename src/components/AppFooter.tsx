@@ -95,7 +95,7 @@ export const AppFooter = () => {
         }}>
             Hifdh it
           </h3>
-          <p className="text-white/80 mb-4">Your digital companion for hifdh and revision.</p>
+          <p className="text-white/80 mb-4">Memorize better. Remember longer.</p>
           
           <Button onClick={() => setIsDialogOpen(true)} variant="ghost" className="text-white/80 hover:text-white hover:bg-white/10 mb-4">
             <MessageSquarePlus className="w-4 h-4 mr-2" />
