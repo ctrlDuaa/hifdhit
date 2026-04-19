@@ -102,7 +102,7 @@ export const AppFooter = () => {
             Request a Feature
           </Button>
           
-          <p className="text-white/60 text-sm">© 2025 Hifdh it. All rights reserved.</p>
+          <p className="text-white/60 text-sm">© 2026 Hifdh It. All rights reserved.</p>
         </div>
       </footer>
 
