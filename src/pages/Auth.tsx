@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LandingNav } from '@/components/LandingNav';
 import heroBackground from '@/assets/hero-background.jpg';
-import liveSessionDemo from '@/assets/live-session-demo.jpeg';
-import mistakeTrackingDemo from '@/assets/mistake-tracking-demo.mov';
-import mushafRevisionDemo from '@/assets/mushaf-revision-demo.jpeg';
+import liveSessionDemo from '@/assets/guided-memorization-demo.mov';
+import mistakeTrackingDemo from '@/assets/adaptive-review-demo.jpeg';
+import mushafRevisionDemo from '@/assets/mistake-tracking-new.jpeg';
 import progressInsightsDemo from '@/assets/progress-insights-demo.jpeg';
 const Auth = () => {
   const [currentVerb, setCurrentVerb] = useState(0);
