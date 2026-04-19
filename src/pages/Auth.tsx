@@ -94,8 +94,8 @@ const Auth = () => {
                   Verses are shown with words gradually disappearing as you progress, helping you build confidence step-by-step until you can recite on your own.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="flex-1 bg-muted/50 flex items-center justify-center p-0 overflow-hidden">
-                <img src={progressInsightsDemo} alt="Progress Insights Demo" className="w-full h-full object-cover" />
+              <CardContent className="bg-muted/50 p-0 overflow-hidden aspect-video w-full">
+                <video src={liveSessionDemo} className="w-full h-full object-cover" autoPlay loop muted playsInline />
               </CardContent>
             </Card>
 
@@ -107,8 +107,8 @@ const Auth = () => {
                   Know exactly what to revise. Hifdh It tracks the strength of each verse and brings back weaker ones more often, so your memorization actually sticks.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="flex-1 bg-muted/50 flex items-center justify-center p-0 overflow-hidden">
-                <video src={mistakeTrackingDemo} className="w-full h-full object-cover" autoPlay loop muted playsInline />
+              <CardContent className="bg-muted/50 p-0 overflow-hidden aspect-video w-full">
+                <img src={mistakeTrackingDemo} alt="Adaptive Review System Demo" className="w-full h-full object-cover" />
               </CardContent>
             </Card>
 
@@ -120,8 +120,8 @@ const Auth = () => {
                   Improve with intention. Mark mistakes by type (incorrect, missed, tajweed, or harakat) and understand where you need to focus.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="flex-1 bg-muted/50 flex items-center justify-center p-0 overflow-hidden">
-                <img src={mushafRevisionDemo} alt="Mushaf Revision Mode Demo" className="w-full h-full object-cover" />
+              <CardContent className="bg-muted/50 p-0 overflow-hidden aspect-video w-full">
+                <img src={mushafRevisionDemo} alt="Mistake Tracking Demo" className="w-full h-full object-cover" />
               </CardContent>
             </Card>
 
@@ -133,8 +133,8 @@ const Auth = () => {
                   Review in a way that works for you. Do it on your own or revise with a friend in real time, adding accountability and consistency to your routine.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="flex-1 bg-muted/50 flex items-center justify-center p-0 overflow-hidden">
-                <img src={liveSessionDemo} alt="Live Recitation Session Demo" className="w-full h-full object-cover" />
+              <CardContent className="bg-muted/50 p-0 overflow-hidden aspect-video w-full">
+                <img src={progressInsightsDemo} alt="Progress Insights Demo" className="w-full h-full object-cover" />
               </CardContent>
             </Card>
           </div>
