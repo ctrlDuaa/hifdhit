@@ -276,33 +276,6 @@ serve(async (req) => {
       return json({ success: true, data });
     }
 
-    // QCF V2 page data: per-word code_v2 glyphs + line/page metadata.
-    // Used by the Quran Overview to render the Madani Mushaf with QCF V2 fonts.
-    if (action === "qcf-page") {
-      const pageNum = url.searchParams.get("page_number");
-      if (!pageNum) return err("page_number parameter required");
-      const QURAN_API_BASE = Deno.env.get("QURAN_API_BASE_URL") || "https://api.quran.com/api/v4";
-      const wordFields = [
-        "code_v2",
-        "text_qpc_hafs",
-        "page_number",
-        "line_number",
-        "char_type_name",
-        "position",
-      ].join(",");
-      const res = await fetch(
-        `${QURAN_API_BASE}/verses/by_page/${pageNum}?words=true&mushaf=1&word_fields=${wordFields}&per_page=50`,
-        { headers: { Accept: "application/json" } }
-      );
-      if (!res.ok) {
-        const text = await res.text();
-        console.error("qcf-page upstream failed:", res.status, text);
-        return json({ success: false, error: `Upstream ${res.status}` }, 502);
-      }
-      const data = await res.json();
-      return json({ success: true, data });
-    }
-
     if (action === "tafsir") {
       const key = url.searchParams.get("verse_key");
       if (!key) return err("verse_key parameter required");
@@ -348,7 +321,7 @@ serve(async (req) => {
     }
 
     return err(
-      "Unknown action. Available: config, exchange, refresh, user-api, chapters, chapter, verses, verse, verse-range, page, qcf-page, tafsir, chapter-audio, verse-audio, translations, tafsirs-list, reciters, test-verse"
+      "Unknown action. Available: config, exchange, refresh, user-api, chapters, chapter, verses, verse, verse-range, page, tafsir, chapter-audio, verse-audio, translations, tafsirs-list, reciters, test-verse"
     );
   } catch (error) {
     console.error("Quran API error:", error);

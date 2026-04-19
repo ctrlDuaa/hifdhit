@@ -8,10 +8,10 @@ import { ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react';
 import { useSupabaseMushaf, SupabasePage, SupabaseWord } from '@/hooks/useSupabaseMushaf';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { usePageFont } from '@/hooks/usePageFont';
 import { AppHeader } from '@/components/AppHeader';
 import { format } from 'date-fns';
 import { buildPageWordKeySet, getNormalizedMistakeWordKey } from '@/lib/mushafMistakeUtils';
-import { QcfMushafPage, type QcfWordHighlight } from '@/components/quran/QcfMushafPage';
 
 type MistakeCategory = 'tajweed' | 'missed' | 'harakah' | 'incorrect';
 
@@ -32,6 +32,8 @@ const MushafViewer = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [highlightedWords, setHighlightedWords] = useState<Map<string, MistakeData>>(new Map());
   
+  // Load page-specific font
+  const { fontFamily: pageFontFamily, fontLoaded } = usePageFont(currentPage);
 
   useEffect(() => {
     const initializePage = async () => {
@@ -278,23 +280,7 @@ const MushafViewer = () => {
     return surahNames[surahNumber] || `سورة ${surahNumber}`;
   };
 
-  // Build QCF highlights map from local mistake state.
-  // Local key is `${surah}-${ayah}-${word.word}` where word.word is the
-  // 1-based position within the ayah — same convention QF uses for `position`.
-  const qcfHighlights = React.useMemo(() => {
-    const map = new Map<string, QcfWordHighlight>();
-    highlightedWords.forEach((m, key) => {
-      map.set(key, {
-        background: getCategoryColor(m.category),
-        border: getCategoryBorderColor(m.category),
-        title: `${m.category}${m.date ? ` - ${m.date}` : ''}`,
-        darkText: true,
-      });
-    });
-    return map;
-  }, [highlightedWords]);
-
-  if (loading) {
+  if (loading || !fontLoaded) {
     return (
       <div className="min-h-screen bg-background p-4">
         <div className="max-w-4xl mx-auto space-y-4">
@@ -376,46 +362,76 @@ const MushafViewer = () => {
           <Card className="bg-card border-border">
             <CardContent className="p-8">
               <div className="space-y-6" dir="rtl">
-                {/* Surah-name + basmallah decorations come from local page metadata */}
-                {pageData.lines
-                  .filter((line) => line.line_type === 'surah_name' || line.line_type === 'basmallah')
-                  .map((line) => (
-                    <div key={`${pageData.page_number}-deco-${line.line_number}`}>
-                      {line.line_type === 'surah_name' && (
-                        <div className="my-8 flex flex-col items-center gap-4">
-                          <div className="w-full max-w-3xl mx-auto">
-                            <div className="h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
-                            <div className="flex items-center justify-center gap-2 -mt-3">
-                              <div className="w-2 h-2 rotate-45 bg-primary/40" />
-                              <div className="w-3 h-3 rotate-45 bg-primary/60" />
-                              <div className="w-2 h-2 rotate-45 bg-primary/40" />
-                            </div>
-                          </div>
-                          <div
-                            className="text-center text-2xl md:text-3xl lg:text-4xl text-primary font-bold py-2"
-                            style={{ fontFamily: 'DigitalKhattV2' }}
-                          >
-                            {line.surah_number && getSurahName(line.surah_number)}
+                {pageData.lines.map((line) => (
+                  <div key={`${pageData.page_number}-${line.line_number}`}>
+                    {line.line_type === 'surah_name' && (
+                      <div className="my-8 flex flex-col items-center gap-4">
+                        <div className="w-full max-w-3xl mx-auto">
+                          <div className="h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+                          <div className="flex items-center justify-center gap-2 -mt-3">
+                            <div className="w-2 h-2 rotate-45 bg-primary/40" />
+                            <div className="w-3 h-3 rotate-45 bg-primary/60" />
+                            <div className="w-2 h-2 rotate-45 bg-primary/40" />
                           </div>
                         </div>
-                      )}
-                      {line.line_type === 'basmallah' && (
-                        <div
-                          className="text-center text-xl md:text-2xl lg:text-3xl text-muted-foreground py-2"
-                          style={{ fontFamily: 'DigitalKhattV2' }}
-                        >
-                          بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
-                        </div>
-                      )}
+                    <div 
+                      className="text-center text-2xl md:text-3xl lg:text-4xl text-primary font-bold py-2"
+                      style={{ fontFamily: 'DigitalKhattV2' }}
+                    >
+                      {line.surah_number && getSurahName(line.surah_number)}
                     </div>
-                  ))}
-
-                {/* QCF V2 glyph-rendered Mushaf body (all ayah lines) */}
-                <QcfMushafPage
-                  pageNumber={currentPage}
-                  highlights={qcfHighlights}
-                  className="w-full max-w-3xl mx-auto"
-                />
+                      </div>
+                    )}
+                    
+                    {line.line_type === 'basmallah' && (
+                      <div 
+                        className="text-center text-xl md:text-2xl lg:text-3xl text-muted-foreground py-2"
+                        style={{ fontFamily: 'DigitalKhattV2' }}
+                      >
+                        بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+                      </div>
+                    )}
+                    
+                {line.line_type === 'ayah' && (
+                  <div 
+                    className="w-full max-w-3xl mx-auto text-xl md:text-2xl lg:text-3xl leading-tight"
+                    style={{ 
+                      fontFamily: pageFontFamily,
+                      lineHeight: '2',
+                      textAlign: 'center',
+                      direction: 'rtl',
+                      wordSpacing: '0.05em'
+                    }}
+                  >
+                    {line.words.map((word) => {
+                      const wordKey = `${word.surah}-${word.ayah}-${word.word}`;
+                      const mistakeData = highlightedWords.get(wordKey);
+                      const hasMistake = mistakeData !== undefined;
+                      
+                      return (
+                        <span
+                          key={word.id}
+                          className="transition-colors duration-200 rounded-sm"
+                          style={
+                            hasMistake
+                              ? {
+                                  backgroundColor: getCategoryColor(mistakeData.category),
+                                  border: `2px solid ${getCategoryBorderColor(mistakeData.category)}`,
+                                  padding: '2px 4px',
+                                  color: 'black'
+                                }
+                              : undefined
+                          }
+                          title={hasMistake ? `${mistakeData.category} - ${mistakeData.date}` : ''}
+                        >
+                          {word.text}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>

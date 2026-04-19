@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LandingNav } from '@/components/LandingNav';
 import heroBackground from '@/assets/hero-background.jpg';
-import liveSessionDemo from '@/assets/guided-memorization-demo.mov';
-import mistakeTrackingDemo from '@/assets/adaptive-review-demo.jpeg';
-import mushafRevisionDemo from '@/assets/mistake-tracking-new.jpeg';
+import liveSessionDemo from '@/assets/live-session-demo.jpeg';
+import mistakeTrackingDemo from '@/assets/mistake-tracking-demo.mov';
+import mushafRevisionDemo from '@/assets/mushaf-revision-demo.jpeg';
 import progressInsightsDemo from '@/assets/progress-insights-demo.jpeg';
 const Auth = () => {
   const [currentVerb, setCurrentVerb] = useState(0);
@@ -94,8 +94,8 @@ const Auth = () => {
                   Verses are shown with words gradually disappearing as you progress, helping you build confidence step-by-step until you can recite on your own.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="bg-muted/50 p-0 overflow-hidden aspect-video w-full">
-                <video src={liveSessionDemo} className="w-full h-full object-cover" autoPlay loop muted playsInline />
+              <CardContent className="flex-1 bg-muted/50 flex items-center justify-center p-0 overflow-hidden">
+                <img src={liveSessionDemo} alt="Live Recitation Session Demo" className="w-full h-full object-cover" />
               </CardContent>
             </Card>
 
@@ -107,8 +107,8 @@ const Auth = () => {
                   Know exactly what to revise. Hifdh It tracks the strength of each verse and brings back weaker ones more often, so your memorization actually sticks.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="bg-muted/50 p-0 overflow-hidden aspect-video w-full">
-                <img src={mistakeTrackingDemo} alt="Adaptive Review System Demo" className="w-full h-full object-cover" />
+              <CardContent className="flex-1 bg-muted/50 flex items-center justify-center p-0 overflow-hidden">
+                <video src={mistakeTrackingDemo} className="w-full h-full object-cover" autoPlay loop muted playsInline />
               </CardContent>
             </Card>
 
@@ -120,8 +120,8 @@ const Auth = () => {
                   Improve with intention. Mark mistakes by type (incorrect, missed, tajweed, or harakat) and understand where you need to focus.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="bg-muted/50 p-0 overflow-hidden aspect-video w-full">
-                <img src={mushafRevisionDemo} alt="Mistake Tracking Demo" className="w-full h-full object-cover" />
+              <CardContent className="flex-1 bg-muted/50 flex items-center justify-center p-0 overflow-hidden">
+                <img src={mushafRevisionDemo} alt="Mushaf Revision Mode Demo" className="w-full h-full object-cover" />
               </CardContent>
             </Card>
 
@@ -133,7 +133,7 @@ const Auth = () => {
                   Review in a way that works for you. Do it on your own or revise with a friend in real time, adding accountability and consistency to your routine.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="bg-muted/50 p-0 overflow-hidden aspect-video w-full">
+              <CardContent className="flex-1 bg-muted/50 flex items-center justify-center p-0 overflow-hidden">
                 <img src={progressInsightsDemo} alt="Progress Insights Demo" className="w-full h-full object-cover" />
               </CardContent>
             </Card>
