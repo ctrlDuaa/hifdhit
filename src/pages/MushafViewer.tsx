@@ -35,8 +35,64 @@ const MushafViewer = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [highlightedWords, setHighlightedWords] = useState<Map<string, MistakeData>>(new Map());
   
-  // Load page-specific font
+  // Load page-specific font (legacy local Mushaf font, used as fallback rendering)
   const { fontFamily: pageFontFamily, fontLoaded } = usePageFont(currentPage);
+
+  // ── QCF V2 (Quran Foundation glyph rendering) ──
+  const [qcfWords, setQcfWords] = useState<QcfWord[] | null>(null);
+  const [qcfError, setQcfError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setQcfWords(null);
+    setQcfError(null);
+    (async () => {
+      try {
+        const data = await quranApi.getPageQcf(currentPage);
+        const verses = data?.verses ?? [];
+        const words: QcfWord[] = [];
+        for (const v of verses) {
+          const [surahStr, ayahStr] = String(v.verse_key ?? '').split(':');
+          const surah = Number(surahStr);
+          const ayah = Number(ayahStr);
+          for (const w of v.words ?? []) {
+            words.push({
+              id: w.id,
+              code_v2: w.code_v2,
+              text_qpc_hafs: w.text_qpc_hafs,
+              page_number: w.page_number,
+              line_number: w.line_number,
+              char_type_name: w.char_type_name,
+              position: w.position,
+              surah,
+              ayah,
+            });
+          }
+        }
+        if (!cancelled) setQcfWords(words);
+      } catch (e: any) {
+        console.warn('[QCF] page-qcf fetch failed, falling back to local rendering:', e);
+        if (!cancelled) setQcfError(e?.message || 'QCF fetch failed');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentPage]);
+
+  const { loadedPages: qcfLoadedPages } = useQcfFontLoader(qcfWords ?? []);
+
+  // Group QCF words by line_number for line-based rendering
+  const qcfLineMap = useMemo(() => {
+    const m = new Map<number, QcfWord[]>();
+    if (!qcfWords) return m;
+    for (const w of qcfWords) {
+      const ln = w.line_number ?? 0;
+      if (!m.has(ln)) m.set(ln, []);
+      m.get(ln)!.push(w);
+    }
+    return m;
+  }, [qcfWords]);
 
   useEffect(() => {
     const initializePage = async () => {
