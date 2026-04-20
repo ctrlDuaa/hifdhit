@@ -276,6 +276,22 @@ serve(async (req) => {
       return json({ success: true, data });
     }
 
+    // QCF V2 glyph-based page data — returns per-word code_v2, text_qpc_hafs, page_number, line_number, char_type_name
+    if (action === "page-qcf") {
+      const pageNum = url.searchParams.get("page_number");
+      if (!pageNum) return err("page_number parameter required");
+      const QURAN_API_BASE = Deno.env.get("QURAN_API_BASE_URL") || "https://api.quran.com/api/v4";
+      const wordFields = "code_v2,text_qpc_hafs,page_number,line_number,char_type_name";
+      const apiUrl = `${QURAN_API_BASE}/verses/by_page/${pageNum}?words=true&mushaf=1&word_fields=${wordFields}&per_page=50`;
+      const res = await fetch(apiUrl, { headers: { Accept: "application/json" } });
+      if (!res.ok) {
+        const text = await res.text();
+        return err(`Quran API page-qcf failed [${res.status}]: ${text}`, res.status);
+      }
+      const data = await res.json();
+      return json({ success: true, data });
+    }
+
     if (action === "tafsir") {
       const key = url.searchParams.get("verse_key");
       if (!key) return err("verse_key parameter required");
