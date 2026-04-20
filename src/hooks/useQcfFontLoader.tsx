@@ -50,6 +50,9 @@ async function loadPageFont(pageNumber: number): Promise<boolean> {
   const family = `p${pageNumber}-v2`;
   const url = `${FONT_BASE}/p${pageNumber}.woff2`;
 
+  // 🔍 Verification log — exact remote font URL being requested
+  console.log(`[QCF][font] Requesting page ${pageNumber} → ${url} (family: ${family})`);
+
   const promise = (async () => {
     try {
       const font = new FontFace(family, `url(${url}) format('woff2')`, {
@@ -58,9 +61,10 @@ async function loadPageFont(pageNumber: number): Promise<boolean> {
       await font.load();
       document.fonts.add(font);
       loadedPages.add(pageNumber);
+      console.log(`[QCF][font] ✅ Loaded ${family} from ${url}`);
       return true;
     } catch (err) {
-      console.warn(`[QCF] Failed to load font for page ${pageNumber}:`, err);
+      console.error(`[QCF][font] ❌ Failed to load ${family} from ${url}:`, err);
       failedPages.add(pageNumber);
       return false;
     } finally {
