@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,6 +9,9 @@ import { useSupabaseMushaf, SupabasePage, SupabaseWord } from '@/hooks/useSupaba
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { usePageFont } from '@/hooks/usePageFont';
+import { useQcfFontLoader } from '@/hooks/useQcfFontLoader';
+import { QcfVerseText, QcfWord } from '@/components/quran/QcfVerseText';
+import { quranApi } from '@/services/quranApi';
 import { AppHeader } from '@/components/AppHeader';
 import { format } from 'date-fns';
 import { buildPageWordKeySet, getNormalizedMistakeWordKey } from '@/lib/mushafMistakeUtils';
@@ -32,8 +35,64 @@ const MushafViewer = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [highlightedWords, setHighlightedWords] = useState<Map<string, MistakeData>>(new Map());
   
-  // Load page-specific font
+  // Load page-specific font (legacy local Mushaf font, used as fallback rendering)
   const { fontFamily: pageFontFamily, fontLoaded } = usePageFont(currentPage);
+
+  // ── QCF V2 (Quran Foundation glyph rendering) ──
+  const [qcfWords, setQcfWords] = useState<QcfWord[] | null>(null);
+  const [qcfError, setQcfError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setQcfWords(null);
+    setQcfError(null);
+    (async () => {
+      try {
+        const data = await quranApi.getPageQcf(currentPage);
+        const verses = data?.verses ?? [];
+        const words: QcfWord[] = [];
+        for (const v of verses) {
+          const [surahStr, ayahStr] = String(v.verse_key ?? '').split(':');
+          const surah = Number(surahStr);
+          const ayah = Number(ayahStr);
+          for (const w of v.words ?? []) {
+            words.push({
+              id: w.id,
+              code_v2: w.code_v2,
+              text_qpc_hafs: w.text_qpc_hafs,
+              page_number: w.page_number,
+              line_number: w.line_number,
+              char_type_name: w.char_type_name,
+              position: w.position,
+              surah,
+              ayah,
+            });
+          }
+        }
+        if (!cancelled) setQcfWords(words);
+      } catch (e: any) {
+        console.warn('[QCF] page-qcf fetch failed, falling back to local rendering:', e);
+        if (!cancelled) setQcfError(e?.message || 'QCF fetch failed');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentPage]);
+
+  const { loadedPages: qcfLoadedPages } = useQcfFontLoader(qcfWords ?? []);
+
+  // Group QCF words by line_number for line-based rendering
+  const qcfLineMap = useMemo(() => {
+    const m = new Map<number, QcfWord[]>();
+    if (!qcfWords) return m;
+    for (const w of qcfWords) {
+      const ln = w.line_number ?? 0;
+      if (!m.has(ln)) m.set(ln, []);
+      m.get(ln)!.push(w);
+    }
+    return m;
+  }, [qcfWords]);
 
   useEffect(() => {
     const initializePage = async () => {
@@ -392,44 +451,93 @@ const MushafViewer = () => {
                       </div>
                     )}
                     
-                {line.line_type === 'ayah' && (
-                  <div 
-                    className="w-full max-w-3xl mx-auto text-xl md:text-2xl lg:text-3xl leading-tight"
-                    style={{ 
-                      fontFamily: pageFontFamily,
-                      lineHeight: '2',
-                      textAlign: 'center',
-                      direction: 'rtl',
-                      wordSpacing: '0.05em'
-                    }}
-                  >
-                    {line.words.map((word) => {
-                      const wordKey = `${word.surah}-${word.ayah}-${word.word}`;
-                      const mistakeData = highlightedWords.get(wordKey);
-                      const hasMistake = mistakeData !== undefined;
-                      
-                      return (
-                        <span
-                          key={word.id}
-                          className="transition-colors duration-200 rounded-sm"
-                          style={
-                            hasMistake
-                              ? {
-                                  backgroundColor: getCategoryColor(mistakeData.category),
-                                  border: `2px solid ${getCategoryBorderColor(mistakeData.category)}`,
-                                  padding: '2px 4px',
-                                  color: 'black'
+                {line.line_type === 'ayah' && (() => {
+                  const qcfLineWords = qcfWords && !qcfError ? qcfLineMap.get(line.line_number) : null;
+                  const useQcf = qcfLineWords && qcfLineWords.length > 0;
+
+                  if (useQcf) {
+                    return (
+                      <div
+                        className="w-full max-w-3xl mx-auto text-xl md:text-2xl lg:text-3xl leading-tight"
+                        style={{
+                          lineHeight: '2',
+                          textAlign: 'center',
+                          direction: 'rtl',
+                          wordSpacing: '0.05em',
+                        }}
+                      >
+                        <QcfVerseText
+                          words={qcfLineWords!}
+                          loadedPages={qcfLoadedPages}
+                          wordWrapper={(w, _i, child) => {
+                            if (w.char_type_name === 'end') return child;
+                            const wordKey = `${w.surah}-${w.ayah}-${w.position}`;
+                            const mistakeData = highlightedWords.get(wordKey);
+                            const hasMistake = mistakeData !== undefined;
+                            return (
+                              <span
+                                className="transition-colors duration-200 rounded-sm"
+                                style={
+                                  hasMistake
+                                    ? {
+                                        backgroundColor: getCategoryColor(mistakeData.category),
+                                        border: `2px solid ${getCategoryBorderColor(mistakeData.category)}`,
+                                        padding: '2px 4px',
+                                        color: 'black',
+                                        display: 'inline-block',
+                                      }
+                                    : undefined
                                 }
-                              : undefined
-                          }
-                          title={hasMistake ? `${mistakeData.category} - ${mistakeData.date}` : ''}
-                        >
-                          {word.text}
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
+                                title={hasMistake ? `${mistakeData.category} - ${mistakeData.date}` : ''}
+                              >
+                                {child}
+                              </span>
+                            );
+                          }}
+                        />
+                      </div>
+                    );
+                  }
+
+                  // Fallback: legacy local Mushaf rendering
+                  return (
+                    <div
+                      className="w-full max-w-3xl mx-auto text-xl md:text-2xl lg:text-3xl leading-tight"
+                      style={{
+                        fontFamily: pageFontFamily,
+                        lineHeight: '2',
+                        textAlign: 'center',
+                        direction: 'rtl',
+                        wordSpacing: '0.05em',
+                      }}
+                    >
+                      {line.words.map((word) => {
+                        const wordKey = `${word.surah}-${word.ayah}-${word.word}`;
+                        const mistakeData = highlightedWords.get(wordKey);
+                        const hasMistake = mistakeData !== undefined;
+                        return (
+                          <span
+                            key={word.id}
+                            className="transition-colors duration-200 rounded-sm"
+                            style={
+                              hasMistake
+                                ? {
+                                    backgroundColor: getCategoryColor(mistakeData.category),
+                                    border: `2px solid ${getCategoryBorderColor(mistakeData.category)}`,
+                                    padding: '2px 4px',
+                                    color: 'black',
+                                  }
+                                : undefined
+                            }
+                            title={hasMistake ? `${mistakeData.category} - ${mistakeData.date}` : ''}
+                          >
+                            {word.text}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
                   </div>
                 ))}
               </div>
