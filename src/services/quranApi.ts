@@ -73,7 +73,10 @@ class QuranApiService {
 
   private async invoke<T>(params: Record<string, string>): Promise<T> {
     const qs = new URLSearchParams(params).toString();
-    const res = await fetch(`${this.getBaseUrl()}?${qs}`, { headers: this.getHeaders() });
+    const url = `${this.getBaseUrl()}?${qs}`;
+    // 🔍 Verification log — exact Quran API request URL (proxied through edge function)
+    console.log(`[QCF][api] ${params.action ?? '?'} → ${url}`);
+    const res = await fetch(url, { headers: this.getHeaders() });
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
