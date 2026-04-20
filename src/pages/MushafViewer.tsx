@@ -9,7 +9,7 @@ import { useSupabaseMushaf, SupabasePage, SupabaseWord } from '@/hooks/useSupaba
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { usePageFont } from '@/hooks/usePageFont';
-import { useQcfFontLoader } from '@/hooks/useQcfFontLoader';
+import { useQcfFontLoader, prefetchQcfPageFont } from '@/hooks/useQcfFontLoader';
 import { QcfVerseText, QcfWord } from '@/components/quran/QcfVerseText';
 import { quranApi } from '@/services/quranApi';
 import { AppHeader } from '@/components/AppHeader';
@@ -81,6 +81,23 @@ const MushafViewer = () => {
   }, [currentPage]);
 
   const { loadedPages: qcfLoadedPages } = useQcfFontLoader(qcfWords ?? []);
+
+  // Prefetch QCF fonts for adjacent pages (background, idle) so navigation feels instant
+  useEffect(() => {
+    if (!currentPage) return;
+    const candidates = [currentPage - 1, currentPage + 1].filter(
+      (p) => p >= 1 && (totalPages === 0 || p <= totalPages)
+    );
+    const run = () => candidates.forEach(prefetchQcfPageFont);
+    const w = window as any;
+    const handle = w.requestIdleCallback
+      ? w.requestIdleCallback(run, { timeout: 1500 })
+      : window.setTimeout(run, 300);
+    return () => {
+      if (w.cancelIdleCallback && w.requestIdleCallback) w.cancelIdleCallback(handle);
+      else window.clearTimeout(handle);
+    };
+  }, [currentPage, totalPages]);
 
   // Group QCF words by line_number for line-based rendering
   const qcfLineMap = useMemo(() => {
