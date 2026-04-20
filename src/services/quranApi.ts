@@ -142,6 +142,11 @@ class QuranApiService {
     return this.invoke({ action: "page", page_number: String(pageNumber) });
   }
 
+  /** QCF V2 glyph-based page data (code_v2, text_qpc_hafs, page_number, line_number, char_type_name) */
+  async getPageQcf(pageNumber: number): Promise<any> {
+    return this.invoke({ action: "page-qcf", page_number: String(pageNumber) });
+  }
+
   // ── Tafsir ───────────────────────────────────────────────
 
   async getTafsir(
