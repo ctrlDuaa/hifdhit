@@ -1015,6 +1015,137 @@ const SurahViewer = () => {
           <Card>
             
           </Card>
+
+          {/* 🔍 QCF V2 verification panel — TEMPORARY DEBUG */}
+          {(() => {
+            const fontSnap = getQcfFontDebugSnapshot();
+            const fw = qcfDebug.firstWord;
+            const checks = fw
+              ? {
+                  code_v2: !!fw.code_v2,
+                  text_qpc_hafs: !!fw.text_qpc_hafs,
+                  page_number: typeof fw.page_number === 'number',
+                  char_type_name: typeof fw.char_type_name === 'string',
+                }
+              : null;
+            return (
+              <Card className="mt-4 border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/30">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    🔍 QCF V2 Verification (Quran.com API + Quran Foundation fonts)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-xs space-y-3 font-mono">
+                  <div>
+                    <div className="font-semibold mb-1">Current Mushaf page:</div>
+                    <div>{currentPage}</div>
+                  </div>
+
+                  <div>
+                    <div className="font-semibold mb-1">Upstream Quran.com URL (proxied):</div>
+                    <div className="break-all bg-background/50 p-2 rounded border">
+                      {qcfDebug.requestUrl ?? '(loading…)'}
+                    </div>
+                  </div>
+
+                  {qcfDebug.error && (
+                    <div className="text-destructive">
+                      <div className="font-semibold">API error:</div>
+                      <div>{qcfDebug.error}</div>
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="font-semibold mb-1">
+                      Word count: {qcfDebug.wordCount ?? 0} • Pages in payload:{' '}
+                      {qcfDebug.pages?.join(', ') ?? '—'} • Fetched at: {qcfDebug.fetchedAt ?? '—'}
+                    </div>
+                  </div>
+
+                  {fw && (
+                    <div>
+                      <div className="font-semibold mb-1">First word object:</div>
+                      <pre className="bg-background/50 p-2 rounded border overflow-x-auto whitespace-pre-wrap">
+{JSON.stringify(fw, null, 2)}
+                      </pre>
+                      <div className="mt-2 grid grid-cols-2 gap-1">
+                        {checks &&
+                          Object.entries(checks).map(([k, v]) => (
+                            <div key={k} className={v ? 'text-emerald-700 dark:text-emerald-400' : 'text-destructive'}>
+                              {v ? '✅' : '❌'} {k}
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="font-semibold mb-1">QCF font base URL (forced remote):</div>
+                    <div className="break-all bg-background/50 p-2 rounded border">{fontSnap.base}</div>
+                  </div>
+
+                  <div>
+                    <div className="font-semibold mb-1">Per-page font URLs for this payload:</div>
+                    <div className="space-y-1">
+                      {(qcfDebug.pages ?? []).map((p) => {
+                        const url = getQcfFontUrl(p);
+                        const status = fontSnap.loaded.includes(p)
+                          ? '✅ loaded'
+                          : fontSnap.failed.includes(p)
+                          ? '❌ failed'
+                          : fontSnap.inFlight.includes(p)
+                          ? '⏳ loading'
+                          : '… queued';
+                        return (
+                          <div key={p} className="break-all bg-background/50 p-2 rounded border">
+                            <div>p{p}-v2 → {status}</div>
+                            <div className="opacity-70">{url}</div>
+                          </div>
+                        );
+                      })}
+                      {(qcfDebug.pages ?? []).length === 0 && <div>(none yet)</div>}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <div className="font-semibold">Loaded</div>
+                      <div>{fontSnap.loaded.join(', ') || '—'}</div>
+                    </div>
+                    <div>
+                      <div className="font-semibold">In flight</div>
+                      <div>{fontSnap.inFlight.join(', ') || '—'}</div>
+                    </div>
+                    <div className="text-destructive">
+                      <div className="font-semibold">Failed</div>
+                      <div>{fontSnap.failed.join(', ') || '—'}</div>
+                    </div>
+                  </div>
+
+                  {fw?.code_v2 && qcfDebug.pages && qcfDebug.pages[0] && (
+                    <div>
+                      <div className="font-semibold mb-1">
+                        Live render sample (first word, glyph + fallback):
+                      </div>
+                      <div className="flex gap-4 items-center bg-background/50 p-3 rounded border" dir="rtl">
+                        <span
+                          style={{ fontFamily: `'p${fw.page_number}-v2'`, fontSize: '2rem' }}
+                          dangerouslySetInnerHTML={{ __html: fw.code_v2 }}
+                          title="code_v2 via Quran Foundation font"
+                        />
+                        <span
+                          style={{ fontFamily: "'UthmanicHafs', serif", fontSize: '2rem' }}
+                          title="text_qpc_hafs fallback"
+                        >
+                          {fw.text_qpc_hafs}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
         </div>
 
         {/* Main Content with Sidebar */}
