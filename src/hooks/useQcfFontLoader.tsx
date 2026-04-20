@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
 
 /**
- * Loads QCF V2 page-specific glyph fonts on demand.
- * Each Mushaf page has its own font: p{n}-v2 served from verses.quran.foundation.
- * Loaded fonts are registered with document.fonts and cached in-memory so they
- * are never re-fetched in the same session.
+ * Loads QCF V2 page-specific glyph fonts on demand from Quran Foundation's
+ * hosted CDN. Each Mushaf page has its own font (p{n}-v2). Loaded fonts are
+ * registered with document.fonts and cached in-memory so they are never
+ * re-fetched in the same session.
+ *
+ * REMOTE-ONLY: fonts are loaded exclusively from
+ *   https://verses.quran.foundation/fonts/quran/hafs/v2/woff2/p{n}.woff2
+ * No local QCF page font files are used.
  */
 
 export interface QcfWordLike {
