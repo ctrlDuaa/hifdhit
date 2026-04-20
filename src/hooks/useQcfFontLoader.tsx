@@ -140,3 +140,18 @@ export function useQcfFontLoader(words: QcfWordLike[] | undefined | null) {
     isPageLoaded: (n: number) => loadedSet.has(n),
   };
 }
+
+/** Build the exact remote font URL for a given page (for debug/verification UI). */
+export function getQcfFontUrl(pageNumber: number): string {
+  return `${FONT_BASE}/p${pageNumber}.woff2`;
+}
+
+/** Snapshot of font-load state for debug panels. */
+export function getQcfFontDebugSnapshot() {
+  return {
+    base: FONT_BASE,
+    loaded: Array.from(loadedPages).sort((a, b) => a - b),
+    failed: Array.from(failedPages).sort((a, b) => a - b),
+    inFlight: Array.from(inFlight.keys()).sort((a, b) => a - b),
+  };
+}
