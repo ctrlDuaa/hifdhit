@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,6 +9,9 @@ import { useSupabaseMushaf, SupabasePage, SupabaseWord } from '@/hooks/useSupaba
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { usePageFont } from '@/hooks/usePageFont';
+import { useQcfFontLoader } from '@/hooks/useQcfFontLoader';
+import { QcfVerseText, QcfWord } from '@/components/quran/QcfVerseText';
+import { quranApi } from '@/services/quranApi';
 import { AppHeader } from '@/components/AppHeader';
 import { format } from 'date-fns';
 import { buildPageWordKeySet, getNormalizedMistakeWordKey } from '@/lib/mushafMistakeUtils';
