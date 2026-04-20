@@ -9,7 +9,7 @@ import { useSupabaseMushaf, SupabasePage, SupabaseWord } from '@/hooks/useSupaba
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { usePageFont } from '@/hooks/usePageFont';
-import { useQcfFontLoader } from '@/hooks/useQcfFontLoader';
+import { useQcfFontLoader, prefetchQcfPageFont } from '@/hooks/useQcfFontLoader';
 import { QcfVerseText, QcfWord } from '@/components/quran/QcfVerseText';
 import { quranApi } from '@/services/quranApi';
 import { AppHeader } from '@/components/AppHeader';
