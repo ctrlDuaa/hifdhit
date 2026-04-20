@@ -20,6 +20,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { AppHeader } from '@/components/AppHeader';
 import { buildPageWordKeySet, getNormalizedMistakeWordKey } from '@/lib/mushafMistakeUtils';
+import { quranApi } from '@/services/quranApi';
+import { useQcfFontLoader, getQcfFontUrl, getQcfFontDebugSnapshot } from '@/hooks/useQcfFontLoader';
 
 interface MistakeNote {
   id: string;
