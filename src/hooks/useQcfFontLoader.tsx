@@ -72,6 +72,26 @@ async function loadPageFont(pageNumber: number): Promise<boolean> {
   return promise;
 }
 
+/**
+ * Fire-and-forget prefetch for a QCF V2 page font. Safe to call repeatedly —
+ * deduplicates against in-flight, loaded, and failed caches. Use to warm
+ * adjacent Mushaf pages so navigation feels instant.
+ */
+export function prefetchQcfPageFont(pageNumber: number): void {
+  if (
+    typeof document === 'undefined' ||
+    !pageNumber ||
+    pageNumber < 1 ||
+    loadedPages.has(pageNumber) ||
+    failedPages.has(pageNumber) ||
+    inFlight.has(pageNumber)
+  ) {
+    return;
+  }
+  ensureFallbackFont();
+  void loadPageFont(pageNumber);
+}
+
 export function useQcfFontLoader(words: QcfWordLike[] | undefined | null) {
   const [loadedSet, setLoadedSet] = useState<Set<number>>(() => new Set(loadedPages));
 
