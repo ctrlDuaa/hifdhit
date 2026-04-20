@@ -70,6 +70,90 @@ const SurahViewer = () => {
   const { fontFamily: pageFontFamily, fontLoaded } = usePageFont(currentPage);
   const isMobile = useIsMobile();
 
+  // ── 🔍 QCF V2 verification (Quran.com API + Quran Foundation hosted fonts) ──
+  const [qcfDebug, setQcfDebug] = useState<{
+    requestUrl?: string;
+    firstWord?: any;
+    wordCount?: number;
+    pages?: number[];
+    fetchedAt?: string;
+    error?: string;
+  }>({});
+  const [qcfWords, setQcfWords] = useState<any[]>([]);
+  const [, setFontTick] = useState(0);
+
+  useEffect(() => {
+    if (!currentPage) return;
+    let cancelled = false;
+    setQcfDebug({});
+    setQcfWords([]);
+
+    const upstreamUrl =
+      `https://api.quran.com/api/v4/verses/by_page/${currentPage}` +
+      `?words=true&mushaf=1` +
+      `&word_fields=code_v2,text_qpc_hafs,page_number,line_number,char_type_name` +
+      `&per_page=50`;
+    console.log(`[QCF][api] upstream URL (expected): ${upstreamUrl}`);
+
+    (async () => {
+      try {
+        const data = await quranApi.getPageQcf(currentPage);
+        const verses = data?.verses ?? [];
+        const words: any[] = [];
+        for (const v of verses) for (const w of v.words ?? []) words.push(w);
+        const firstWord = words[0];
+        const pages = Array.from(
+          new Set(words.map((w) => w.page_number).filter((p): p is number => typeof p === 'number'))
+        ).sort((a, b) => a - b);
+
+        console.log('[QCF][api] first word object:', firstWord);
+        console.log('[QCF][api] field check →', {
+          has_code_v2: !!firstWord?.code_v2,
+          has_text_qpc_hafs: !!firstWord?.text_qpc_hafs,
+          has_page_number: typeof firstWord?.page_number === 'number',
+          has_char_type_name: typeof firstWord?.char_type_name === 'string',
+        });
+        console.log('[QCF][api] unique pages in payload:', pages);
+
+        if (cancelled) return;
+        setQcfWords(words);
+        setQcfDebug({
+          requestUrl: upstreamUrl,
+          firstWord,
+          wordCount: words.length,
+          pages,
+          fetchedAt: new Date().toLocaleTimeString(),
+        });
+      } catch (e: any) {
+        console.error('[QCF][api] fetch failed:', e);
+        if (!cancelled) {
+          setQcfDebug({
+            requestUrl: upstreamUrl,
+            error: e?.message || 'fetch failed',
+            fetchedAt: new Date().toLocaleTimeString(),
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentPage]);
+
+  // Trigger font loads via the hook so they actually fetch from quran.foundation
+  useQcfFontLoader(qcfWords);
+
+  // Tick to refresh debug snapshot as fonts come in
+  useEffect(() => {
+    if (qcfWords.length === 0) return;
+    const id = window.setInterval(() => setFontTick((t) => t + 1), 500);
+    const stop = window.setTimeout(() => window.clearInterval(id), 8000);
+    return () => {
+      window.clearInterval(id);
+      window.clearTimeout(stop);
+    };
+  }, [qcfWords]);
+
   // Helper functions for mistake categories
   const getCategoryColor = (category: string): string => {
     switch (category) {
