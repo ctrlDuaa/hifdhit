@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
 
 /**
- * Loads QCF V2 page-specific glyph fonts on demand.
- * Each Mushaf page has its own font: p{n}-v2 served from verses.quran.foundation.
- * Loaded fonts are registered with document.fonts and cached in-memory so they
- * are never re-fetched in the same session.
+ * Loads QCF V2 page-specific glyph fonts on demand from Quran Foundation's
+ * hosted CDN. Each Mushaf page has its own font (p{n}-v2). Loaded fonts are
+ * registered with document.fonts and cached in-memory so they are never
+ * re-fetched in the same session.
+ *
+ * REMOTE-ONLY: fonts are loaded exclusively from
+ *   https://verses.quran.foundation/fonts/quran/hafs/v2/woff2/p{n}.woff2
+ * No local QCF page font files are used.
  */
 
 export interface QcfWordLike {
@@ -50,6 +54,9 @@ async function loadPageFont(pageNumber: number): Promise<boolean> {
   const family = `p${pageNumber}-v2`;
   const url = `${FONT_BASE}/p${pageNumber}.woff2`;
 
+  // 🔍 Verification log — exact remote font URL being requested
+  console.log(`[QCF][font] Requesting page ${pageNumber} → ${url} (family: ${family})`);
+
   const promise = (async () => {
     try {
       const font = new FontFace(family, `url(${url}) format('woff2')`, {
@@ -58,9 +65,10 @@ async function loadPageFont(pageNumber: number): Promise<boolean> {
       await font.load();
       document.fonts.add(font);
       loadedPages.add(pageNumber);
+      console.log(`[QCF][font] ✅ Loaded ${family} from ${url}`);
       return true;
     } catch (err) {
-      console.warn(`[QCF] Failed to load font for page ${pageNumber}:`, err);
+      console.error(`[QCF][font] ❌ Failed to load ${family} from ${url}:`, err);
       failedPages.add(pageNumber);
       return false;
     } finally {
@@ -130,5 +138,20 @@ export function useQcfFontLoader(words: QcfWordLike[] | undefined | null) {
   return {
     loadedPages: loadedSet,
     isPageLoaded: (n: number) => loadedSet.has(n),
+  };
+}
+
+/** Build the exact remote font URL for a given page (for debug/verification UI). */
+export function getQcfFontUrl(pageNumber: number): string {
+  return `${FONT_BASE}/p${pageNumber}.woff2`;
+}
+
+/** Snapshot of font-load state for debug panels. */
+export function getQcfFontDebugSnapshot() {
+  return {
+    base: FONT_BASE,
+    loaded: Array.from(loadedPages).sort((a, b) => a - b),
+    failed: Array.from(failedPages).sort((a, b) => a - b),
+    inFlight: Array.from(inFlight.keys()).sort((a, b) => a - b),
   };
 }
