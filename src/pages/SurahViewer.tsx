@@ -72,7 +72,9 @@ const SurahViewer = () => {
 
   // ── 🔍 QCF V2 verification (Quran.com API + Quran Foundation hosted fonts) ──
   const [qcfDebug, setQcfDebug] = useState<{
-    requestUrl?: string;
+    upstreamUrl?: string;
+    upstreamStatus?: number;
+    rawBodyPreview?: string;
     firstWord?: any;
     firstVerse?: any;
     verseCount?: number;
@@ -90,13 +92,6 @@ const SurahViewer = () => {
     setQcfDebug({});
     setQcfWords([]);
 
-    const upstreamUrl =
-      `https://api.quran.com/api/v4/verses/by_page/${currentPage}` +
-      `?words=true&mushaf=1` +
-      `&word_fields=code_v2,text_qpc_hafs,page_number,line_number,char_type_name` +
-      `&per_page=50`;
-    console.log(`[QCF][api] upstream URL (expected): ${upstreamUrl}`);
-
     (async () => {
       try {
         const response = await quranApi.getPageQcf(currentPage);
@@ -111,22 +106,21 @@ const SurahViewer = () => {
         const pages: number[] = Array.from(pageSet).sort((a, b) => a - b);
 
         console.log('[QCF][api] Raw page response:', response);
+        console.log('[QCF][api] debug_upstream_url:', response?.debug_upstream_url);
+        console.log('[QCF][api] debug_status:', response?.debug_status);
+        console.log('[QCF][api] debug_raw_body_preview:', response?.debug_raw_body_preview);
         console.log('[QCF][api] Verse count:', verses.length);
         console.log('[QCF][api] Flattened word count:', words.length);
         console.log('[QCF][api] First verse:', firstVerse);
         console.log('[QCF][api] First word:', firstWord);
-        console.log('[QCF][api] field check →', {
-          has_code_v2: !!firstWord?.code_v2,
-          has_text_qpc_hafs: !!firstWord?.text_qpc_hafs,
-          has_page_number: typeof firstWord?.page_number === 'number',
-          has_char_type_name: typeof firstWord?.char_type_name === 'string',
-        });
         console.log('[QCF][api] unique pages in payload:', pages);
 
         if (cancelled) return;
         setQcfWords(words);
         setQcfDebug({
-          requestUrl: upstreamUrl,
+          upstreamUrl: response?.debug_upstream_url,
+          upstreamStatus: response?.debug_status,
+          rawBodyPreview: response?.debug_raw_body_preview,
           firstWord,
           firstVerse,
           verseCount: verses.length,
@@ -138,7 +132,6 @@ const SurahViewer = () => {
         console.error('[QCF][api] fetch failed:', e);
         if (!cancelled) {
           setQcfDebug({
-            requestUrl: upstreamUrl,
             error: e?.message || 'fetch failed',
             fetchedAt: new Date().toLocaleTimeString(),
           });
@@ -1052,10 +1045,21 @@ const SurahViewer = () => {
                   </div>
 
                   <div>
-                    <div className="font-semibold mb-1">Upstream Quran.com URL (proxied):</div>
+                    <div className="font-semibold mb-1">Actual upstream URL (from edge function):</div>
                     <div className="break-all bg-background/50 p-2 rounded border">
-                      {qcfDebug.requestUrl ?? '(loading…)'}
+                      {qcfDebug.upstreamUrl ?? '(loading…)'}
                     </div>
+                    <div className="mt-1">
+                      Host check:{' '}
+                      {qcfDebug.upstreamUrl?.startsWith('https://apis.quran.foundation/content/api/v4') ? (
+                        <span className="text-emerald-700 dark:text-emerald-400">✅ apis.quran.foundation/content/api/v4</span>
+                      ) : qcfDebug.upstreamUrl ? (
+                        <span className="text-destructive">❌ wrong host: {qcfDebug.upstreamUrl}</span>
+                      ) : (
+                        '—'
+                      )}
+                    </div>
+                    <div>Upstream status: {qcfDebug.upstreamStatus ?? '—'}</div>
                   </div>
 
                   {qcfDebug.error && (
@@ -1071,6 +1075,15 @@ const SurahViewer = () => {
                       {qcfDebug.pages?.join(', ') ?? '—'} • Fetched at: {qcfDebug.fetchedAt ?? '—'}
                     </div>
                   </div>
+
+                  {(qcfDebug.verseCount ?? 0) === 0 && qcfDebug.rawBodyPreview && (
+                    <div>
+                      <div className="font-semibold mb-1">Raw upstream response (first 500 chars):</div>
+                      <pre className="bg-background/50 p-2 rounded border overflow-x-auto whitespace-pre-wrap">
+{qcfDebug.rawBodyPreview}
+                      </pre>
+                    </div>
+                  )}
 
                   {fw && (
                     <div>

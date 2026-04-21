@@ -345,6 +345,12 @@ serve(async (req) => {
         const verseCount = Array.isArray(data?.verses) ? data.verses.length : 0;
         const firstWord = data?.verses?.[0]?.words?.[0];
         console.log(`[quran-api][page] verses=${verseCount} firstWord=`, JSON.stringify(firstWord ?? null));
+        // Attach debug fields so the frontend can verify the actual upstream
+        if (data && typeof data === "object") {
+          data.debug_upstream_url = upstreamUrl;
+          data.debug_status = res.status;
+          data.debug_raw_body_preview = rawText.slice(0, 500);
+        }
         return json({ success: true, data });
       }
 
