@@ -1067,7 +1067,7 @@ const SurahViewer = () => {
 
                   <div>
                     <div className="font-semibold mb-1">
-                      Word count: {qcfDebug.wordCount ?? 0} • Pages in payload:{' '}
+                      Verse count: {qcfDebug.verseCount ?? 0} • Word count: {qcfDebug.wordCount ?? 0} • Pages in payload:{' '}
                       {qcfDebug.pages?.join(', ') ?? '—'} • Fetched at: {qcfDebug.fetchedAt ?? '—'}
                     </div>
                   </div>
