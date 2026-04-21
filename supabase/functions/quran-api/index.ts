@@ -267,37 +267,62 @@ serve(async (req) => {
     if (action === "page") {
       const pageNum = url.searchParams.get("page_number");
       if (!pageNum) return err("page_number parameter required");
-      const QURAN_API_BASE = Deno.env.get("QURAN_API_BASE_URL") || "https://api.quran.com/api/v4";
 
-      // Forward QCF V2 params if provided, otherwise fall back to legacy translation fetch
       const words = url.searchParams.get("words");
       const mushaf = url.searchParams.get("mushaf");
       const wordFields = url.searchParams.get("word_fields");
       const perPage = url.searchParams.get("per_page");
 
-      let upstreamUrl: string;
+      // QCF V2 path → use Quran Foundation Content API (apis.quran.foundation/content/api/v4)
+      // with client-credentials access token + x-client-id headers.
       if (words && wordFields) {
+        const { clientId, apiBaseUrl } = getQfConfig();
+        const contentBase = `${apiBaseUrl}/content/api/v4`;
         const params = new URLSearchParams();
         params.set("words", words);
         if (mushaf) params.set("mushaf", mushaf);
         params.set("word_fields", wordFields);
         if (perPage) params.set("per_page", perPage);
-        upstreamUrl = `${QURAN_API_BASE}/verses/by_page/${pageNum}?${params.toString()}`;
-      } else {
-        upstreamUrl = `${QURAN_API_BASE}/verses/by_page/${pageNum}?language=en&words=true&word_fields=text_uthmani&fields=text_uthmani&translations=${DEFAULT_TRANSLATION_ID}`;
+        const upstreamUrl = `${contentBase}/verses/by_page/${pageNum}?${params.toString()}`;
+
+        const accessToken = await getQfClientCredentialsToken();
+
+        console.log(`[quran-api][page] edge URL: ${req.url}`);
+        console.log(`[quran-api][page] upstream URL (QF Content API): ${upstreamUrl}`);
+
+        const res = await fetch(upstreamUrl, {
+          headers: {
+            Accept: "application/json",
+            "x-auth-token": accessToken,
+            "x-client-id": clientId,
+          },
+        });
+        const rawText = await res.text();
+        console.log(`[quran-api][page] upstream status: ${res.status}`);
+        console.log(`[quran-api][page] raw response: ${rawText.slice(0, 1000)}`);
+
+        if (!res.ok) {
+          return err(`QF Content API page failed [${res.status}]: ${rawText}`, res.status);
+        }
+
+        let data: any = null;
+        try { data = JSON.parse(rawText); } catch { data = { raw: rawText }; }
+        const verseCount = Array.isArray(data?.verses) ? data.verses.length : 0;
+        const firstWord = data?.verses?.[0]?.words?.[0];
+        console.log(`[quran-api][page] verses=${verseCount} firstWord=`, JSON.stringify(firstWord ?? null));
+        return json({ success: true, data });
       }
 
-      console.log(`[quran-api][page] edge URL: ${req.url}`);
-      console.log(`[quran-api][page] upstream URL: ${upstreamUrl}`);
-
+      // Legacy fallback (translations) → public api.quran.com
+      const QURAN_API_BASE = Deno.env.get("QURAN_API_BASE_URL") || "https://api.quran.com/api/v4";
+      const upstreamUrl = `${QURAN_API_BASE}/verses/by_page/${pageNum}?language=en&words=true&word_fields=text_uthmani&fields=text_uthmani&translations=${DEFAULT_TRANSLATION_ID}`;
+      console.log(`[quran-api][page] (legacy) upstream URL: ${upstreamUrl}`);
       const res = await fetch(upstreamUrl, { headers: { Accept: "application/json" } });
       if (!res.ok) {
         const text = await res.text();
         return err(`Quran API page failed [${res.status}]: ${text}`, res.status);
       }
       const data = await res.json();
-      const firstWord = data?.verses?.[0]?.words?.[0];
-      if (firstWord) console.log(`[quran-api][page] first word:`, JSON.stringify(firstWord));
       return json({ success: true, data });
     }
 
