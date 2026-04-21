@@ -268,11 +268,36 @@ serve(async (req) => {
       const pageNum = url.searchParams.get("page_number");
       if (!pageNum) return err("page_number parameter required");
       const QURAN_API_BASE = Deno.env.get("QURAN_API_BASE_URL") || "https://api.quran.com/api/v4";
-      const res = await fetch(
-        `${QURAN_API_BASE}/verses/by_page/${pageNum}?language=en&words=true&word_fields=text_uthmani&fields=text_uthmani&translations=${DEFAULT_TRANSLATION_ID}`,
-        { headers: { Accept: "application/json" } }
-      );
+
+      // Forward QCF V2 params if provided, otherwise fall back to legacy translation fetch
+      const words = url.searchParams.get("words");
+      const mushaf = url.searchParams.get("mushaf");
+      const wordFields = url.searchParams.get("word_fields");
+      const perPage = url.searchParams.get("per_page");
+
+      let upstreamUrl: string;
+      if (words && wordFields) {
+        const params = new URLSearchParams();
+        params.set("words", words);
+        if (mushaf) params.set("mushaf", mushaf);
+        params.set("word_fields", wordFields);
+        if (perPage) params.set("per_page", perPage);
+        upstreamUrl = `${QURAN_API_BASE}/verses/by_page/${pageNum}?${params.toString()}`;
+      } else {
+        upstreamUrl = `${QURAN_API_BASE}/verses/by_page/${pageNum}?language=en&words=true&word_fields=text_uthmani&fields=text_uthmani&translations=${DEFAULT_TRANSLATION_ID}`;
+      }
+
+      console.log(`[quran-api][page] edge URL: ${req.url}`);
+      console.log(`[quran-api][page] upstream URL: ${upstreamUrl}`);
+
+      const res = await fetch(upstreamUrl, { headers: { Accept: "application/json" } });
+      if (!res.ok) {
+        const text = await res.text();
+        return err(`Quran API page failed [${res.status}]: ${text}`, res.status);
+      }
       const data = await res.json();
+      const firstWord = data?.verses?.[0]?.words?.[0];
+      if (firstWord) console.log(`[quran-api][page] first word:`, JSON.stringify(firstWord));
       return json({ success: true, data });
     }
 
