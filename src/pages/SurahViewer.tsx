@@ -1054,40 +1054,40 @@ const SurahViewer = () => {
                   <div>
                     <div className="font-semibold mb-1">Actual upstream URL (from edge function):</div>
                     <div className="break-all bg-background/50 p-2 rounded border">
-                      {qcfDebug.upstreamUrl ?? '(loading…)'}
+                      {qcfDebug.fetched ? (qcfDebug.upstreamUrl || '(none returned)') : '(loading…)'}
                     </div>
                     <div className="mt-1">
                       Host check:{' '}
                       {qcfDebug.upstreamUrl?.startsWith('https://apis.quran.foundation/content/api/v4') ? (
                         <span className="text-emerald-700 dark:text-emerald-400">✅ apis.quran.foundation/content/api/v4</span>
+                      ) : qcfDebug.upstreamUrl?.startsWith('https://api.quran.com/api/v4') ? (
+                        <span className="text-emerald-700 dark:text-emerald-400">✅ api.quran.com/api/v4</span>
                       ) : qcfDebug.upstreamUrl ? (
-                        <span className="text-destructive">❌ wrong host: {qcfDebug.upstreamUrl}</span>
+                        <span className="text-destructive">❌ unexpected host: {qcfDebug.upstreamUrl}</span>
                       ) : (
                         '—'
                       )}
                     </div>
-                    <div>Upstream status: {qcfDebug.upstreamStatus ?? '—'}</div>
+                    <div>Upstream status: {qcfDebug.fetched ? (qcfDebug.upstreamStatus ?? '(none returned)') : '—'}</div>
                   </div>
 
-                  {qcfDebug.error && (
-                    <div className="text-destructive">
-                      <div className="font-semibold">API error:</div>
-                      <div>{qcfDebug.error}</div>
-                    </div>
-                  )}
+                  <div className={qcfDebug.errorMessage ? 'text-destructive' : ''}>
+                    <div className="font-semibold">Error:</div>
+                    <div>{qcfDebug.fetched ? (qcfDebug.errorMessage || '(none)') : '—'}</div>
+                  </div>
 
                   <div>
                     <div className="font-semibold mb-1">
                       Verse count: {qcfDebug.verseCount ?? 0} • Word count: {qcfDebug.wordCount ?? 0} • Pages in payload:{' '}
-                      {qcfDebug.pages?.join(', ') ?? '—'} • Fetched at: {qcfDebug.fetchedAt ?? '—'}
+                      {qcfDebug.pages && qcfDebug.pages.length > 0 ? qcfDebug.pages.join(', ') : '—'} • Fetched at: {qcfDebug.fetchedAt ?? '—'}
                     </div>
                   </div>
 
-                  {(qcfDebug.verseCount ?? 0) === 0 && qcfDebug.rawBodyPreview && (
+                  {qcfDebug.fetched && (qcfDebug.verseCount ?? 0) === 0 && (
                     <div>
                       <div className="font-semibold mb-1">Raw upstream response (first 500 chars):</div>
                       <pre className="bg-background/50 p-2 rounded border overflow-x-auto whitespace-pre-wrap">
-{qcfDebug.rawBodyPreview}
+{qcfDebug.rawBodyPreview || '(empty)'}
                       </pre>
                     </div>
                   )}
