@@ -308,40 +308,41 @@ serve(async (req) => {
       const wordFields = url.searchParams.get("word_fields");
       const perPage = url.searchParams.get("per_page");
 
-      // QCF V2 path → use Quran Foundation Content API (apis.quran.foundation/content/api/v4)
-      // with client-credentials access token + x-client-id headers.
+      // QCF V2 path → use public Quran.com API (api.quran.com/api/v4) which reliably
+      // serves verses/by_page with word_fields including code_v2, text_qpc_hafs, etc.
+      // No auth required. This is the same data source the QF Content API exposes.
       if (words && wordFields) {
-        const { clientId, apiBaseUrl } = getQfConfig();
-        const contentBase = `${apiBaseUrl}/content/api/v4`;
+        const QURAN_API_BASE = Deno.env.get("QURAN_API_BASE_URL") || "https://api.quran.com/api/v4";
         const params = new URLSearchParams();
         params.set("words", words);
         if (mushaf) params.set("mushaf", mushaf);
         params.set("word_fields", wordFields);
         if (perPage) params.set("per_page", perPage);
-        const upstreamUrl = `${contentBase}/verses/by_page/${pageNum}?${params.toString()}`;
-
-        const accessToken = await getQfClientCredentialsToken();
+        const upstreamUrl = `${QURAN_API_BASE}/verses/by_page/${pageNum}?${params.toString()}`;
 
         console.log(`[quran-api][page] edge URL: ${req.url}`);
-        console.log(`[quran-api][page] upstream URL (QF Content API): ${upstreamUrl}`);
+        console.log(`[quran-api][page] upstream URL (Quran.com API): ${upstreamUrl}`);
 
-        const res = await fetch(upstreamUrl, {
-          headers: {
-            Accept: "application/json",
-            "x-auth-token": accessToken,
-            "x-client-id": clientId,
-          },
-        });
+        const res = await fetch(upstreamUrl, { headers: { Accept: "application/json" } });
         const rawText = await res.text();
         console.log(`[quran-api][page] upstream status: ${res.status}`);
         console.log(`[quran-api][page] raw response: ${rawText.slice(0, 1000)}`);
 
-        if (!res.ok) {
-          return err(`QF Content API page failed [${res.status}]: ${rawText}`, res.status);
-        }
-
         let data: any = null;
         try { data = JSON.parse(rawText); } catch { data = { raw: rawText }; }
+
+        if (!res.ok) {
+          return json({
+            success: false,
+            error: `Quran.com API page failed [${res.status}]`,
+            data: {
+              debug_upstream_url: upstreamUrl,
+              debug_status: res.status,
+              debug_raw_body_preview: rawText.slice(0, 500),
+            },
+          }, res.status);
+        }
+
         const verseCount = Array.isArray(data?.verses) ? data.verses.length : 0;
         const firstWord = data?.verses?.[0]?.words?.[0];
         console.log(`[quran-api][page] verses=${verseCount} firstWord=`, JSON.stringify(firstWord ?? null));
