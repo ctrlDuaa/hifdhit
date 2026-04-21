@@ -101,12 +101,14 @@ const SurahViewer = () => {
       try {
         const response = await quranApi.getPageQcf(currentPage);
         const verses = response?.verses ?? [];
-        const words = verses.flatMap((v: any) => v.words ?? []);
+        const words: any[] = verses.flatMap((v: any) => v.words ?? []);
         const firstVerse = verses[0];
         const firstWord = words[0];
-        const pages: number[] = Array.from(
-          new Set(words.map((w: any) => w.page_number).filter((p: any): p is number => typeof p === 'number'))
-        ).sort((a: number, b: number) => a - b);
+        const pageSet = new Set<number>();
+        for (const w of words) {
+          if (typeof w?.page_number === 'number') pageSet.add(w.page_number);
+        }
+        const pages: number[] = Array.from(pageSet).sort((a, b) => a - b);
 
         console.log('[QCF][api] Raw page response:', response);
         console.log('[QCF][api] Verse count:', verses.length);
