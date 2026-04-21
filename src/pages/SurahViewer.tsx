@@ -74,6 +74,8 @@ const SurahViewer = () => {
   const [qcfDebug, setQcfDebug] = useState<{
     requestUrl?: string;
     firstWord?: any;
+    firstVerse?: any;
+    verseCount?: number;
     wordCount?: number;
     pages?: number[];
     fetchedAt?: string;
@@ -97,16 +99,22 @@ const SurahViewer = () => {
 
     (async () => {
       try {
-        const data = await quranApi.getPageQcf(currentPage);
-        const verses = data?.verses ?? [];
-        const words: any[] = [];
-        for (const v of verses) for (const w of v.words ?? []) words.push(w);
+        const response = await quranApi.getPageQcf(currentPage);
+        const verses = response?.verses ?? [];
+        const words: any[] = verses.flatMap((v: any) => v.words ?? []);
+        const firstVerse = verses[0];
         const firstWord = words[0];
-        const pages = Array.from(
-          new Set(words.map((w) => w.page_number).filter((p): p is number => typeof p === 'number'))
-        ).sort((a, b) => a - b);
+        const pageSet = new Set<number>();
+        for (const w of words) {
+          if (typeof w?.page_number === 'number') pageSet.add(w.page_number);
+        }
+        const pages: number[] = Array.from(pageSet).sort((a, b) => a - b);
 
-        console.log('[QCF][api] first word object:', firstWord);
+        console.log('[QCF][api] Raw page response:', response);
+        console.log('[QCF][api] Verse count:', verses.length);
+        console.log('[QCF][api] Flattened word count:', words.length);
+        console.log('[QCF][api] First verse:', firstVerse);
+        console.log('[QCF][api] First word:', firstWord);
         console.log('[QCF][api] field check →', {
           has_code_v2: !!firstWord?.code_v2,
           has_text_qpc_hafs: !!firstWord?.text_qpc_hafs,
@@ -120,6 +128,8 @@ const SurahViewer = () => {
         setQcfDebug({
           requestUrl: upstreamUrl,
           firstWord,
+          firstVerse,
+          verseCount: verses.length,
           wordCount: words.length,
           pages,
           fetchedAt: new Date().toLocaleTimeString(),
@@ -1057,7 +1067,7 @@ const SurahViewer = () => {
 
                   <div>
                     <div className="font-semibold mb-1">
-                      Word count: {qcfDebug.wordCount ?? 0} • Pages in payload:{' '}
+                      Verse count: {qcfDebug.verseCount ?? 0} • Word count: {qcfDebug.wordCount ?? 0} • Pages in payload:{' '}
                       {qcfDebug.pages?.join(', ') ?? '—'} • Fetched at: {qcfDebug.fetchedAt ?? '—'}
                     </div>
                   </div>
