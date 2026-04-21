@@ -1045,10 +1045,21 @@ const SurahViewer = () => {
                   </div>
 
                   <div>
-                    <div className="font-semibold mb-1">Upstream Quran.com URL (proxied):</div>
+                    <div className="font-semibold mb-1">Actual upstream URL (from edge function):</div>
                     <div className="break-all bg-background/50 p-2 rounded border">
-                      {qcfDebug.requestUrl ?? '(loading…)'}
+                      {qcfDebug.upstreamUrl ?? '(loading…)'}
                     </div>
+                    <div className="mt-1">
+                      Host check:{' '}
+                      {qcfDebug.upstreamUrl?.startsWith('https://apis.quran.foundation/content/api/v4') ? (
+                        <span className="text-emerald-700 dark:text-emerald-400">✅ apis.quran.foundation/content/api/v4</span>
+                      ) : qcfDebug.upstreamUrl ? (
+                        <span className="text-destructive">❌ wrong host: {qcfDebug.upstreamUrl}</span>
+                      ) : (
+                        '—'
+                      )}
+                    </div>
+                    <div>Upstream status: {qcfDebug.upstreamStatus ?? '—'}</div>
                   </div>
 
                   {qcfDebug.error && (
@@ -1064,6 +1075,15 @@ const SurahViewer = () => {
                       {qcfDebug.pages?.join(', ') ?? '—'} • Fetched at: {qcfDebug.fetchedAt ?? '—'}
                     </div>
                   </div>
+
+                  {(qcfDebug.verseCount ?? 0) === 0 && qcfDebug.rawBodyPreview && (
+                    <div>
+                      <div className="font-semibold mb-1">Raw upstream response (first 500 chars):</div>
+                      <pre className="bg-background/50 p-2 rounded border overflow-x-auto whitespace-pre-wrap">
+{qcfDebug.rawBodyPreview}
+                      </pre>
+                    </div>
+                  )}
 
                   {fw && (
                     <div>
