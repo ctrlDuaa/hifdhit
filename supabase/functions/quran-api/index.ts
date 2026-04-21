@@ -308,51 +308,70 @@ serve(async (req) => {
       const wordFields = url.searchParams.get("word_fields");
       const perPage = url.searchParams.get("per_page");
 
-      // QCF V2 path → use public Quran.com API (api.quran.com/api/v4) which reliably
-      // serves verses/by_page with word_fields including code_v2, text_qpc_hafs, etc.
-      // No auth required. This is the same data source the QF Content API exposes.
+      // QCF V2 path → use public Quran.com API. ALWAYS returns the same debug shape.
       if (words && wordFields) {
-        const QURAN_API_BASE = Deno.env.get("QURAN_API_BASE_URL") || "https://api.quran.com/api/v4";
-        const params = new URLSearchParams();
-        params.set("words", words);
-        if (mushaf) params.set("mushaf", mushaf);
-        params.set("word_fields", wordFields);
-        if (perPage) params.set("per_page", perPage);
-        const upstreamUrl = `${QURAN_API_BASE}/verses/by_page/${pageNum}?${params.toString()}`;
+        const debugPayload: {
+          ok: boolean;
+          debug_upstream_url: string;
+          debug_status: number | null;
+          debug_raw_body_preview: string;
+          debug_error_message: string;
+          verses: any[];
+          words_flattened: any[];
+          fetched_at: string;
+        } = {
+          ok: false,
+          debug_upstream_url: "",
+          debug_status: null,
+          debug_raw_body_preview: "",
+          debug_error_message: "",
+          verses: [],
+          words_flattened: [],
+          fetched_at: new Date().toISOString(),
+        };
 
-        console.log(`[quran-api][page] edge URL: ${req.url}`);
-        console.log(`[quran-api][page] upstream URL (Quran.com API): ${upstreamUrl}`);
+        try {
+          const QURAN_API_BASE = Deno.env.get("QURAN_API_BASE_URL") || "https://api.quran.com/api/v4";
+          const params = new URLSearchParams();
+          params.set("words", words);
+          if (mushaf) params.set("mushaf", mushaf);
+          params.set("word_fields", wordFields);
+          if (perPage) params.set("per_page", perPage);
+          const upstreamUrl = `${QURAN_API_BASE}/verses/by_page/${pageNum}?${params.toString()}`;
+          debugPayload.debug_upstream_url = upstreamUrl;
 
-        const res = await fetch(upstreamUrl, { headers: { Accept: "application/json" } });
-        const rawText = await res.text();
-        console.log(`[quran-api][page] upstream status: ${res.status}`);
-        console.log(`[quran-api][page] raw response: ${rawText.slice(0, 1000)}`);
+          console.log(`[quran-api][page] edge URL: ${req.url}`);
+          console.log(`[quran-api][page] upstream URL: ${upstreamUrl}`);
 
-        let data: any = null;
-        try { data = JSON.parse(rawText); } catch { data = { raw: rawText }; }
+          const res = await fetch(upstreamUrl, { headers: { Accept: "application/json" } });
+          debugPayload.debug_status = res.status;
+          const rawText = await res.text();
+          debugPayload.debug_raw_body_preview = rawText.slice(0, 500);
+          console.log(`[quran-api][page] upstream status: ${res.status}`);
+          console.log(`[quran-api][page] raw response (first 500): ${debugPayload.debug_raw_body_preview}`);
 
-        if (!res.ok) {
-          return json({
-            success: false,
-            error: `Quran.com API page failed [${res.status}]`,
-            data: {
-              debug_upstream_url: upstreamUrl,
-              debug_status: res.status,
-              debug_raw_body_preview: rawText.slice(0, 500),
-            },
-          }, res.status);
+          if (!res.ok) {
+            debugPayload.debug_error_message = `Upstream HTTP ${res.status}`;
+            return json({ success: true, data: debugPayload });
+          }
+
+          try {
+            const parsed = JSON.parse(rawText);
+            if (Array.isArray(parsed?.verses)) {
+              debugPayload.verses = parsed.verses;
+              debugPayload.words_flattened = parsed.verses.flatMap((v: any) => v?.words ?? []);
+            }
+            debugPayload.ok = true;
+          } catch (e: any) {
+            debugPayload.debug_error_message = `JSON parse error: ${e?.message ?? String(e)}`;
+          }
+        } catch (e: any) {
+          debugPayload.debug_error_message = `Fetch error: ${e?.message ?? String(e)}`;
+          console.error(`[quran-api][page] fetch error:`, e);
         }
 
-        const verseCount = Array.isArray(data?.verses) ? data.verses.length : 0;
-        const firstWord = data?.verses?.[0]?.words?.[0];
-        console.log(`[quran-api][page] verses=${verseCount} firstWord=`, JSON.stringify(firstWord ?? null));
-        // Attach debug fields so the frontend can verify the actual upstream
-        if (data && typeof data === "object") {
-          data.debug_upstream_url = upstreamUrl;
-          data.debug_status = res.status;
-          data.debug_raw_body_preview = rawText.slice(0, 500);
-        }
-        return json({ success: true, data });
+        // Always return success:true so the frontend can read the debug payload.
+        return json({ success: true, data: debugPayload });
       }
 
       // Legacy fallback (translations) → public api.quran.com

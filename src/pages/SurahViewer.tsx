@@ -72,31 +72,34 @@ const SurahViewer = () => {
 
   // ── 🔍 QCF V2 verification (Quran.com API + Quran Foundation hosted fonts) ──
   const [qcfDebug, setQcfDebug] = useState<{
+    fetched: boolean;
     upstreamUrl?: string;
-    upstreamStatus?: number;
+    upstreamStatus?: number | null;
     rawBodyPreview?: string;
+    errorMessage?: string;
     firstWord?: any;
     firstVerse?: any;
     verseCount?: number;
     wordCount?: number;
     pages?: number[];
     fetchedAt?: string;
-    error?: string;
-  }>({});
+  }>({ fetched: false });
   const [qcfWords, setQcfWords] = useState<any[]>([]);
   const [, setFontTick] = useState(0);
 
   useEffect(() => {
     if (!currentPage) return;
     let cancelled = false;
-    setQcfDebug({});
+    setQcfDebug({ fetched: false });
     setQcfWords([]);
 
     (async () => {
       try {
-        const response = await quranApi.getPageQcf(currentPage);
-        const verses = response?.verses ?? [];
-        const words: any[] = verses.flatMap((v: any) => v.words ?? []);
+        const debug = await quranApi.getPageQcf(currentPage);
+        const verses: any[] = Array.isArray(debug?.verses) ? debug.verses : [];
+        const words: any[] = Array.isArray(debug?.words_flattened)
+          ? debug.words_flattened
+          : verses.flatMap((v: any) => v?.words ?? []);
         const firstVerse = verses[0];
         const firstWord = words[0];
         const pageSet = new Set<number>();
@@ -105,22 +108,22 @@ const SurahViewer = () => {
         }
         const pages: number[] = Array.from(pageSet).sort((a, b) => a - b);
 
-        console.log('[QCF][api] Raw page response:', response);
-        console.log('[QCF][api] debug_upstream_url:', response?.debug_upstream_url);
-        console.log('[QCF][api] debug_status:', response?.debug_status);
-        console.log('[QCF][api] debug_raw_body_preview:', response?.debug_raw_body_preview);
+        console.log('[QCF][api] Raw debug payload:', debug);
+        console.log('[QCF][api] debug_upstream_url:', debug?.debug_upstream_url);
+        console.log('[QCF][api] debug_status:', debug?.debug_status);
+        console.log('[QCF][api] debug_raw_body_preview:', debug?.debug_raw_body_preview);
+        console.log('[QCF][api] debug_error_message:', debug?.debug_error_message);
         console.log('[QCF][api] Verse count:', verses.length);
         console.log('[QCF][api] Flattened word count:', words.length);
-        console.log('[QCF][api] First verse:', firstVerse);
-        console.log('[QCF][api] First word:', firstWord);
-        console.log('[QCF][api] unique pages in payload:', pages);
 
         if (cancelled) return;
         setQcfWords(words);
         setQcfDebug({
-          upstreamUrl: response?.debug_upstream_url,
-          upstreamStatus: response?.debug_status,
-          rawBodyPreview: response?.debug_raw_body_preview,
+          fetched: true,
+          upstreamUrl: debug?.debug_upstream_url ?? '',
+          upstreamStatus: debug?.debug_status ?? null,
+          rawBodyPreview: debug?.debug_raw_body_preview ?? '',
+          errorMessage: debug?.debug_error_message ?? '',
           firstWord,
           firstVerse,
           verseCount: verses.length,
@@ -132,7 +135,11 @@ const SurahViewer = () => {
         console.error('[QCF][api] fetch failed:', e);
         if (!cancelled) {
           setQcfDebug({
-            error: e?.message || 'fetch failed',
+            fetched: true,
+            errorMessage: e?.message || 'fetch failed',
+            verseCount: 0,
+            wordCount: 0,
+            pages: [],
             fetchedAt: new Date().toLocaleTimeString(),
           });
         }
@@ -1047,40 +1054,40 @@ const SurahViewer = () => {
                   <div>
                     <div className="font-semibold mb-1">Actual upstream URL (from edge function):</div>
                     <div className="break-all bg-background/50 p-2 rounded border">
-                      {qcfDebug.upstreamUrl ?? '(loading…)'}
+                      {qcfDebug.fetched ? (qcfDebug.upstreamUrl || '(none returned)') : '(loading…)'}
                     </div>
                     <div className="mt-1">
                       Host check:{' '}
                       {qcfDebug.upstreamUrl?.startsWith('https://apis.quran.foundation/content/api/v4') ? (
                         <span className="text-emerald-700 dark:text-emerald-400">✅ apis.quran.foundation/content/api/v4</span>
+                      ) : qcfDebug.upstreamUrl?.startsWith('https://api.quran.com/api/v4') ? (
+                        <span className="text-emerald-700 dark:text-emerald-400">✅ api.quran.com/api/v4</span>
                       ) : qcfDebug.upstreamUrl ? (
-                        <span className="text-destructive">❌ wrong host: {qcfDebug.upstreamUrl}</span>
+                        <span className="text-destructive">❌ unexpected host: {qcfDebug.upstreamUrl}</span>
                       ) : (
                         '—'
                       )}
                     </div>
-                    <div>Upstream status: {qcfDebug.upstreamStatus ?? '—'}</div>
+                    <div>Upstream status: {qcfDebug.fetched ? (qcfDebug.upstreamStatus ?? '(none returned)') : '—'}</div>
                   </div>
 
-                  {qcfDebug.error && (
-                    <div className="text-destructive">
-                      <div className="font-semibold">API error:</div>
-                      <div>{qcfDebug.error}</div>
-                    </div>
-                  )}
+                  <div className={qcfDebug.errorMessage ? 'text-destructive' : ''}>
+                    <div className="font-semibold">Error:</div>
+                    <div>{qcfDebug.fetched ? (qcfDebug.errorMessage || '(none)') : '—'}</div>
+                  </div>
 
                   <div>
                     <div className="font-semibold mb-1">
                       Verse count: {qcfDebug.verseCount ?? 0} • Word count: {qcfDebug.wordCount ?? 0} • Pages in payload:{' '}
-                      {qcfDebug.pages?.join(', ') ?? '—'} • Fetched at: {qcfDebug.fetchedAt ?? '—'}
+                      {qcfDebug.pages && qcfDebug.pages.length > 0 ? qcfDebug.pages.join(', ') : '—'} • Fetched at: {qcfDebug.fetchedAt ?? '—'}
                     </div>
                   </div>
 
-                  {(qcfDebug.verseCount ?? 0) === 0 && qcfDebug.rawBodyPreview && (
+                  {qcfDebug.fetched && (qcfDebug.verseCount ?? 0) === 0 && (
                     <div>
                       <div className="font-semibold mb-1">Raw upstream response (first 500 chars):</div>
                       <pre className="bg-background/50 p-2 rounded border overflow-x-auto whitespace-pre-wrap">
-{qcfDebug.rawBodyPreview}
+{qcfDebug.rawBodyPreview || '(empty)'}
                       </pre>
                     </div>
                   )}
