@@ -104,7 +104,7 @@ const SurahViewer = () => {
         const words = verses.flatMap((v: any) => v.words ?? []);
         const firstVerse = verses[0];
         const firstWord = words[0];
-        const pages = Array.from(
+        const pages: number[] = Array.from(
           new Set(words.map((w: any) => w.page_number).filter((p: any): p is number => typeof p === 'number'))
         ).sort((a: number, b: number) => a - b);
 
