@@ -112,6 +112,41 @@ async function refreshQfToken(refreshTokenValue: string) {
   return res.json();
 }
 
+// ── Client credentials token cache (for QF Content API server-to-server) ──
+let cachedQfToken: string | null = null;
+let cachedQfTokenExpiresAt = 0;
+
+async function getQfClientCredentialsToken(): Promise<string> {
+  if (cachedQfToken && Date.now() < cachedQfTokenExpiresAt - 30_000) {
+    return cachedQfToken;
+  }
+  const { clientId, clientSecret, authBaseUrl } = getQfConfig();
+  if (!clientSecret) throw new Error("QURAN_CLIENT_SECRET required for QF Content API");
+
+  const params = new URLSearchParams();
+  params.append("grant_type", "client_credentials");
+  params.append("scope", "content");
+
+  const res = await fetch(`${authBaseUrl}/oauth2/token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: "Basic " + btoa(`${clientId}:${clientSecret}`),
+    },
+    body: params.toString(),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("QF client_credentials token failed:", res.status, text);
+    throw new Error(`QF token failed (${res.status}): ${text}`);
+  }
+  const data = await res.json();
+  cachedQfToken = data.access_token;
+  cachedQfTokenExpiresAt = Date.now() + (data.expires_in || 3600) * 1000;
+  console.log(`[qf-token] acquired client_credentials token, expires_in=${data.expires_in}`);
+  return cachedQfToken!;
+}
+
 async function proxyQfUserApi(path: string, accessToken: string, method = "GET", body?: string) {
   const { clientId, apiBaseUrl } = getQfConfig();
 
