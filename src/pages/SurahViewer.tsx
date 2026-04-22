@@ -1036,57 +1036,132 @@ const SurahViewer = () => {
             
           </Card>
 
-          {/* 🧪 QCF V2 Font Rendering Test — TEMPORARY */}
-          <Card className="mt-4 border-2 border-blue-400 bg-blue-50 dark:bg-blue-950/30">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">🧪 QCF V2 Font Rendering Test</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-row items-start gap-8 flex-wrap">
-                <div className="flex flex-col items-center gap-2">
-                  <span
-                    style={{ fontFamily: 'UthmanicHafs', fontSize: '64px', lineHeight: 1.4 }}
-                  >
-                    بِسۡمِ
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    computed: {(() => {
-                      try {
-                        const el = document.createElement('span');
-                        el.style.fontFamily = 'UthmanicHafs';
-                        document.body.appendChild(el);
-                        const ff = window.getComputedStyle(el).fontFamily;
-                        document.body.removeChild(el);
-                        return ff;
-                      } catch { return 'UthmanicHafs'; }
-                    })()}
-                  </span>
-                  <span className="text-xs">Unicode fallback (UthmanicHafs)</span>
-                </div>
+          {/* 🧪 QCF V2 Rendering Diagnostics — TEMPORARY */}
+          {(() => {
+            const computedFF = (family: string) => {
+              try {
+                const el = document.createElement('span');
+                el.style.fontFamily = family;
+                document.body.appendChild(el);
+                const ff = window.getComputedStyle(el).fontFamily;
+                document.body.removeChild(el);
+                return ff;
+              } catch { return family; }
+            };
 
-                <div className="flex flex-col items-center gap-2">
-                  <span
-                    style={{ fontFamily: 'p1-v2', fontSize: '64px', lineHeight: 1.4 }}
-                  >
-                    {'\uFC41'}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    computed: {(() => {
-                      try {
-                        const el = document.createElement('span');
-                        el.style.fontFamily = 'p1-v2';
-                        document.body.appendChild(el);
-                        const ff = window.getComputedStyle(el).fontFamily;
-                        document.body.removeChild(el);
-                        return ff;
-                      } catch { return 'p1-v2'; }
-                    })()}
-                  </span>
-                  <span className="text-xs">QCF glyph (p1-v2)</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            const firstVerseKey = qcfWords[0]?.verse_key;
+            const firstVerseWords = firstVerseKey
+              ? qcfWords.filter((w: any) => w.verse_key === firstVerseKey)
+              : [];
+            const firstRegularWord = firstVerseWords.find(
+              (w: any) => w.char_type_name === 'word' && w.code_v2
+            );
+            const pageNum = firstRegularWord?.page_number ?? 1;
+            const qcfFamily = `p${pageNum}-v2`;
+
+            return (
+              <Card className="mt-4 border-2 border-blue-400 bg-blue-50 dark:bg-blue-950/30">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">🧪 QCF V2 Rendering Diagnostics</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* 1. Single-word test */}
+                  <div>
+                    <div className="text-xs font-semibold mb-2">1. Single-word test</div>
+                    <div className="flex flex-row items-start gap-8 flex-wrap">
+                      <div className="flex flex-col items-center gap-1">
+                        <span style={{ fontFamily: 'UthmanicHafs', fontSize: '64px', lineHeight: 1.4 }}>بِسۡمِ</span>
+                        <span className="text-[10px] text-muted-foreground">computed: {computedFF('UthmanicHafs')}</span>
+                        <span className="text-[10px]">UthmanicHafs</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-1">
+                        <span style={{ fontFamily: 'p1-v2', fontSize: '64px', lineHeight: 1.4 }}>{'\uFC41'}</span>
+                        <span className="text-[10px] text-muted-foreground">computed: {computedFF('p1-v2')}</span>
+                        <span className="text-[10px]">p1-v2</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. First verse comparison */}
+                  <div>
+                    <div className="text-xs font-semibold mb-2">
+                      2. First verse comparison ({firstVerseKey ?? 'no data'})
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <div className="text-[10px] text-muted-foreground mb-1">A: text_qpc_hafs + UthmanicHafs</div>
+                        <div dir="rtl" style={{ fontFamily: 'UthmanicHafs', fontSize: '40px', lineHeight: 1.8, textAlign: 'right' }}>
+                          {firstVerseWords.map((w: any, i: number) => (
+                            <span key={i}>{w.text_qpc_hafs ?? ''} </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-muted-foreground mb-1">
+                          B: code_v2 (regular) + p{pageNum}-v2; end markers via UthmanicHafs
+                        </div>
+                        <div dir="rtl" style={{ fontSize: '40px', lineHeight: 1.8, textAlign: 'right' }}>
+                          {firstVerseWords.map((w: any, i: number) => {
+                            const isEnd = w.char_type_name === 'end';
+                            const family = isEnd ? 'UthmanicHafs' : `p${w.page_number ?? pageNum}-v2`;
+                            const text = isEnd ? (w.text_qpc_hafs ?? '') : (w.code_v2 ?? '');
+                            return <span key={i} style={{ fontFamily: family }}>{text}</span>;
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. Raw inline rendering test */}
+                  <div>
+                    <div className="text-xs font-semibold mb-2">3. Raw inline (no flex/gap/letter-spacing)</div>
+                    <div
+                      dir="rtl"
+                      style={{
+                        fontFamily: qcfFamily,
+                        fontSize: '40px',
+                        lineHeight: 1.8,
+                        textAlign: 'right',
+                        letterSpacing: 0,
+                        wordSpacing: 0,
+                      }}
+                    >
+                      {firstVerseWords
+                        .filter((w: any) => w.char_type_name !== 'end' && w.code_v2)
+                        .map((w: any) => w.code_v2)
+                        .join('')}
+                    </div>
+                  </div>
+
+                  {/* 4. Rendering-method test */}
+                  <div>
+                    <div className="text-xs font-semibold mb-2">
+                      4. Rendering-method test (single word: {firstRegularWord ? `'${firstRegularWord.code_v2}'` : 'n/a'})
+                    </div>
+                    {firstRegularWord ? (
+                      <div className="flex flex-row items-start gap-8 flex-wrap">
+                        <div className="flex flex-col items-center gap-1">
+                          <span style={{ fontFamily: qcfFamily, fontSize: '64px', lineHeight: 1.4 }}>
+                            {firstRegularWord.code_v2}
+                          </span>
+                          <span className="text-[10px]">plain text</span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                          <span
+                            style={{ fontFamily: qcfFamily, fontSize: '64px', lineHeight: 1.4 }}
+                            dangerouslySetInnerHTML={{ __html: firstRegularWord.code_v2 }}
+                          />
+                          <span className="text-[10px]">dangerouslySetInnerHTML</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">No regular word with code_v2 available</div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {/* 🔍 QCF V2 verification panel — TEMPORARY DEBUG */}
           {(() => {
