@@ -73,6 +73,8 @@ const SurahViewer = () => {
   // ── 🔍 QCF V2 verification (Quran.com API + Quran Foundation hosted fonts) ──
   const [qcfDebug, setQcfDebug] = useState<{
     fetched: boolean;
+    debugVersion?: string;
+    requestUrl?: string;
     upstreamUrl?: string;
     upstreamStatus?: number | null;
     rawBodyPreview?: string;
@@ -95,8 +97,11 @@ const SurahViewer = () => {
 
     (async () => {
       try {
-        const debug = await quranApi.getPageQcf(currentPage);
-        console.log("QCF debug payload:", debug);
+        const requestUrl = quranApi.getPageQcfRequestUrl(currentPage);
+        console.log("Edge function request URL:", requestUrl);
+        const responseJson = await quranApi.getPageQcf(currentPage);
+        console.log("QCF debug payload:", responseJson);
+        const debug = responseJson;
         const verses: any[] = Array.isArray(debug?.verses) ? debug.verses : [];
         const words: any[] = Array.isArray(debug?.words_flattened)
           ? debug.words_flattened
@@ -121,6 +126,8 @@ const SurahViewer = () => {
         setQcfWords(words);
         setQcfDebug({
           fetched: true,
+          debugVersion: debug?.debug_version ?? '',
+          requestUrl,
           upstreamUrl: debug?.debug_upstream_url ?? '',
           upstreamStatus: debug?.debug_status ?? null,
           rawBodyPreview: debug?.debug_raw_body_preview ?? '',
@@ -137,6 +144,8 @@ const SurahViewer = () => {
         if (!cancelled) {
           setQcfDebug({
             fetched: true,
+            debugVersion: '',
+            requestUrl: quranApi.getPageQcfRequestUrl(currentPage),
             errorMessage: e?.message || 'fetch failed',
             verseCount: 0,
             wordCount: 0,
@@ -1053,9 +1062,23 @@ const SurahViewer = () => {
                   </div>
 
                   <div>
+                    <div className="font-semibold mb-1">Debug version:</div>
+                    <div className="break-all bg-background/50 p-2 rounded border">
+                      {qcfDebug.fetched ? (qcfDebug.debugVersion || '(none returned)') : '—'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="font-semibold mb-1">Edge function request URL:</div>
+                    <div className="break-all bg-background/50 p-2 rounded border">
+                      {qcfDebug.fetched ? (qcfDebug.requestUrl || '(none returned)') : '—'}
+                    </div>
+                  </div>
+
+                  <div>
                     <div className="font-semibold mb-1">Actual upstream URL (from edge function):</div>
                     <div className="break-all bg-background/50 p-2 rounded border">
-                      {qcfDebug.fetched ? (qcfDebug.upstreamUrl || '(none returned)') : '(loading…)'}
+                      {qcfDebug.fetched ? (qcfDebug.upstreamUrl || '(none returned)') : '—'}
                     </div>
                     <div className="mt-1">
                       Host check:{' '}
@@ -1066,7 +1089,7 @@ const SurahViewer = () => {
                       ) : qcfDebug.upstreamUrl ? (
                         <span className="text-destructive">❌ unexpected host: {qcfDebug.upstreamUrl}</span>
                       ) : (
-                        '—'
+                        '(none returned)'
                       )}
                     </div>
                     <div>Upstream status: {qcfDebug.fetched ? (qcfDebug.upstreamStatus ?? '(none returned)') : '—'}</div>
@@ -1084,14 +1107,12 @@ const SurahViewer = () => {
                     </div>
                   </div>
 
-                  {qcfDebug.fetched && (qcfDebug.verseCount ?? 0) === 0 && (
-                    <div>
-                      <div className="font-semibold mb-1">Raw upstream response (first 500 chars):</div>
-                      <pre className="bg-background/50 p-2 rounded border overflow-x-auto whitespace-pre-wrap">
+                  <div>
+                    <div className="font-semibold mb-1">Raw upstream response:</div>
+                    <pre className="bg-background/50 p-2 rounded border overflow-x-auto whitespace-pre-wrap">
 {qcfDebug.rawBodyPreview || '(empty)'}
-                      </pre>
-                    </div>
-                  )}
+                    </pre>
+                  </div>
 
                   {fw && (
                     <div>
