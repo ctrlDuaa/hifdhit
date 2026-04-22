@@ -36,8 +36,10 @@ function err(message: string, status = 400) {
 function createQcfDebugPayload() {
   return {
     ok: false,
-    debug_version: "qcf-debug-v5",
+    debug_version: "qcf-debug-v6",
+    debug_marker: "QCF_DEBUG_MARKER_V6_HEADERS_LOGGED",
     debug_upstream_url: "",
+    debug_request_headers: {} as Record<string, string>,
     debug_status: null as number | null,
     debug_raw_body_preview: "",
     debug_error_message: "",
