@@ -64,6 +64,11 @@ class QuranApiService {
     return `https://${projectId}.supabase.co/functions/v1/quran-api`;
   }
 
+  private buildUrl(params: Record<string, string>): string {
+    const qs = new URLSearchParams(params).toString();
+    return `${this.getBaseUrl()}?${qs}`;
+  }
+
   private getHeaders() {
     return {
       Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
@@ -72,8 +77,7 @@ class QuranApiService {
   }
 
   private async invoke<T>(params: Record<string, string>): Promise<T> {
-    const qs = new URLSearchParams(params).toString();
-    const url = `${this.getBaseUrl()}?${qs}`;
+    const url = this.buildUrl(params);
     // 🔍 Verification log — exact Quran API request URL (proxied through edge function)
     console.log(`[QCF][api] ${params.action ?? '?'} → ${url}`);
     const res = await fetch(url, { headers: this.getHeaders() });
@@ -146,6 +150,17 @@ class QuranApiService {
   }
 
   /** QCF V2 glyph-based page data (code_v2, text_qpc_hafs, page_number, line_number, char_type_name) */
+  getPageQcfRequestUrl(pageNumber: number): string {
+    return this.buildUrl({
+      action: "page",
+      page_number: String(pageNumber),
+      words: "true",
+      mushaf: "1",
+      word_fields: "code_v2,text_qpc_hafs,page_number,line_number,char_type_name",
+      per_page: "50",
+    });
+  }
+
   async getPageQcf(pageNumber: number): Promise<any> {
     return this.invoke({
       action: "page",
