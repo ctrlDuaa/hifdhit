@@ -351,13 +351,20 @@ serve(async (req) => {
 
           const { clientId } = getQfConfig();
           const token = await getQfClientCredentialsToken();
-          const res = await fetch(upstreamUrl, {
-            headers: {
-              Accept: "application/json",
-              "x-auth-token": token,
-              "x-client-id": clientId,
-            },
-          });
+          const requestHeaders: Record<string, string> = {
+            Accept: "application/json",
+            "x-auth-token": token,
+            "x-client-id": clientId,
+          };
+          // Redact token for debug payload (safe to expose to client)
+          debugPayload.debug_request_headers = {
+            Accept: requestHeaders.Accept,
+            "x-auth-token": token ? `${token.slice(0, 8)}...(len=${token.length})` : "(missing)",
+            "x-client-id": clientId || "(missing)",
+          };
+          console.log(`[quran-api][page] request headers:`, debugPayload.debug_request_headers);
+          console.log(`[quran-api][page] full upstream URL: ${upstreamUrl}`);
+          const res = await fetch(upstreamUrl, { headers: requestHeaders });
           debugPayload.debug_status = res.status;
           const rawText = await res.text();
           debugPayload.debug_raw_body_preview = rawText.slice(0, 500);
