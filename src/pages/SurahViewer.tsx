@@ -96,6 +96,7 @@ const SurahViewer = () => {
     (async () => {
       try {
         const debug = await quranApi.getPageQcf(currentPage);
+        console.log("QCF debug payload:", debug);
         const verses: any[] = Array.isArray(debug?.verses) ? debug.verses : [];
         const words: any[] = Array.isArray(debug?.words_flattened)
           ? debug.words_flattened
