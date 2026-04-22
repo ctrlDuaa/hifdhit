@@ -33,6 +33,20 @@ function err(message: string, status = 400) {
   return json({ success: false, error: message }, status);
 }
 
+function createQcfDebugPayload() {
+  return {
+    ok: false,
+    debug_version: "qcf-debug-v3",
+    debug_upstream_url: "",
+    debug_status: null as number | null,
+    debug_raw_body_preview: "",
+    debug_error_message: "",
+    verses: [] as any[],
+    words_flattened: [] as any[],
+    fetched_at: new Date().toISOString(),
+  };
+}
+
 function getQfConfig() {
   const clientId = Deno.env.get("QURAN_CLIENT_ID") || "";
   const clientSecret = Deno.env.get("QURAN_CLIENT_SECRET") || "";
@@ -300,8 +314,12 @@ serve(async (req) => {
     }
 
     if (action === "page") {
+      const debugPayload = createQcfDebugPayload();
       const pageNum = url.searchParams.get("page_number");
-      if (!pageNum) return err("page_number parameter required");
+      if (!pageNum) {
+        debugPayload.debug_error_message = "page_number parameter required";
+        return json({ success: true, data: debugPayload }, 400);
+      }
 
       const words = url.searchParams.get("words");
       const mushaf = url.searchParams.get("mushaf");
@@ -311,26 +329,6 @@ serve(async (req) => {
       // QCF V2 path → use public Quran.com API. ALWAYS returns the same debug shape.
       // (deploy marker: ensure unified debug payload is always returned)
       if (words && wordFields) {
-        const debugPayload: {
-          ok: boolean;
-          debug_upstream_url: string;
-          debug_status: number | null;
-          debug_raw_body_preview: string;
-          debug_error_message: string;
-          verses: any[];
-          words_flattened: any[];
-          fetched_at: string;
-        } = {
-          ok: false,
-          debug_upstream_url: "",
-          debug_status: null,
-          debug_raw_body_preview: "",
-          debug_error_message: "",
-          verses: [],
-          words_flattened: [],
-          fetched_at: new Date().toISOString(),
-        };
-
         try {
           const QURAN_API_BASE = Deno.env.get("QURAN_API_BASE_URL") || "https://api.quran.com/api/v4";
           const params = new URLSearchParams();
