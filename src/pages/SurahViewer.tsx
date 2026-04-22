@@ -1036,6 +1036,58 @@ const SurahViewer = () => {
             
           </Card>
 
+          {/* 🧪 QCF V2 Font Rendering Test — TEMPORARY */}
+          <Card className="mt-4 border-2 border-blue-400 bg-blue-50 dark:bg-blue-950/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">🧪 QCF V2 Font Rendering Test</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-row items-start gap-8 flex-wrap">
+                <div className="flex flex-col items-center gap-2">
+                  <span
+                    style={{ fontFamily: 'UthmanicHafs', fontSize: '64px', lineHeight: 1.4 }}
+                  >
+                    بِسۡمِ
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    computed: {(() => {
+                      try {
+                        const el = document.createElement('span');
+                        el.style.fontFamily = 'UthmanicHafs';
+                        document.body.appendChild(el);
+                        const ff = window.getComputedStyle(el).fontFamily;
+                        document.body.removeChild(el);
+                        return ff;
+                      } catch { return 'UthmanicHafs'; }
+                    })()}
+                  </span>
+                  <span className="text-xs">Unicode fallback (UthmanicHafs)</span>
+                </div>
+
+                <div className="flex flex-col items-center gap-2">
+                  <span
+                    style={{ fontFamily: 'p1-v2', fontSize: '64px', lineHeight: 1.4 }}
+                  >
+                    {'\uFC41'}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    computed: {(() => {
+                      try {
+                        const el = document.createElement('span');
+                        el.style.fontFamily = 'p1-v2';
+                        document.body.appendChild(el);
+                        const ff = window.getComputedStyle(el).fontFamily;
+                        document.body.removeChild(el);
+                        return ff;
+                      } catch { return 'p1-v2'; }
+                    })()}
+                  </span>
+                  <span className="text-xs">QCF glyph (p1-v2)</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* 🔍 QCF V2 verification panel — TEMPORARY DEBUG */}
           {(() => {
             const fontSnap = getQcfFontDebugSnapshot();
