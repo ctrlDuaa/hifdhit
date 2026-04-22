@@ -309,6 +309,7 @@ serve(async (req) => {
       const perPage = url.searchParams.get("per_page");
 
       // QCF V2 path → use public Quran.com API. ALWAYS returns the same debug shape.
+      // (deploy marker: ensure unified debug payload is always returned)
       if (words && wordFields) {
         const debugPayload: {
           ok: boolean;
