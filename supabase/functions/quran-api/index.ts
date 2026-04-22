@@ -36,8 +36,10 @@ function err(message: string, status = 400) {
 function createQcfDebugPayload() {
   return {
     ok: false,
-    debug_version: "qcf-debug-v5",
+    debug_version: "qcf-debug-v6",
+    debug_marker: "QCF_DEBUG_MARKER_V6_HEADERS_LOGGED",
     debug_upstream_url: "",
+    debug_request_headers: {} as Record<string, string>,
     debug_status: null as number | null,
     debug_raw_body_preview: "",
     debug_error_message: "",
@@ -349,13 +351,20 @@ serve(async (req) => {
 
           const { clientId } = getQfConfig();
           const token = await getQfClientCredentialsToken();
-          const res = await fetch(upstreamUrl, {
-            headers: {
-              Accept: "application/json",
-              "x-auth-token": token,
-              "x-client-id": clientId,
-            },
-          });
+          const requestHeaders: Record<string, string> = {
+            Accept: "application/json",
+            "x-auth-token": token,
+            "x-client-id": clientId,
+          };
+          // Redact token for debug payload (safe to expose to client)
+          debugPayload.debug_request_headers = {
+            Accept: requestHeaders.Accept,
+            "x-auth-token": token ? `${token.slice(0, 8)}...(len=${token.length})` : "(missing)",
+            "x-client-id": clientId || "(missing)",
+          };
+          console.log(`[quran-api][page] request headers:`, debugPayload.debug_request_headers);
+          console.log(`[quran-api][page] full upstream URL: ${upstreamUrl}`);
+          const res = await fetch(upstreamUrl, { headers: requestHeaders });
           debugPayload.debug_status = res.status;
           const rawText = await res.text();
           debugPayload.debug_raw_body_preview = rawText.slice(0, 500);
