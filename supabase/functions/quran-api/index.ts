@@ -36,7 +36,7 @@ function err(message: string, status = 400) {
 function createQcfDebugPayload() {
   return {
     ok: false,
-    debug_version: "qcf-debug-v3",
+    debug_version: "qcf-debug-v4",
     debug_upstream_url: "",
     debug_status: null as number | null,
     debug_raw_body_preview: "",
@@ -326,23 +326,36 @@ serve(async (req) => {
       const wordFields = url.searchParams.get("word_fields");
       const perPage = url.searchParams.get("per_page");
 
-      // QCF V2 path → use public Quran.com API. ALWAYS returns the same debug shape.
-      // (deploy marker: ensure unified debug payload is always returned)
+      // QCF V2 path → use Quran Foundation Content API (server-to-server with client_credentials).
       if (words && wordFields) {
         try {
-          const QURAN_API_BASE = Deno.env.get("QURAN_API_BASE_URL") || "https://api.quran.com/api/v4";
+          // Build base from QF_OAUTH_API_BASE_URL and ensure /content/api/v4 suffix.
+          const rawBase = (Deno.env.get("QURAN_API_BASE_URL") || "").replace(/\/+$/, "");
+          let contentBase = rawBase;
+          if (!contentBase || !/\/content\/api\/v4$/.test(contentBase)) {
+            const { apiBaseUrl } = getQfConfig();
+            contentBase = `${apiBaseUrl.replace(/\/+$/, "")}/content/api/v4`;
+          }
           const params = new URLSearchParams();
           params.set("words", words);
           if (mushaf) params.set("mushaf", mushaf);
           params.set("word_fields", wordFields);
           if (perPage) params.set("per_page", perPage);
-          const upstreamUrl = `${QURAN_API_BASE}/verses/by_page/${pageNum}?${params.toString()}`;
+          const upstreamUrl = `${contentBase}/verses/by_page/${pageNum}?${params.toString()}`;
           debugPayload.debug_upstream_url = upstreamUrl;
 
           console.log(`[quran-api][page] edge URL: ${req.url}`);
           console.log(`[quran-api][page] upstream URL: ${upstreamUrl}`);
 
-          const res = await fetch(upstreamUrl, { headers: { Accept: "application/json" } });
+          const { clientId } = getQfConfig();
+          const token = await getQfClientCredentialsToken();
+          const res = await fetch(upstreamUrl, {
+            headers: {
+              Accept: "application/json",
+              "x-auth-token": token,
+              "x-client-id": clientId,
+            },
+          });
           debugPayload.debug_status = res.status;
           const rawText = await res.text();
           debugPayload.debug_raw_body_preview = rawText.slice(0, 500);
