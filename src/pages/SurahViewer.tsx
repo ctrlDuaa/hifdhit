@@ -70,89 +70,25 @@ const SurahViewer = () => {
   const { fontFamily: pageFontFamily, fontLoaded } = usePageFont(currentPage);
   const isMobile = useIsMobile();
 
-  // ── 🔍 QCF V2 verification (Quran.com API + Quran Foundation hosted fonts) ──
-  const [qcfDebug, setQcfDebug] = useState<{
-    fetched: boolean;
-    debugVersion?: string;
-    requestUrl?: string;
-    upstreamUrl?: string;
-    upstreamStatus?: number | null;
-    rawBodyPreview?: string;
-    errorMessage?: string;
-    firstWord?: any;
-    firstVerse?: any;
-    verseCount?: number;
-    wordCount?: number;
-    pages?: number[];
-    fetchedAt?: string;
-  }>({ fetched: false });
+  // ── QCF V2 (Quran.com API + Quran Foundation hosted glyph fonts) ──
   const [qcfWords, setQcfWords] = useState<any[]>([]);
-  const [, setFontTick] = useState(0);
 
   useEffect(() => {
     if (!currentPage) return;
     let cancelled = false;
-    setQcfDebug({ fetched: false });
     setQcfWords([]);
 
     (async () => {
       try {
-        const requestUrl = quranApi.getPageQcfRequestUrl(currentPage);
-        console.log("Edge function request URL:", requestUrl);
         const responseJson = await quranApi.getPageQcf(currentPage);
-        console.log("QCF debug payload:", responseJson);
-        const debug = responseJson;
-        const verses: any[] = Array.isArray(debug?.verses) ? debug.verses : [];
-        const words: any[] = Array.isArray(debug?.words_flattened)
-          ? debug.words_flattened
+        const verses: any[] = Array.isArray(responseJson?.verses) ? responseJson.verses : [];
+        const words: any[] = Array.isArray(responseJson?.words_flattened)
+          ? responseJson.words_flattened
           : verses.flatMap((v: any) => v?.words ?? []);
-        const firstVerse = verses[0];
-        const firstWord = words[0];
-        const pageSet = new Set<number>();
-        for (const w of words) {
-          if (typeof w?.page_number === 'number') pageSet.add(w.page_number);
-        }
-        const pages: number[] = Array.from(pageSet).sort((a, b) => a - b);
-
-        console.log('[QCF][api] Raw debug payload:', debug);
-        console.log('[QCF][api] debug_upstream_url:', debug?.debug_upstream_url);
-        console.log('[QCF][api] debug_status:', debug?.debug_status);
-        console.log('[QCF][api] debug_raw_body_preview:', debug?.debug_raw_body_preview);
-        console.log('[QCF][api] debug_error_message:', debug?.debug_error_message);
-        console.log('[QCF][api] Verse count:', verses.length);
-        console.log('[QCF][api] Flattened word count:', words.length);
-
         if (cancelled) return;
         setQcfWords(words);
-        setQcfDebug({
-          fetched: true,
-          debugVersion: debug?.debug_version ?? '',
-          requestUrl,
-          upstreamUrl: debug?.debug_upstream_url ?? '',
-          upstreamStatus: debug?.debug_status ?? null,
-          rawBodyPreview: debug?.debug_raw_body_preview ?? '',
-          errorMessage: debug?.debug_error_message ?? '',
-          firstWord,
-          firstVerse,
-          verseCount: verses.length,
-          wordCount: words.length,
-          pages,
-          fetchedAt: new Date().toLocaleTimeString(),
-        });
-      } catch (e: any) {
-        console.error('[QCF][api] fetch failed:', e);
-        if (!cancelled) {
-          setQcfDebug({
-            fetched: true,
-            debugVersion: '',
-            requestUrl: quranApi.getPageQcfRequestUrl(currentPage),
-            errorMessage: e?.message || 'fetch failed',
-            verseCount: 0,
-            wordCount: 0,
-            pages: [],
-            fetchedAt: new Date().toLocaleTimeString(),
-          });
-        }
+      } catch (e) {
+        if (!cancelled) setQcfWords([]);
       }
     })();
     return () => {
