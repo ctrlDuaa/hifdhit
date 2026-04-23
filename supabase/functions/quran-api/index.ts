@@ -346,9 +346,6 @@ serve(async (req) => {
           const upstreamUrl = `${contentBase}/verses/by_page/${pageNum}?${params.toString()}`;
           debugPayload.debug_upstream_url = upstreamUrl;
 
-          console.log(`[quran-api][page] edge URL: ${req.url}`);
-          console.log(`[quran-api][page] upstream URL: ${upstreamUrl}`);
-
           const { clientId } = getQfConfig();
           const token = await getQfClientCredentialsToken();
           const requestHeaders: Record<string, string> = {
@@ -356,20 +353,10 @@ serve(async (req) => {
             "x-auth-token": token,
             "x-client-id": clientId,
           };
-          // Redact token for debug payload (safe to expose to client)
-          debugPayload.debug_request_headers = {
-            Accept: requestHeaders.Accept,
-            "x-auth-token": token ? `${token.slice(0, 8)}...(len=${token.length})` : "(missing)",
-            "x-client-id": clientId || "(missing)",
-          };
-          console.log(`[quran-api][page] request headers:`, debugPayload.debug_request_headers);
-          console.log(`[quran-api][page] full upstream URL: ${upstreamUrl}`);
           const res = await fetch(upstreamUrl, { headers: requestHeaders });
           debugPayload.debug_status = res.status;
           const rawText = await res.text();
           debugPayload.debug_raw_body_preview = rawText.slice(0, 500);
-          console.log(`[quran-api][page] upstream status: ${res.status}`);
-          console.log(`[quran-api][page] raw response (first 500): ${debugPayload.debug_raw_body_preview}`);
 
           if (!res.ok) {
             debugPayload.debug_error_message = `Upstream HTTP ${res.status}`;
