@@ -78,8 +78,6 @@ class QuranApiService {
 
   private async invoke<T>(params: Record<string, string>): Promise<T> {
     const url = this.buildUrl(params);
-    // 🔍 Verification log — exact Quran API request URL (proxied through edge function)
-    console.log(`[QCF][api] ${params.action ?? '?'} → ${url}`);
     const res = await fetch(url, { headers: this.getHeaders() });
 
     if (!res.ok) {
@@ -147,18 +145,6 @@ class QuranApiService {
 
   async getVersesByPage(pageNumber: number): Promise<any> {
     return this.invoke({ action: "page", page_number: String(pageNumber) });
-  }
-
-  /** QCF V2 glyph-based page data (code_v2, text_qpc_hafs, page_number, line_number, char_type_name) */
-  getPageQcfRequestUrl(pageNumber: number): string {
-    return this.buildUrl({
-      action: "page",
-      page_number: String(pageNumber),
-      words: "true",
-      mushaf: "1",
-      word_fields: "code_v2,text_qpc_hafs,page_number,line_number,char_type_name",
-      per_page: "50",
-    });
   }
 
   async getPageQcf(pageNumber: number): Promise<any> {

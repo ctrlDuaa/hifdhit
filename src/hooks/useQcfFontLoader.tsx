@@ -54,9 +54,6 @@ async function loadPageFont(pageNumber: number): Promise<boolean> {
   const family = `p${pageNumber}-v2`;
   const url = `${FONT_BASE}/p${pageNumber}.woff2`;
 
-  // 🔍 Verification log — exact remote font URL being requested
-  console.log(`[QCF][font] Requesting page ${pageNumber} → ${url} (family: ${family})`);
-
   const promise = (async () => {
     try {
       const font = new FontFace(family, `url(${url}) format('woff2')`, {
@@ -65,10 +62,8 @@ async function loadPageFont(pageNumber: number): Promise<boolean> {
       await font.load();
       document.fonts.add(font);
       loadedPages.add(pageNumber);
-      console.log(`[QCF][font] ✅ Loaded ${family} from ${url}`);
       return true;
     } catch (err) {
-      console.error(`[QCF][font] ❌ Failed to load ${family} from ${url}:`, err);
       failedPages.add(pageNumber);
       return false;
     } finally {
@@ -141,17 +136,3 @@ export function useQcfFontLoader(words: QcfWordLike[] | undefined | null) {
   };
 }
 
-/** Build the exact remote font URL for a given page (for debug/verification UI). */
-export function getQcfFontUrl(pageNumber: number): string {
-  return `${FONT_BASE}/p${pageNumber}.woff2`;
-}
-
-/** Snapshot of font-load state for debug panels. */
-export function getQcfFontDebugSnapshot() {
-  return {
-    base: FONT_BASE,
-    loaded: Array.from(loadedPages).sort((a, b) => a - b),
-    failed: Array.from(failedPages).sort((a, b) => a - b),
-    inFlight: Array.from(inFlight.keys()).sort((a, b) => a - b),
-  };
-}

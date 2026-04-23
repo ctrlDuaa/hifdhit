@@ -159,7 +159,7 @@ async function getQfClientCredentialsToken(): Promise<string> {
   const data = await res.json();
   cachedQfToken = data.access_token;
   cachedQfTokenExpiresAt = Date.now() + (data.expires_in || 3600) * 1000;
-  console.log(`[qf-token] acquired client_credentials token, expires_in=${data.expires_in}`);
+  
   return cachedQfToken!;
 }
 
@@ -346,9 +346,6 @@ serve(async (req) => {
           const upstreamUrl = `${contentBase}/verses/by_page/${pageNum}?${params.toString()}`;
           debugPayload.debug_upstream_url = upstreamUrl;
 
-          console.log(`[quran-api][page] edge URL: ${req.url}`);
-          console.log(`[quran-api][page] upstream URL: ${upstreamUrl}`);
-
           const { clientId } = getQfConfig();
           const token = await getQfClientCredentialsToken();
           const requestHeaders: Record<string, string> = {
@@ -356,20 +353,10 @@ serve(async (req) => {
             "x-auth-token": token,
             "x-client-id": clientId,
           };
-          // Redact token for debug payload (safe to expose to client)
-          debugPayload.debug_request_headers = {
-            Accept: requestHeaders.Accept,
-            "x-auth-token": token ? `${token.slice(0, 8)}...(len=${token.length})` : "(missing)",
-            "x-client-id": clientId || "(missing)",
-          };
-          console.log(`[quran-api][page] request headers:`, debugPayload.debug_request_headers);
-          console.log(`[quran-api][page] full upstream URL: ${upstreamUrl}`);
           const res = await fetch(upstreamUrl, { headers: requestHeaders });
           debugPayload.debug_status = res.status;
           const rawText = await res.text();
           debugPayload.debug_raw_body_preview = rawText.slice(0, 500);
-          console.log(`[quran-api][page] upstream status: ${res.status}`);
-          console.log(`[quran-api][page] raw response (first 500): ${debugPayload.debug_raw_body_preview}`);
 
           if (!res.ok) {
             debugPayload.debug_error_message = `Upstream HTTP ${res.status}`;
@@ -398,7 +385,7 @@ serve(async (req) => {
       // Legacy fallback (translations) → public api.quran.com
       const QURAN_API_BASE = Deno.env.get("QURAN_API_BASE_URL") || "https://api.quran.com/api/v4";
       const upstreamUrl = `${QURAN_API_BASE}/verses/by_page/${pageNum}?language=en&words=true&word_fields=text_uthmani&fields=text_uthmani&translations=${DEFAULT_TRANSLATION_ID}`;
-      console.log(`[quran-api][page] (legacy) upstream URL: ${upstreamUrl}`);
+      
       const res = await fetch(upstreamUrl, { headers: { Accept: "application/json" } });
       if (!res.ok) {
         const text = await res.text();

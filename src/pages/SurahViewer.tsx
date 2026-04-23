@@ -21,7 +21,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { AppHeader } from '@/components/AppHeader';
 import { buildPageWordKeySet, getNormalizedMistakeWordKey } from '@/lib/mushafMistakeUtils';
 import { quranApi } from '@/services/quranApi';
-import { useQcfFontLoader, getQcfFontUrl, getQcfFontDebugSnapshot } from '@/hooks/useQcfFontLoader';
+import { useQcfFontLoader } from '@/hooks/useQcfFontLoader';
 
 interface MistakeNote {
   id: string;
@@ -70,89 +70,25 @@ const SurahViewer = () => {
   const { fontFamily: pageFontFamily, fontLoaded } = usePageFont(currentPage);
   const isMobile = useIsMobile();
 
-  // ── 🔍 QCF V2 verification (Quran.com API + Quran Foundation hosted fonts) ──
-  const [qcfDebug, setQcfDebug] = useState<{
-    fetched: boolean;
-    debugVersion?: string;
-    requestUrl?: string;
-    upstreamUrl?: string;
-    upstreamStatus?: number | null;
-    rawBodyPreview?: string;
-    errorMessage?: string;
-    firstWord?: any;
-    firstVerse?: any;
-    verseCount?: number;
-    wordCount?: number;
-    pages?: number[];
-    fetchedAt?: string;
-  }>({ fetched: false });
+  // ── QCF V2 (Quran.com API + Quran Foundation hosted glyph fonts) ──
   const [qcfWords, setQcfWords] = useState<any[]>([]);
-  const [, setFontTick] = useState(0);
 
   useEffect(() => {
     if (!currentPage) return;
     let cancelled = false;
-    setQcfDebug({ fetched: false });
     setQcfWords([]);
 
     (async () => {
       try {
-        const requestUrl = quranApi.getPageQcfRequestUrl(currentPage);
-        console.log("Edge function request URL:", requestUrl);
         const responseJson = await quranApi.getPageQcf(currentPage);
-        console.log("QCF debug payload:", responseJson);
-        const debug = responseJson;
-        const verses: any[] = Array.isArray(debug?.verses) ? debug.verses : [];
-        const words: any[] = Array.isArray(debug?.words_flattened)
-          ? debug.words_flattened
+        const verses: any[] = Array.isArray(responseJson?.verses) ? responseJson.verses : [];
+        const words: any[] = Array.isArray(responseJson?.words_flattened)
+          ? responseJson.words_flattened
           : verses.flatMap((v: any) => v?.words ?? []);
-        const firstVerse = verses[0];
-        const firstWord = words[0];
-        const pageSet = new Set<number>();
-        for (const w of words) {
-          if (typeof w?.page_number === 'number') pageSet.add(w.page_number);
-        }
-        const pages: number[] = Array.from(pageSet).sort((a, b) => a - b);
-
-        console.log('[QCF][api] Raw debug payload:', debug);
-        console.log('[QCF][api] debug_upstream_url:', debug?.debug_upstream_url);
-        console.log('[QCF][api] debug_status:', debug?.debug_status);
-        console.log('[QCF][api] debug_raw_body_preview:', debug?.debug_raw_body_preview);
-        console.log('[QCF][api] debug_error_message:', debug?.debug_error_message);
-        console.log('[QCF][api] Verse count:', verses.length);
-        console.log('[QCF][api] Flattened word count:', words.length);
-
         if (cancelled) return;
         setQcfWords(words);
-        setQcfDebug({
-          fetched: true,
-          debugVersion: debug?.debug_version ?? '',
-          requestUrl,
-          upstreamUrl: debug?.debug_upstream_url ?? '',
-          upstreamStatus: debug?.debug_status ?? null,
-          rawBodyPreview: debug?.debug_raw_body_preview ?? '',
-          errorMessage: debug?.debug_error_message ?? '',
-          firstWord,
-          firstVerse,
-          verseCount: verses.length,
-          wordCount: words.length,
-          pages,
-          fetchedAt: new Date().toLocaleTimeString(),
-        });
-      } catch (e: any) {
-        console.error('[QCF][api] fetch failed:', e);
-        if (!cancelled) {
-          setQcfDebug({
-            fetched: true,
-            debugVersion: '',
-            requestUrl: quranApi.getPageQcfRequestUrl(currentPage),
-            errorMessage: e?.message || 'fetch failed',
-            verseCount: 0,
-            wordCount: 0,
-            pages: [],
-            fetchedAt: new Date().toLocaleTimeString(),
-          });
-        }
+      } catch (e) {
+        if (!cancelled) setQcfWords([]);
       }
     })();
     return () => {
@@ -162,17 +98,6 @@ const SurahViewer = () => {
 
   // Trigger font loads via the hook so they actually fetch from quran.foundation
   const { loadedPages: qcfLoadedPages } = useQcfFontLoader(qcfWords);
-
-  // Tick to refresh debug snapshot as fonts come in
-  useEffect(() => {
-    if (qcfWords.length === 0) return;
-    const id = window.setInterval(() => setFontTick((t) => t + 1), 500);
-    const stop = window.setTimeout(() => window.clearInterval(id), 8000);
-    return () => {
-      window.clearInterval(id);
-      window.clearTimeout(stop);
-    };
-  }, [qcfWords]);
 
   // Helper functions for mistake categories
   const getCategoryColor = (category: string): string => {
@@ -1036,295 +961,6 @@ const SurahViewer = () => {
             
           </Card>
 
-          {/* 🧪 QCF V2 Rendering Diagnostics — TEMPORARY */}
-          {(() => {
-            const computedFF = (family: string) => {
-              try {
-                const el = document.createElement('span');
-                el.style.fontFamily = family;
-                document.body.appendChild(el);
-                const ff = window.getComputedStyle(el).fontFamily;
-                document.body.removeChild(el);
-                return ff;
-              } catch { return family; }
-            };
-
-            const firstVerseKey = qcfWords[0]?.verse_key;
-            const firstVerseWords = firstVerseKey
-              ? qcfWords.filter((w: any) => w.verse_key === firstVerseKey)
-              : [];
-            const firstRegularWord = firstVerseWords.find(
-              (w: any) => w.char_type_name === 'word' && w.code_v2
-            );
-            const pageNum = firstRegularWord?.page_number ?? 1;
-            const qcfFamily = `p${pageNum}-v2`;
-
-            return (
-              <Card className="mt-4 border-2 border-blue-400 bg-blue-50 dark:bg-blue-950/30">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">🧪 QCF V2 Rendering Diagnostics</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* 1. Single-word test */}
-                  <div>
-                    <div className="text-xs font-semibold mb-2">1. Single-word test</div>
-                    <div className="flex flex-row items-start gap-8 flex-wrap">
-                      <div className="flex flex-col items-center gap-1">
-                        <span style={{ fontFamily: 'UthmanicHafs', fontSize: '64px', lineHeight: 1.4 }}>بِسۡمِ</span>
-                        <span className="text-[10px] text-muted-foreground">computed: {computedFF('UthmanicHafs')}</span>
-                        <span className="text-[10px]">UthmanicHafs</span>
-                      </div>
-                      <div className="flex flex-col items-center gap-1">
-                        <span style={{ fontFamily: 'p1-v2', fontSize: '64px', lineHeight: 1.4 }}>{'\uFC41'}</span>
-                        <span className="text-[10px] text-muted-foreground">computed: {computedFF('p1-v2')}</span>
-                        <span className="text-[10px]">p1-v2</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 2. First verse comparison */}
-                  <div>
-                    <div className="text-xs font-semibold mb-2">
-                      2. First verse comparison ({firstVerseKey ?? 'no data'})
-                    </div>
-                    <div className="space-y-3">
-                      <div>
-                        <div className="text-[10px] text-muted-foreground mb-1">A: text_qpc_hafs + UthmanicHafs</div>
-                        <div dir="rtl" style={{ fontFamily: 'UthmanicHafs', fontSize: '40px', lineHeight: 1.8, textAlign: 'right' }}>
-                          {firstVerseWords.map((w: any, i: number) => (
-                            <span key={i}>{w.text_qpc_hafs ?? ''} </span>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-muted-foreground mb-1">
-                          B: code_v2 (regular) + p{pageNum}-v2; end markers via UthmanicHafs
-                        </div>
-                        <div dir="rtl" style={{ fontSize: '40px', lineHeight: 1.8, textAlign: 'right' }}>
-                          {firstVerseWords.map((w: any, i: number) => {
-                            const isEnd = w.char_type_name === 'end';
-                            const family = isEnd ? 'UthmanicHafs' : `p${w.page_number ?? pageNum}-v2`;
-                            const text = isEnd ? (w.text_qpc_hafs ?? '') : (w.code_v2 ?? '');
-                            return <span key={i} style={{ fontFamily: family }}>{text}</span>;
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 3. Raw inline rendering test */}
-                  <div>
-                    <div className="text-xs font-semibold mb-2">3. Raw inline (no flex/gap/letter-spacing)</div>
-                    <div
-                      dir="rtl"
-                      style={{
-                        fontFamily: qcfFamily,
-                        fontSize: '40px',
-                        lineHeight: 1.8,
-                        textAlign: 'right',
-                        letterSpacing: 0,
-                        wordSpacing: 0,
-                      }}
-                    >
-                      {firstVerseWords
-                        .filter((w: any) => w.char_type_name !== 'end' && w.code_v2)
-                        .map((w: any) => w.code_v2)
-                        .join('')}
-                    </div>
-                  </div>
-
-                  {/* 4. Rendering-method test */}
-                  <div>
-                    <div className="text-xs font-semibold mb-2">
-                      4. Rendering-method test (single word: {firstRegularWord ? `'${firstRegularWord.code_v2}'` : 'n/a'})
-                    </div>
-                    {firstRegularWord ? (
-                      <div className="flex flex-row items-start gap-8 flex-wrap">
-                        <div className="flex flex-col items-center gap-1">
-                          <span style={{ fontFamily: qcfFamily, fontSize: '64px', lineHeight: 1.4 }}>
-                            {firstRegularWord.code_v2}
-                          </span>
-                          <span className="text-[10px]">plain text</span>
-                        </div>
-                        <div className="flex flex-col items-center gap-1">
-                          <span
-                            style={{ fontFamily: qcfFamily, fontSize: '64px', lineHeight: 1.4 }}
-                            dangerouslySetInnerHTML={{ __html: firstRegularWord.code_v2 }}
-                          />
-                          <span className="text-[10px]">dangerouslySetInnerHTML</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground">No regular word with code_v2 available</div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })()}
-
-          {/* 🔍 QCF V2 verification panel — TEMPORARY DEBUG */}
-          {(() => {
-            const fontSnap = getQcfFontDebugSnapshot();
-            const fw = qcfDebug.firstWord;
-            const checks = fw
-              ? {
-                  code_v2: !!fw.code_v2,
-                  text_qpc_hafs: !!fw.text_qpc_hafs,
-                  page_number: typeof fw.page_number === 'number',
-                  char_type_name: typeof fw.char_type_name === 'string',
-                }
-              : null;
-            return (
-              <Card className="mt-4 border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/30">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    🔍 QCF V2 Verification (Quran.com API + Quran Foundation fonts)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-xs space-y-3 font-mono">
-                  <div>
-                    <div className="font-semibold mb-1">Current Mushaf page:</div>
-                    <div>{currentPage}</div>
-                  </div>
-
-                  <div>
-                    <div className="font-semibold mb-1">Debug version:</div>
-                    <div className="break-all bg-background/50 p-2 rounded border">
-                      {qcfDebug.fetched ? (qcfDebug.debugVersion || '(none returned)') : '—'}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="font-semibold mb-1">Edge function request URL:</div>
-                    <div className="break-all bg-background/50 p-2 rounded border">
-                      {qcfDebug.fetched ? (qcfDebug.requestUrl || '(none returned)') : '—'}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="font-semibold mb-1">Actual upstream URL (from edge function):</div>
-                    <div className="break-all bg-background/50 p-2 rounded border">
-                      {qcfDebug.fetched ? (qcfDebug.upstreamUrl || '(none returned)') : '—'}
-                    </div>
-                    <div className="mt-1">
-                      Host check:{' '}
-                      {qcfDebug.upstreamUrl?.startsWith('https://apis.quran.foundation/content/api/v4') ? (
-                        <span className="text-emerald-700 dark:text-emerald-400">✅ apis.quran.foundation/content/api/v4</span>
-                      ) : qcfDebug.upstreamUrl?.startsWith('https://api.quran.com/api/v4') ? (
-                        <span className="text-emerald-700 dark:text-emerald-400">✅ api.quran.com/api/v4</span>
-                      ) : qcfDebug.upstreamUrl ? (
-                        <span className="text-destructive">❌ unexpected host: {qcfDebug.upstreamUrl}</span>
-                      ) : (
-                        '(none returned)'
-                      )}
-                    </div>
-                    <div>Upstream status: {qcfDebug.fetched ? (qcfDebug.upstreamStatus ?? '(none returned)') : '—'}</div>
-                  </div>
-
-                  <div className={qcfDebug.errorMessage ? 'text-destructive' : ''}>
-                    <div className="font-semibold">Error:</div>
-                    <div>{qcfDebug.fetched ? (qcfDebug.errorMessage || '(none)') : '—'}</div>
-                  </div>
-
-                  <div>
-                    <div className="font-semibold mb-1">
-                      Verse count: {qcfDebug.verseCount ?? 0} • Word count: {qcfDebug.wordCount ?? 0} • Pages in payload:{' '}
-                      {qcfDebug.pages && qcfDebug.pages.length > 0 ? qcfDebug.pages.join(', ') : '—'} • Fetched at: {qcfDebug.fetchedAt ?? '—'}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="font-semibold mb-1">Raw upstream response:</div>
-                    <pre className="bg-background/50 p-2 rounded border overflow-x-auto whitespace-pre-wrap">
-{qcfDebug.rawBodyPreview || '(empty)'}
-                    </pre>
-                  </div>
-
-                  {fw && (
-                    <div>
-                      <div className="font-semibold mb-1">First word object:</div>
-                      <pre className="bg-background/50 p-2 rounded border overflow-x-auto whitespace-pre-wrap">
-{JSON.stringify(fw, null, 2)}
-                      </pre>
-                      <div className="mt-2 grid grid-cols-2 gap-1">
-                        {checks &&
-                          Object.entries(checks).map(([k, v]) => (
-                            <div key={k} className={v ? 'text-emerald-700 dark:text-emerald-400' : 'text-destructive'}>
-                              {v ? '✅' : '❌'} {k}
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div>
-                    <div className="font-semibold mb-1">QCF font base URL (forced remote):</div>
-                    <div className="break-all bg-background/50 p-2 rounded border">{fontSnap.base}</div>
-                  </div>
-
-                  <div>
-                    <div className="font-semibold mb-1">Per-page font URLs for this payload:</div>
-                    <div className="space-y-1">
-                      {(qcfDebug.pages ?? []).map((p) => {
-                        const url = getQcfFontUrl(p);
-                        const status = fontSnap.loaded.includes(p)
-                          ? '✅ loaded'
-                          : fontSnap.failed.includes(p)
-                          ? '❌ failed'
-                          : fontSnap.inFlight.includes(p)
-                          ? '⏳ loading'
-                          : '… queued';
-                        return (
-                          <div key={p} className="break-all bg-background/50 p-2 rounded border">
-                            <div>p{p}-v2 → {status}</div>
-                            <div className="opacity-70">{url}</div>
-                          </div>
-                        );
-                      })}
-                      {(qcfDebug.pages ?? []).length === 0 && <div>(none yet)</div>}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <div className="font-semibold">Loaded</div>
-                      <div>{fontSnap.loaded.join(', ') || '—'}</div>
-                    </div>
-                    <div>
-                      <div className="font-semibold">In flight</div>
-                      <div>{fontSnap.inFlight.join(', ') || '—'}</div>
-                    </div>
-                    <div className="text-destructive">
-                      <div className="font-semibold">Failed</div>
-                      <div>{fontSnap.failed.join(', ') || '—'}</div>
-                    </div>
-                  </div>
-
-                  {fw?.code_v2 && qcfDebug.pages && qcfDebug.pages[0] && (
-                    <div>
-                      <div className="font-semibold mb-1">
-                        Live render sample (first word, glyph + fallback):
-                      </div>
-                      <div className="flex gap-4 items-center bg-background/50 p-3 rounded border" dir="rtl">
-                        <span
-                          style={{ fontFamily: `'p${fw.page_number}-v2'`, fontSize: '2rem' }}
-                          dangerouslySetInnerHTML={{ __html: fw.code_v2 }}
-                          title="code_v2 via Quran Foundation font"
-                        />
-                        <span
-                          style={{ fontFamily: "'UthmanicHafs', serif", fontSize: '2rem' }}
-                          title="text_qpc_hafs fallback"
-                        >
-                          {fw.text_qpc_hafs}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })()}
         </div>
 
         {/* Main Content with Sidebar */}
