@@ -21,7 +21,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { AppHeader } from '@/components/AppHeader';
 import { buildPageWordKeySet, getNormalizedMistakeWordKey } from '@/lib/mushafMistakeUtils';
 import { quranApi } from '@/services/quranApi';
-import { useQcfFontLoader, getQcfFontUrl, getQcfFontDebugSnapshot } from '@/hooks/useQcfFontLoader';
+import { useQcfFontLoader } from '@/hooks/useQcfFontLoader';
 
 interface MistakeNote {
   id: string;
