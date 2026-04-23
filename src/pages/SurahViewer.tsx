@@ -1208,6 +1208,11 @@ const SurahViewer = () => {
                         // skeleton above already covers the initial loading state.
                         if (qcfLineWords.length === 0) return null;
 
+                        // Local words for this line (matches indexing used by `highlightedWords`).
+                        const localLineWords: any[] = line.words ?? [];
+                        // Walk QCF & local words in lockstep, skipping QCF end markers.
+                        let localIdx = 0;
+
                         return (
                           <div
                             className="text-xl md:text-2xl lg:text-3xl leading-tight w-full mx-auto"
@@ -1220,12 +1225,32 @@ const SurahViewer = () => {
                             }}
                           >
                             {qcfLineWords.map((word: any, wordIndex: number) => {
-                              const [surahStr, ayahStr] = (word.verse_key ?? ':').split(':');
-                              const surahNum = parseInt(surahStr, 10);
-                              const ayahNum = parseInt(ayahStr, 10);
-                              const positionNum = typeof word.position === 'number' ? word.position : (wordIndex + 1);
-                              const wordKey = `${surahNum}-${ayahNum}-${positionNum}`;
-                              const mistakeData = highlightedWords.get(wordKey);
+                              const isEnd = word.char_type_name === 'end';
+
+                              // Resolve mistake key from the matching local word
+                              // (local indexing is what `highlightedWords` uses).
+                              let mistakeData: { category: string; date?: string } | undefined;
+                              let surahNum: number | undefined;
+                              let ayahNum: number | undefined;
+
+                              if (!isEnd) {
+                                const localWord = localLineWords[localIdx];
+                                localIdx += 1;
+                                if (localWord && typeof localWord.surah === 'number' && typeof localWord.ayah === 'number' && typeof localWord.word === 'number') {
+                                  surahNum = localWord.surah;
+                                  ayahNum = localWord.ayah;
+                                  const wordKey = `${localWord.surah}-${localWord.ayah}-${localWord.word}`;
+                                  mistakeData = highlightedWords.get(wordKey);
+                                }
+                              }
+
+                              // Fallback verse_key parse (used for end-marker numbering / data attrs)
+                              if (surahNum === undefined || ayahNum === undefined) {
+                                const [surahStr, ayahStr] = (word.verse_key ?? ':').split(':');
+                                surahNum = parseInt(surahStr, 10);
+                                ayahNum = parseInt(ayahStr, 10);
+                              }
+
                               const hasMistake = !!mistakeData;
                               const mistakeCategory = mistakeData?.category;
                               const mistakeDate = mistakeData?.date;
@@ -1243,7 +1268,6 @@ const SurahViewer = () => {
                                 ? `${getCategoryLabel(mistakeCategory)}${mistakeDate ? ` - ${mistakeDate}` : ''}`
                                 : '';
 
-                              const isEnd = word.char_type_name === 'end';
                               const pageNum = typeof word.page_number === 'number' ? word.page_number : currentPage;
                               const fontReady = qcfLoadedPages.has(pageNum);
                               const useGlyph = !isEnd && fontReady && !!word.code_v2;
