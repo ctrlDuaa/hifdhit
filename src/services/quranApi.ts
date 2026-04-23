@@ -78,8 +78,6 @@ class QuranApiService {
 
   private async invoke<T>(params: Record<string, string>): Promise<T> {
     const url = this.buildUrl(params);
-    // 🔍 Verification log — exact Quran API request URL (proxied through edge function)
-    console.log(`[QCF][api] ${params.action ?? '?'} → ${url}`);
     const res = await fetch(url, { headers: this.getHeaders() });
 
     if (!res.ok) {

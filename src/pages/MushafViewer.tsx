@@ -71,7 +71,6 @@ const MushafViewer = () => {
         }
         if (!cancelled) setQcfWords(words);
       } catch (e: any) {
-        console.warn('[QCF] page-qcf fetch failed, falling back to local rendering:', e);
         if (!cancelled) setQcfError(e?.message || 'QCF fetch failed');
       }
     })();
