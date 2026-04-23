@@ -99,17 +99,6 @@ const SurahViewer = () => {
   // Trigger font loads via the hook so they actually fetch from quran.foundation
   const { loadedPages: qcfLoadedPages } = useQcfFontLoader(qcfWords);
 
-  // Tick to refresh debug snapshot as fonts come in
-  useEffect(() => {
-    if (qcfWords.length === 0) return;
-    const id = window.setInterval(() => setFontTick((t) => t + 1), 500);
-    const stop = window.setTimeout(() => window.clearInterval(id), 8000);
-    return () => {
-      window.clearInterval(id);
-      window.clearTimeout(stop);
-    };
-  }, [qcfWords]);
-
   // Helper functions for mistake categories
   const getCategoryColor = (category: string): string => {
     switch (category) {
