@@ -159,7 +159,7 @@ async function getQfClientCredentialsToken(): Promise<string> {
   const data = await res.json();
   cachedQfToken = data.access_token;
   cachedQfTokenExpiresAt = Date.now() + (data.expires_in || 3600) * 1000;
-  console.log(`[qf-token] acquired client_credentials token, expires_in=${data.expires_in}`);
+  
   return cachedQfToken!;
 }
 
@@ -385,7 +385,7 @@ serve(async (req) => {
       // Legacy fallback (translations) → public api.quran.com
       const QURAN_API_BASE = Deno.env.get("QURAN_API_BASE_URL") || "https://api.quran.com/api/v4";
       const upstreamUrl = `${QURAN_API_BASE}/verses/by_page/${pageNum}?language=en&words=true&word_fields=text_uthmani&fields=text_uthmani&translations=${DEFAULT_TRANSLATION_ID}`;
-      console.log(`[quran-api][page] (legacy) upstream URL: ${upstreamUrl}`);
+      
       const res = await fetch(upstreamUrl, { headers: { Accept: "application/json" } });
       if (!res.ok) {
         const text = await res.text();

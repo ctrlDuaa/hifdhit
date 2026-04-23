@@ -147,18 +147,6 @@ class QuranApiService {
     return this.invoke({ action: "page", page_number: String(pageNumber) });
   }
 
-  /** QCF V2 glyph-based page data (code_v2, text_qpc_hafs, page_number, line_number, char_type_name) */
-  getPageQcfRequestUrl(pageNumber: number): string {
-    return this.buildUrl({
-      action: "page",
-      page_number: String(pageNumber),
-      words: "true",
-      mushaf: "1",
-      word_fields: "code_v2,text_qpc_hafs,page_number,line_number,char_type_name",
-      per_page: "50",
-    });
-  }
-
   async getPageQcf(pageNumber: number): Promise<any> {
     return this.invoke({
       action: "page",
