@@ -161,7 +161,7 @@ const SurahViewer = () => {
   }, [currentPage]);
 
   // Trigger font loads via the hook so they actually fetch from quran.foundation
-  useQcfFontLoader(qcfWords);
+  const { loadedPages: qcfLoadedPages } = useQcfFontLoader(qcfWords);
 
   // Tick to refresh debug snapshot as fonts come in
   useEffect(() => {
