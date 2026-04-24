@@ -467,88 +467,46 @@ const MushafViewer = () => {
                     
                 {line.line_type === 'ayah' && (() => {
                   const qcfLineWords = qcfWords && !qcfError ? qcfLineMap.get(line.line_number) : null;
-                  const useQcf = qcfLineWords && qcfLineWords.length > 0;
-
-                  if (useQcf) {
-                    return (
-                      <div
-                        className="w-full max-w-3xl mx-auto text-xl md:text-2xl lg:text-3xl leading-tight"
-                        style={{
-                          lineHeight: '2',
-                          textAlign: 'center',
-                          direction: 'rtl',
-                          wordSpacing: '0.05em',
-                        }}
-                      >
-                        <QcfVerseText
-                          words={qcfLineWords!}
-                          loadedPages={qcfLoadedPages}
-                          wordWrapper={(w, _i, child) => {
-                            if (w.char_type_name === 'end') return child;
-                            const wordKey = `${w.surah}-${w.ayah}-${w.position}`;
-                            const mistakeData = highlightedWords.get(wordKey);
-                            const hasMistake = mistakeData !== undefined;
-                            return (
-                              <span
-                                className="transition-colors duration-200 rounded-sm"
-                                style={
-                                  hasMistake
-                                    ? {
-                                        backgroundColor: getCategoryColor(mistakeData.category),
-                                        border: `2px solid ${getCategoryBorderColor(mistakeData.category)}`,
-                                        padding: '2px 4px',
-                                        color: 'black',
-                                        display: 'inline-block',
-                                      }
-                                    : undefined
-                                }
-                                title={hasMistake ? `${mistakeData.category} - ${mistakeData.date}` : ''}
-                              >
-                                {child}
-                              </span>
-                            );
-                          }}
-                        />
-                      </div>
-                    );
-                  }
-
-                  // Fallback: legacy local Mushaf rendering
+                  if (!qcfLineWords || qcfLineWords.length === 0) return null;
                   return (
                     <div
                       className="w-full max-w-3xl mx-auto text-xl md:text-2xl lg:text-3xl leading-tight"
                       style={{
-                        fontFamily: pageFontFamily,
                         lineHeight: '2',
                         textAlign: 'center',
                         direction: 'rtl',
                         wordSpacing: '0.05em',
                       }}
                     >
-                      {line.words.map((word) => {
-                        const wordKey = `${word.surah}-${word.ayah}-${word.word}`;
-                        const mistakeData = highlightedWords.get(wordKey);
-                        const hasMistake = mistakeData !== undefined;
-                        return (
-                          <span
-                            key={word.id}
-                            className="transition-colors duration-200 rounded-sm"
-                            style={
-                              hasMistake
-                                ? {
-                                    backgroundColor: getCategoryColor(mistakeData.category),
-                                    border: `2px solid ${getCategoryBorderColor(mistakeData.category)}`,
-                                    padding: '2px 4px',
-                                    color: 'black',
-                                  }
-                                : undefined
-                            }
-                            title={hasMistake ? `${mistakeData.category} - ${mistakeData.date}` : ''}
-                          >
-                            {word.text}
-                          </span>
-                        );
-                      })}
+                      <QcfVerseText
+                        words={qcfLineWords}
+                        loadedPages={qcfLoadedPages}
+                        wordWrapper={(w, _i, child) => {
+                          if (w.char_type_name === 'end') return child;
+                          const wordKey = `${w.surah}-${w.ayah}-${w.position}`;
+                          const mistakeData = highlightedWords.get(wordKey);
+                          const hasMistake = mistakeData !== undefined;
+                          return (
+                            <span
+                              className="transition-colors duration-200 rounded-sm"
+                              style={
+                                hasMistake
+                                  ? {
+                                      backgroundColor: getCategoryColor(mistakeData.category),
+                                      border: `2px solid ${getCategoryBorderColor(mistakeData.category)}`,
+                                      padding: '2px 4px',
+                                      color: 'black',
+                                      display: 'inline-block',
+                                    }
+                                  : undefined
+                              }
+                              title={hasMistake ? `${mistakeData.category} - ${mistakeData.date}` : ''}
+                            >
+                              {child}
+                            </span>
+                          );
+                        }}
+                      />
                     </div>
                   );
                 })()}
