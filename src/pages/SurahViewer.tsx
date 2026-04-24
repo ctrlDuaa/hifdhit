@@ -375,8 +375,6 @@ const SurahViewer = () => {
     return ayahCounts[surahNum] || 0;
   };
 
-  const { preloadAdjacentPages } = useSupabaseMushaf();
-  // Note: we already destructured the same hook above; this keeps a stable ref to preloader.
   const loadPageData = useCallback(async (pageNumber: number) => {
     try {
       const page = await loadPage(pageNumber);
