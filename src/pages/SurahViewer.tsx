@@ -43,6 +43,7 @@ const SurahViewer = () => {
   const {
     loadPage,
     getSurahStartPage,
+    preloadAdjacentPages,
     loading,
     error
   } = useSupabaseMushaf();
