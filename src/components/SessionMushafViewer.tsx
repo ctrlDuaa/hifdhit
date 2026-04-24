@@ -83,6 +83,8 @@ export const SessionMushafViewer = ({
         if (!cancelled) setQcfWords([]);
       }
     })();
+    if (currentPage > 1) quranApi.prefetchPageQcf(currentPage - 1);
+    if (currentPage < 604) quranApi.prefetchPageQcf(currentPage + 1);
     return () => {
       cancelled = true;
     };

@@ -43,6 +43,7 @@ const SurahViewer = () => {
   const {
     loadPage,
     getSurahStartPage,
+    preloadAdjacentPages,
     loading,
     error
   } = useSupabaseMushaf();
@@ -89,6 +90,11 @@ const SurahViewer = () => {
         if (!cancelled) setQcfWords([]);
       }
     })();
+
+    // Prefetch adjacent pages (QCF data) for snappier navigation
+    if (currentPage > 1) quranApi.prefetchPageQcf(currentPage - 1);
+    if (currentPage < 604) quranApi.prefetchPageQcf(currentPage + 1);
+
     return () => {
       cancelled = true;
     };
@@ -379,10 +385,13 @@ const SurahViewer = () => {
       if (user && page) {
         await loadMistakesForPage(pageNumber, page);
       }
+
+      // Preload adjacent DB pages in background
+      preloadAdjacentPages(pageNumber, 604);
     } catch (err) {
       console.error('Failed to load page:', err);
     }
-  }, [loadPage, user]);
+  }, [loadPage, user, preloadAdjacentPages]);
 
   // Real-time subscription: refresh mistakes whenever any mistake (session, memorization, or block review) changes
   useEffect(() => {
