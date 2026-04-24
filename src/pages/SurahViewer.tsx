@@ -89,6 +89,11 @@ const SurahViewer = () => {
         if (!cancelled) setQcfWords([]);
       }
     })();
+
+    // Prefetch adjacent pages (QCF data) for snappier navigation
+    if (currentPage > 1) quranApi.prefetchPageQcf(currentPage - 1);
+    if (currentPage < 604) quranApi.prefetchPageQcf(currentPage + 1);
+
     return () => {
       cancelled = true;
     };
