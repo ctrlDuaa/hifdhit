@@ -13,7 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
-import { usePageFont } from '@/hooks/usePageFont';
+
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -66,8 +66,6 @@ const SurahViewer = () => {
   const [editNoteText, setEditNoteText] = useState('');
   const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
 
-  // Load page-specific font
-  const { fontFamily: pageFontFamily, fontLoaded } = usePageFont(currentPage);
   const isMobile = useIsMobile();
 
   // ── QCF V2 (Quran.com API + Quran Foundation hosted glyph fonts) ──
@@ -860,7 +858,7 @@ const SurahViewer = () => {
       alert('Error finding ayah. Please try again.');
     }
   };
-  if ((loading && !pageData) || !fontLoaded) {
+  if (loading && !pageData) {
     return <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8">
           <Card>

@@ -138,8 +138,9 @@ All colors MUST be HSL.
   }
 }
 
-/* Page-specific fonts are loaded dynamically via usePageFont hook */
-/* Each page (p1.ttf, p2.ttf, etc.) has its own font with glyphs specific to that page */
+/* QCF V2 page glyph fonts are loaded on-demand from Quran Foundation's CDN
+   via useQcfFontLoader. The DigitalKhattV2 face below powers the
+   `font-arabic` utility (surah names, basmallah, headings). */
 
 /* DigitalKhatt font for Surah names and Bismillah */
 @font-face {
