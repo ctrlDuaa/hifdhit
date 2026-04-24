@@ -374,6 +374,8 @@ const SurahViewer = () => {
     return ayahCounts[surahNum] || 0;
   };
 
+  const { preloadAdjacentPages } = useSupabaseMushaf();
+  // Note: we already destructured the same hook above; this keeps a stable ref to preloader.
   const loadPageData = useCallback(async (pageNumber: number) => {
     try {
       const page = await loadPage(pageNumber);
@@ -384,10 +386,13 @@ const SurahViewer = () => {
       if (user && page) {
         await loadMistakesForPage(pageNumber, page);
       }
+
+      // Preload adjacent DB pages in background
+      preloadAdjacentPages(pageNumber, 604);
     } catch (err) {
       console.error('Failed to load page:', err);
     }
-  }, [loadPage, user]);
+  }, [loadPage, user, preloadAdjacentPages]);
 
   // Real-time subscription: refresh mistakes whenever any mistake (session, memorization, or block review) changes
   useEffect(() => {
