@@ -923,59 +923,111 @@ export const SessionMushafViewer = ({
                     بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
                   </div>}
                 
-                 {line.line_type === 'ayah' && <div className={`${isMobile ? 'text-lg' : 'text-xl md:text-2xl lg:text-3xl'} leading-tight w-full mx-auto`} style={{
-              fontFamily: pageFontFamily,
-              lineHeight: '1.6',
-              textAlign: 'center',
-              direction: 'rtl',
-              wordSpacing: '-0.02em',
-              maxWidth: isMobile ? '100%' : '36rem'
-            }}>
-                    {line.words.map((word, index) => {
-                const wordKey = `${word.surah}-${word.ayah}-${word.word}`;
-                const currentMistake = highlightedWords.get(wordKey);
-                const pastMistake = pastMistakes.get(wordKey);
-                const hasMistake = !!currentMistake || !!pastMistake;
-                const mistakeCategory = currentMistake?.category || pastMistake?.category;
-                
-                const getTooltip = () => {
-                  if (currentMistake) {
-                    const dateStr = currentMistake.date ? ` (${currentMistake.date})` : '';
-                    return userRole === 'checker' ? `Current session mistake${dateStr} - Click to change or remove` : `Mistake marked in this session${dateStr}`;
-                  }
-                  if (pastMistake) {
-                    const dateStr = pastMistake.date ? ` (${pastMistake.date})` : '';
-                    return userRole === 'checker' ? `Mistake from previous session${dateStr} - Click to edit or remove` : `Mistake from previous session${dateStr}`;
-                  }
-                  return userRole === 'checker' ? 'Click to mark as mistake' : '';
-                };
-                
-                return <span 
-                  key={`${word.surah}-${word.ayah}-${word.word}-${index}`} 
-                  onClick={e => handleWordClick(word, e)} 
-                  className={`relative inline-block ${userRole === 'checker' ? 'cursor-pointer hover:opacity-70' : ''} transition-opacity`}
+                 {line.line_type === 'ayah' && (() => {
+              const qcfLineWords = qcfLineMap.get(line.line_number) ?? [];
+              if (qcfLineWords.length === 0) return null;
+              const localLineWords: SupabaseWord[] = line.words ?? [];
+              let localIdx = 0;
+
+              return (
+                <div
+                  className={`${isMobile ? 'text-lg' : 'text-xl md:text-2xl lg:text-3xl'} leading-tight w-full mx-auto`}
                   style={{
-                    margin: '0 0.5px'
+                    lineHeight: '1.6',
+                    textAlign: 'center',
+                    direction: 'rtl',
+                    wordSpacing: '-0.02em',
+                    maxWidth: isMobile ? '100%' : '36rem',
                   }}
-                  title={getTooltip()}>
-                  {hasMistake && mistakeCategory && (
-                    <span 
-                      className="absolute rounded-sm pointer-events-none"
-                      style={{
-                        backgroundColor: getCategoryColor(mistakeCategory),
-                        top: '1px',
-                        left: '-2px',
-                        right: '-2px',
-                        bottom: '1px',
-                        zIndex: 0,
-                        border: 'none'
-                      }}
-                    />
-                  )}
-                  <span className={`relative ${hasMistake ? 'dark:text-black' : ''}`} style={{ zIndex: 1 }}>{word.text}</span>
-                </span>;
-              })}
-                  </div>}
+                >
+                  {qcfLineWords.map((qWord: any, qIndex: number) => {
+                    const isEnd = qWord.char_type_name === 'end';
+                    const localWord = !isEnd ? localLineWords[localIdx] : undefined;
+                    if (!isEnd) localIdx += 1;
+
+                    const wordKey = localWord
+                      ? `${localWord.surah}-${localWord.ayah}-${localWord.word}`
+                      : null;
+                    const currentMistake = wordKey ? highlightedWords.get(wordKey) : undefined;
+                    const pastMistake = wordKey ? pastMistakes.get(wordKey) : undefined;
+                    const hasMistake = !!currentMistake || !!pastMistake;
+                    const mistakeCategory = currentMistake?.category || pastMistake?.category;
+
+                    const getTooltip = () => {
+                      if (currentMistake) {
+                        const dateStr = currentMistake.date ? ` (${currentMistake.date})` : '';
+                        return userRole === 'checker'
+                          ? `Current session mistake${dateStr} - Click to change or remove`
+                          : `Mistake marked in this session${dateStr}`;
+                      }
+                      if (pastMistake) {
+                        const dateStr = pastMistake.date ? ` (${pastMistake.date})` : '';
+                        return userRole === 'checker'
+                          ? `Mistake from previous session${dateStr} - Click to edit or remove`
+                          : `Mistake from previous session${dateStr}`;
+                      }
+                      return userRole === 'checker' && !isEnd ? 'Click to mark as mistake' : '';
+                    };
+
+                    const pageNum = typeof qWord.page_number === 'number' ? qWord.page_number : currentPage;
+                    const fontReady = qcfLoadedPages.has(pageNum);
+                    const useGlyph = !isEnd && fontReady && !!qWord.code_v2;
+                    const family = useGlyph
+                      ? `'p${pageNum}-v2'`
+                      : isEnd
+                        ? "'UthmanicHafs', serif"
+                        : "'UthmanicHafs', serif";
+
+                    const clickable = !isEnd && !!localWord;
+
+                    return (
+                      <span
+                        key={`${currentPage}-${line.line_number}-${qIndex}`}
+                        onClick={
+                          clickable
+                            ? (e) => handleWordClick(localWord!, e)
+                            : undefined
+                        }
+                        className={`relative inline-block ${
+                          clickable && userRole === 'checker' ? 'cursor-pointer hover:opacity-70' : ''
+                        } transition-opacity`}
+                        style={{ margin: '0 0.5px' }}
+                        title={getTooltip()}
+                      >
+                        {hasMistake && mistakeCategory && (
+                          <span
+                            className="absolute rounded-sm pointer-events-none"
+                            style={{
+                              backgroundColor: getCategoryColor(mistakeCategory),
+                              top: '1px',
+                              left: '-2px',
+                              right: '-2px',
+                              bottom: '1px',
+                              zIndex: 0,
+                              border: 'none',
+                            }}
+                          />
+                        )}
+                        {useGlyph ? (
+                          <span
+                            className={`relative ${hasMistake ? 'dark:text-black' : ''}`}
+                            style={{ zIndex: 1, fontFamily: family }}
+                            dangerouslySetInnerHTML={{ __html: qWord.code_v2 }}
+                          />
+                        ) : (
+                          <span
+                            className={`relative ${hasMistake ? 'dark:text-black' : ''}`}
+                            style={{ zIndex: 1, fontFamily: family }}
+                          >
+                            {qWord.text_qpc_hafs ?? localWord?.text ?? ''}
+                          </span>
+                        )}
+                      </span>
+                    );
+                  })}
+                </div>
+              );
+            })()}
               </div>)}
           </div>
         </CardContent>
