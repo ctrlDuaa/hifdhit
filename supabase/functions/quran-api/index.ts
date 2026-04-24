@@ -358,28 +358,54 @@ serve(async (req) => {
           const rawText = await res.text();
           debugPayload.debug_raw_body_preview = rawText.slice(0, 500);
 
-          if (!res.ok) {
-            debugPayload.debug_error_message = `Upstream HTTP ${res.status}`;
-            return json({ success: true, data: debugPayload });
-          }
-
-          try {
-            const parsed = JSON.parse(rawText);
-            if (Array.isArray(parsed?.verses)) {
-              debugPayload.verses = parsed.verses;
-              debugPayload.words_flattened = parsed.verses.flatMap((v: any) => v?.words ?? []);
+          if (res.ok) {
+            try {
+              const parsed = JSON.parse(rawText);
+              if (Array.isArray(parsed?.verses)) {
+                debugPayload.verses = parsed.verses;
+                debugPayload.words_flattened = parsed.verses.flatMap((v: any) => v?.words ?? []);
+              }
+              debugPayload.ok = true;
+            } catch (e: any) {
+              debugPayload.debug_error_message = `JSON parse error: ${e?.message ?? String(e)}`;
             }
-            debugPayload.ok = true;
-          } catch (e: any) {
-            debugPayload.debug_error_message = `JSON parse error: ${e?.message ?? String(e)}`;
+          } else {
+            debugPayload.debug_error_message = `Upstream HTTP ${res.status}`;
           }
         } catch (e: any) {
           debugPayload.debug_error_message = `Fetch error: ${e?.message ?? String(e)}`;
           console.error(`[quran-api][page] fetch error:`, e);
         }
 
-        // Always return success:true so the frontend can read the debug payload.
-        return json({ success: true, data: debugPayload });
+        // Fallback to public api.quran.com if QF prelive returned no verses
+        if (!debugPayload.ok || debugPayload.verses.length === 0) {
+          try {
+            const publicParams = new URLSearchParams();
+            publicParams.set("words", "true");
+            publicParams.set("word_fields", wordFields);
+            publicParams.set("per_page", perPage || "50");
+            const publicUrl = `https://api.quran.com/api/v4/verses/by_page/${pageNum}?${publicParams.toString()}`;
+            const pRes = await fetch(publicUrl, { headers: { Accept: "application/json" } });
+            if (pRes.ok) {
+              const pData = await pRes.json();
+              if (Array.isArray(pData?.verses)) {
+                debugPayload.verses = pData.verses;
+                debugPayload.words_flattened = pData.verses.flatMap((v: any) => v?.words ?? []);
+                debugPayload.ok = true;
+                debugPayload.debug_error_message = `${debugPayload.debug_error_message || ''} | fallback=public-ok`.trim();
+              }
+            } else {
+              debugPayload.debug_error_message = `${debugPayload.debug_error_message || ''} | fallback HTTP ${pRes.status}`.trim();
+            }
+          } catch (e: any) {
+            debugPayload.debug_error_message = `${debugPayload.debug_error_message || ''} | fallback error: ${e?.message ?? String(e)}`.trim();
+          }
+        }
+
+        // Cache hint: pages don't change.
+        return new Response(JSON.stringify({ success: true, data: debugPayload }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "public, max-age=86400" },
+        });
       }
 
       // Legacy fallback (translations) → public api.quran.com
