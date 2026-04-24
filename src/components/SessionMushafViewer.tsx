@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +9,8 @@ import { useSupabaseMushaf, SupabasePage, SupabaseWord } from '@/hooks/useSupaba
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { usePageFont } from '@/hooks/usePageFont';
+import { useQcfFontLoader, prefetchQcfPageFont } from '@/hooks/useQcfFontLoader';
+import { quranApi } from '@/services/quranApi';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter, DrawerClose } from '@/components/ui/drawer';
@@ -60,9 +61,61 @@ export const SessionMushafViewer = ({
   const [noteDrawerOpen, setNoteDrawerOpen] = useState(false);
   const [currentNote, setCurrentNote] = useState('');
 
-  // Load page-specific font
-  const { fontFamily: pageFontFamily, fontLoaded } = usePageFont(currentPage);
   const isMobile = useIsMobile();
+
+  // ── QCF V2 (Quran Foundation glyph rendering) ──
+  const [qcfWords, setQcfWords] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!currentPage) return;
+    let cancelled = false;
+    setQcfWords([]);
+    (async () => {
+      try {
+        const responseJson = await quranApi.getPageQcf(currentPage);
+        const verses: any[] = Array.isArray(responseJson?.verses) ? responseJson.verses : [];
+        const words: any[] = Array.isArray(responseJson?.words_flattened)
+          ? responseJson.words_flattened
+          : verses.flatMap((v: any) => v?.words ?? []);
+        if (cancelled) return;
+        setQcfWords(words);
+      } catch {
+        if (!cancelled) setQcfWords([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentPage]);
+
+  const { loadedPages: qcfLoadedPages } = useQcfFontLoader(qcfWords);
+
+  // Group QCF words by line for lockstep rendering
+  const qcfLineMap = useMemo(() => {
+    const m = new Map<number, any[]>();
+    for (const w of qcfWords) {
+      const ln = w.line_number ?? 0;
+      if (!m.has(ln)) m.set(ln, []);
+      m.get(ln)!.push(w);
+    }
+    return m;
+  }, [qcfWords]);
+
+  // Prefetch QCF fonts for adjacent pages
+  useEffect(() => {
+    if (!currentPage) return;
+    const candidates = [currentPage - 1, currentPage + 1].filter(
+      (p) => p >= 1 && (totalPages === 0 || p <= totalPages)
+    );
+    const w = window as any;
+    const handle = w.requestIdleCallback
+      ? w.requestIdleCallback(() => candidates.forEach(prefetchQcfPageFont), { timeout: 1500 })
+      : window.setTimeout(() => candidates.forEach(prefetchQcfPageFont), 300);
+    return () => {
+      if (w.cancelIdleCallback && w.requestIdleCallback) w.cancelIdleCallback(handle);
+      else window.clearTimeout(handle);
+    };
+  }, [currentPage, totalPages]);
   
   // Sync internal currentPage with external initialPage prop changes
   useEffect(() => {
@@ -803,7 +856,7 @@ export const SessionMushafViewer = ({
     };
     return surahNames[surahNumber] || `سورة ${surahNumber}`;
   };
-  if (loading || !fontLoaded) {
+  if (loading) {
     return <div className="space-y-4">
         <div className="flex items-center justify-center gap-4">
           <Skeleton className="h-10 w-24" />
