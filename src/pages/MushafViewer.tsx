@@ -72,6 +72,9 @@ const MushafViewer = () => {
         if (!cancelled) setQcfError(e?.message || 'QCF fetch failed');
       }
     })();
+    // Prefetch QCF data for adjacent pages
+    if (currentPage > 1) quranApi.prefetchPageQcf(currentPage - 1);
+    if (currentPage < 604) quranApi.prefetchPageQcf(currentPage + 1);
     return () => {
       cancelled = true;
     };
