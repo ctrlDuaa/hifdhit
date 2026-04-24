@@ -8,7 +8,7 @@ import { ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react';
 import { useSupabaseMushaf, SupabasePage, SupabaseWord } from '@/hooks/useSupabaseMushaf';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { usePageFont } from '@/hooks/usePageFont';
+
 import { useQcfFontLoader, prefetchQcfPageFont } from '@/hooks/useQcfFontLoader';
 import { QcfVerseText, QcfWord } from '@/components/quran/QcfVerseText';
 import { quranApi } from '@/services/quranApi';
@@ -35,8 +35,6 @@ const MushafViewer = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [highlightedWords, setHighlightedWords] = useState<Map<string, MistakeData>>(new Map());
   
-  // Load page-specific font (legacy local Mushaf font, used as fallback rendering)
-  const { fontFamily: pageFontFamily, fontLoaded } = usePageFont(currentPage);
 
   // ── QCF V2 (Quran Foundation glyph rendering) ──
   const [qcfWords, setQcfWords] = useState<QcfWord[] | null>(null);
@@ -355,7 +353,7 @@ const MushafViewer = () => {
     return surahNames[surahNumber] || `سورة ${surahNumber}`;
   };
 
-  if (loading || !fontLoaded) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-background p-4">
         <div className="max-w-4xl mx-auto space-y-4">
