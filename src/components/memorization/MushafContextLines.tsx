@@ -155,6 +155,7 @@ export const MushafContextLines = ({
   }, [showFullPage, allLines, ayahLines]);
 
   if (loading) {
+    if (fallback) return <div className={className}>{fallback}</div>;
     return (
       <div className={cn('space-y-2', className)}>
         <Skeleton className="h-8 w-full" />
@@ -164,8 +165,8 @@ export const MushafContextLines = ({
     );
   }
 
-  if (pageWords.length === 0) {
-    return null;
+  if (pageWords.length === 0 || ayahLines.length === 0) {
+    return <div className={className}>{fallback}</div>;
   }
 
   return (
