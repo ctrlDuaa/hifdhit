@@ -498,20 +498,36 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
             ) : (
               /* Normal memorization stages */
               <>
-                {/* Arabic text */}
-                <div className="text-center py-6">
-                  <div className="text-3xl md:text-4xl leading-loose font-arabic" dir="rtl" style={{ lineHeight: '2.5' }}>
-                    {renderArabicText(currentAyah, state.currentStage)}
-                  </div>
+                {/* Arabic text — Mushaf-style for the Listen stage, word-hide for recall stages */}
+                <div className="text-center py-4">
+                  {state.currentStage === 'listen' ? (
+                    <MushafContextLines
+                      surahId={surahId}
+                      ayahNumber={currentAyahNum}
+                      showFullPage={showFullPage}
+                      mistakes={mistakes}
+                      onWordClick={(ayah, wordIndex, e) => handleWordClick(ayah, wordIndex, e)}
+                    />
+                  ) : (
+                    <div className="text-3xl md:text-4xl leading-loose font-arabic" dir="rtl" style={{ lineHeight: '2.5' }}>
+                      {renderArabicText(currentAyah, state.currentStage)}
+                    </div>
+                  )}
                   <p className="text-xs text-muted-foreground mt-4">﴿{currentAyahNum}﴾</p>
                 </div>
 
-                {/* Translation toggle */}
+                {/* Toggles */}
                 <div className="flex flex-wrap gap-4 justify-center border-t pt-4">
                   <div className="flex items-center gap-2">
                     <Switch id="translation" checked={showTranslation} onCheckedChange={setShowTranslation} />
                     <Label htmlFor="translation" className="text-xs cursor-pointer">Translation</Label>
                   </div>
+                  {state.currentStage === 'listen' && (
+                    <div className="flex items-center gap-2">
+                      <Switch id="full-page" checked={showFullPage} onCheckedChange={setShowFullPage} />
+                      <Label htmlFor="full-page" className="text-xs cursor-pointer">Show full page</Label>
+                    </div>
+                  )}
                 </div>
 
                 {/* Translation display */}
