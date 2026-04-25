@@ -74,6 +74,7 @@ export const MushafContextLines = ({
   mistakes,
   onWordClick,
   hideMode = 'none',
+  fallback = null,
   className,
 }: MushafContextLinesProps) => {
   const verseKey = `${surahId}:${ayahNumber}`;
