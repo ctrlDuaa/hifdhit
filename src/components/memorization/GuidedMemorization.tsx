@@ -82,6 +82,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showTranslation, setShowTranslation] = useState(state.config.showTranslation);
+  const [showFullPage, setShowFullPage] = useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const qfConnected = isQfSessionValid();
   const isMobile = useIsMobile();
