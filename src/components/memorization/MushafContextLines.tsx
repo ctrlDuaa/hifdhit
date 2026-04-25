@@ -37,6 +37,8 @@ export interface MushafContextLinesProps {
   onWordClick?: (ayahNumber: number, wordIndex: number, e: React.MouseEvent<HTMLSpanElement>) => void;
   /** Hide pattern applied ONLY to words inside the target ayah. */
   hideMode?: HideMode;
+  /** Rendered when the QCF Mushaf page can't be loaded (404, network error, empty). */
+  fallback?: React.ReactNode;
   className?: string;
 }
 
@@ -72,6 +74,7 @@ export const MushafContextLines = ({
   mistakes,
   onWordClick,
   hideMode = 'none',
+  fallback = null,
   className,
 }: MushafContextLinesProps) => {
   const verseKey = `${surahId}:${ayahNumber}`;
@@ -152,6 +155,7 @@ export const MushafContextLines = ({
   }, [showFullPage, allLines, ayahLines]);
 
   if (loading) {
+    if (fallback) return <div className={className}>{fallback}</div>;
     return (
       <div className={cn('space-y-2', className)}>
         <Skeleton className="h-8 w-full" />
@@ -161,8 +165,8 @@ export const MushafContextLines = ({
     );
   }
 
-  if (pageWords.length === 0) {
-    return null;
+  if (pageWords.length === 0 || ayahLines.length === 0) {
+    return <div className={className}>{fallback}</div>;
   }
 
   return (
