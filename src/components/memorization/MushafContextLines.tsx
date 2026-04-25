@@ -25,6 +25,8 @@ interface QcfWord {
   text_qpc_hafs?: string;
 }
 
+export type HideMode = 'none' | 'hide-third' | 'hide-half' | 'first-letters' | 'full-hide';
+
 export interface MushafContextLinesProps {
   surahId: number;
   ayahNumber: number;
@@ -33,6 +35,8 @@ export interface MushafContextLinesProps {
   mistakes?: Map<string, { category: string }>;
   /** Click handler for words inside the target ayah. wordIndex is 0-based, end markers excluded. */
   onWordClick?: (ayahNumber: number, wordIndex: number, e: React.MouseEvent<HTMLSpanElement>) => void;
+  /** Hide pattern applied ONLY to words inside the target ayah. */
+  hideMode?: HideMode;
   className?: string;
 }
 
