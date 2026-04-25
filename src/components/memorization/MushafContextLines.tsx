@@ -37,6 +37,8 @@ export interface MushafContextLinesProps {
   onWordClick?: (ayahNumber: number, wordIndex: number, e: React.MouseEvent<HTMLSpanElement>) => void;
   /** Hide pattern applied ONLY to words inside the target ayah. */
   hideMode?: HideMode;
+  /** Rendered when the QCF Mushaf page can't be loaded (404, network error, empty). */
+  fallback?: React.ReactNode;
   className?: string;
 }
 
