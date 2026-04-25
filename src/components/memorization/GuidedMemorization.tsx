@@ -18,6 +18,7 @@ import {
 import { MemorizationSessionState, MemorizationStage, ConfidenceRating } from '@/types/memorization';
 import { MemorizationAyah } from '@/hooks/useMemorizationSession';
 import { cn } from '@/lib/utils';
+import { MushafContextLines } from '@/components/memorization/MushafContextLines';
 import { isQfSessionValid } from '@/services/qfAuth';
 import { SaveToCollectionDialog } from '@/components/memorization/SaveToCollectionDialog';
 import { BookmarkPlus } from 'lucide-react';
