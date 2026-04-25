@@ -207,6 +207,16 @@ export const MushafContextLines = ({
               const interactive = isTargetAyah && !isEnd && !!onWordClick;
               const wordIndexForClick = targetAyahWordIdx;
 
+              // Hide-mode logic — only applies to target-ayah, non-end words.
+              let hidden = false;
+              let firstLetterOnly = false;
+              if (isTargetAyah && !isEnd && hideMode !== 'none') {
+                if (hideMode === 'full-hide') hidden = true;
+                else if (hideMode === 'hide-third') hidden = targetAyahWordIdx % 3 === 2;
+                else if (hideMode === 'hide-half') hidden = targetAyahWordIdx % 2 === 1;
+                else if (hideMode === 'first-letters') { hidden = true; firstLetterOnly = true; }
+              }
+
               return (
                 <span
                   key={`ctx-${ln}-${wi}`}
@@ -219,7 +229,7 @@ export const MushafContextLines = ({
                     ? (e) => onWordClick!(ayahNumber, wordIndexForClick, e)
                     : undefined}
                 >
-                  {hasMistake && mistake && (
+                  {hasMistake && mistake && !hidden && (
                     <span
                       className="absolute rounded-sm pointer-events-none"
                       style={{
@@ -232,7 +242,16 @@ export const MushafContextLines = ({
                       }}
                     />
                   )}
-                  {useGlyph ? (
+                  {hidden ? (
+                    <span
+                      className="inline-block px-2 rounded bg-muted/60 text-muted-foreground/60 text-base align-middle"
+                      style={{ minWidth: '2.25rem', textAlign: 'center', fontFamily: "'UthmanicHafs', serif" }}
+                    >
+                      {firstLetterOnly
+                        ? ((word.text_qpc_hafs ?? '').trim().charAt(0) || '•') + '…'
+                        : '•••'}
+                    </span>
+                  ) : useGlyph ? (
                     <span
                       className={cn('relative', hasMistake && 'dark:text-black')}
                       style={{ zIndex: 1, fontFamily: family }}
