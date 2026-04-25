@@ -498,21 +498,22 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
             ) : (
               /* Normal memorization stages */
               <>
-                {/* Arabic text — Mushaf-style for the Listen stage, word-hide for recall stages */}
+                {/* Arabic text — Mushaf-style across all stages, with per-stage hide pattern */}
                 <div className="text-center py-4">
-                  {state.currentStage === 'listen' ? (
-                    <MushafContextLines
-                      surahId={surahId}
-                      ayahNumber={currentAyahNum}
-                      showFullPage={showFullPage}
-                      mistakes={mistakes}
-                      onWordClick={(ayah, wordIndex, e) => handleWordClick(ayah, wordIndex, e)}
-                    />
-                  ) : (
-                    <div className="text-3xl md:text-4xl leading-loose font-arabic" dir="rtl" style={{ lineHeight: '2.5' }}>
-                      {renderArabicText(currentAyah, state.currentStage)}
-                    </div>
-                  )}
+                  <MushafContextLines
+                    surahId={surahId}
+                    ayahNumber={currentAyahNum}
+                    showFullPage={showFullPage}
+                    mistakes={mistakes}
+                    onWordClick={(ayah, wordIndex, e) => handleWordClick(ayah, wordIndex, e)}
+                    hideMode={
+                      state.currentStage === 'hide-third' ? 'hide-third'
+                      : state.currentStage === 'hide-half' ? 'hide-half'
+                      : state.currentStage === 'first-letters' ? 'first-letters'
+                      : state.currentStage === 'full-hide' ? 'full-hide'
+                      : 'none'
+                    }
+                  />
                   <p className="text-xs text-muted-foreground mt-4">﴿{currentAyahNum}﴾</p>
                 </div>
 
@@ -522,12 +523,10 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
                     <Switch id="translation" checked={showTranslation} onCheckedChange={setShowTranslation} />
                     <Label htmlFor="translation" className="text-xs cursor-pointer">Translation</Label>
                   </div>
-                  {state.currentStage === 'listen' && (
-                    <div className="flex items-center gap-2">
-                      <Switch id="full-page" checked={showFullPage} onCheckedChange={setShowFullPage} />
-                      <Label htmlFor="full-page" className="text-xs cursor-pointer">Show full page</Label>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <Switch id="full-page" checked={showFullPage} onCheckedChange={setShowFullPage} />
+                    <Label htmlFor="full-page" className="text-xs cursor-pointer">Show full page</Label>
+                  </div>
                 </div>
 
                 {/* Translation display */}
