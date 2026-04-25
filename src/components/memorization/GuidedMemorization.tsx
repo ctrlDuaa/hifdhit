@@ -513,6 +513,11 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
                       : state.currentStage === 'full-hide' ? 'full-hide'
                       : 'none'
                     }
+                    fallback={
+                      <div className="text-3xl md:text-4xl leading-loose font-arabic" dir="rtl" style={{ lineHeight: '2.5' }}>
+                        {renderArabicText(currentAyah, state.currentStage)}
+                      </div>
+                    }
                   />
                   <p className="text-xs text-muted-foreground mt-4">﴿{currentAyahNum}﴾</p>
                 </div>
