@@ -169,7 +169,8 @@ export async function getVerseAudio(
   chapterNumber: number,
   { reciterId = DEFAULT_RECITER_ID } = {}
 ) {
-  return quranFetch(`/recitations/${reciterId}/by_chapter/${chapterNumber}`);
+  // per_page=300 ensures all verses (longest surah is 286 ayat) are returned in one call.
+  return quranFetch(`/recitations/${reciterId}/by_chapter/${chapterNumber}?per_page=300`);
 }
 
 /** Get available translations */
