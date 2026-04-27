@@ -6,11 +6,10 @@ import { cn } from '@/lib/utils';
 
 /**
  * Renders the Mushaf line(s) of a given ayah using the QCF V2 glyph fonts —
- * same rendering pipeline as the Quran Overview / SurahViewer.
+ * same pipeline as SurahViewer / Quran Overview.
  *
- * By default shows just the line above and the line below the target ayah's
- * lines (the "context window"). When `showFullPage` is true, renders every
- * line on the page.
+ * Default: shows the line above + ayah lines + the line below ("context window").
+ * `showFullPage`: renders every line on the page.
  *
  * Words belonging to the target ayah are interactive (clickable) and can
  * display mistake highlights via the optional callbacks/maps.
@@ -23,6 +22,7 @@ interface QcfWord {
   char_type_name?: string;
   code_v2?: string;
   text_qpc_hafs?: string;
+  position?: number;
 }
 
 export type HideMode = 'none' | 'hide-third' | 'hide-half' | 'first-letters' | 'full-hide';
@@ -37,8 +37,6 @@ export interface MushafContextLinesProps {
   onWordClick?: (ayahNumber: number, wordIndex: number, e: React.MouseEvent<HTMLSpanElement>) => void;
   /** Hide pattern applied ONLY to words inside the target ayah. */
   hideMode?: HideMode;
-  /** Rendered when the QCF Mushaf page can't be loaded (404, network error, empty). */
-  fallback?: React.ReactNode;
   className?: string;
 }
 
@@ -52,21 +50,6 @@ function getCategoryColor(category: string): string {
   }
 }
 
-async function fetchVersePage(verseKey: string): Promise<number | null> {
-  try {
-    const res = await fetch(
-      `https://api.quran.com/api/v4/verses/by_key/${verseKey}?fields=page_number`,
-      { headers: { Accept: 'application/json' } }
-    );
-    if (!res.ok) return null;
-    const json = await res.json();
-    const p = json?.verse?.page_number;
-    return typeof p === 'number' ? p : null;
-  } catch {
-    return null;
-  }
-}
-
 export const MushafContextLines = ({
   surahId,
   ayahNumber,
@@ -74,7 +57,6 @@ export const MushafContextLines = ({
   mistakes,
   onWordClick,
   hideMode = 'none',
-  fallback = null,
   className,
 }: MushafContextLinesProps) => {
   const verseKey = `${surahId}:${ayahNumber}`;
@@ -82,7 +64,7 @@ export const MushafContextLines = ({
   const [pageWords, setPageWords] = useState<QcfWord[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Resolve page number for this verse, then load QCF data for that page.
+  // Resolve the page that contains this verse, then load its QCF data.
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -90,35 +72,45 @@ export const MushafContextLines = ({
     setPageNumber(null);
 
     (async () => {
-      const page = await fetchVersePage(verseKey);
-      if (cancelled || !page) {
-        if (!cancelled) setLoading(false);
-        return;
-      }
-      setPageNumber(page);
       try {
+        // 1) Find the page number for this verse via the public API.
+        const res = await fetch(
+          `https://api.quran.com/api/v4/verses/by_key/${verseKey}?fields=page_number`,
+          { headers: { Accept: 'application/json' } },
+        );
+        let page: number | null = null;
+        if (res.ok) {
+          const json = await res.json();
+          if (typeof json?.verse?.page_number === 'number') page = json.verse.page_number;
+        }
+        if (!page || cancelled) {
+          if (!cancelled) setLoading(false);
+          return;
+        }
+        setPageNumber(page);
+
+        // 2) Fetch QCF data for the page (verses + words).
         const data = await quranApi.getPageQcf(page);
         const verses: any[] = Array.isArray(data?.verses) ? data.verses : [];
-        const words: QcfWord[] = Array.isArray(data?.words_flattened)
-          ? data.words_flattened
-          : verses.flatMap((v: any) =>
-              (v?.words ?? []).map((w: any) => ({ ...w, verse_key: w.verse_key ?? v.verse_key }))
-            );
+
+        // Flatten words AND attach verse_key from the parent verse — the API's
+        // word objects don't carry verse_key by default.
+        const words: QcfWord[] = verses.flatMap((v: any) =>
+          (v?.words ?? []).map((w: any) => ({ ...w, verse_key: w.verse_key ?? v.verse_key })),
+        );
+
         if (!cancelled) setPageWords(words);
       } catch {
         if (!cancelled) setPageWords([]);
       } finally {
         if (!cancelled) setLoading(false);
       }
-
-      // Prefetch neighbors for snappier nav.
-      if (page > 1) quranApi.prefetchPageQcf(page - 1);
-      if (page < 604) quranApi.prefetchPageQcf(page + 1);
     })();
 
     return () => { cancelled = true; };
   }, [verseKey]);
 
+  // Prefetch font glyphs.
   const { loadedPages: qcfLoadedPages } = useQcfFontLoader(pageWords);
 
   // Group words by line.
@@ -133,7 +125,7 @@ export const MushafContextLines = ({
     return m;
   }, [pageWords]);
 
-  // Determine which lines contain the target ayah.
+  // Lines that contain the target ayah.
   const { ayahLines, allLines } = useMemo(() => {
     const all = Array.from(lineMap.keys()).sort((a, b) => a - b);
     const hit = new Set<number>();
@@ -145,7 +137,7 @@ export const MushafContextLines = ({
     return { ayahLines: Array.from(hit).sort((a, b) => a - b), allLines: all };
   }, [lineMap, pageWords, verseKey]);
 
-  // Compute which lines to actually render.
+  // Lines to actually render: just above + ayah + below, or whole page.
   const linesToRender = useMemo(() => {
     if (showFullPage) return allLines;
     if (ayahLines.length === 0) return [];
@@ -154,8 +146,7 @@ export const MushafContextLines = ({
     return allLines.filter((ln) => ln >= min - 1 && ln <= max + 1);
   }, [showFullPage, allLines, ayahLines]);
 
-  if (loading) {
-    if (fallback) return <div className={className}>{fallback}</div>;
+  if (loading || pageWords.length === 0 || ayahLines.length === 0) {
     return (
       <div className={cn('space-y-2', className)}>
         <Skeleton className="h-8 w-full" />
@@ -165,17 +156,13 @@ export const MushafContextLines = ({
     );
   }
 
-  if (pageWords.length === 0 || ayahLines.length === 0) {
-    return <div className={className}>{fallback}</div>;
-  }
-
   return (
     <div className={cn('space-y-1.5', className)}>
       {linesToRender.map((ln) => {
         const words = lineMap.get(ln) ?? [];
         const isAyahLine = ayahLines.includes(ln);
 
-        // Track 0-based word index within the *target* ayah for mistake key alignment.
+        // 0-based word index within the *target* ayah for mistake-key alignment.
         let targetAyahWordIdx = -1;
 
         return (
@@ -211,7 +198,7 @@ export const MushafContextLines = ({
               const interactive = isTargetAyah && !isEnd && !!onWordClick;
               const wordIndexForClick = targetAyahWordIdx;
 
-              // Hide-mode logic — only applies to target-ayah, non-end words.
+              // Hide-mode logic — only target-ayah, non-end words.
               let hidden = false;
               let firstLetterOnly = false;
               if (isTargetAyah && !isEnd && hideMode !== 'none') {
