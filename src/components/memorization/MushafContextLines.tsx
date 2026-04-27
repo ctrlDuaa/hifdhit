@@ -213,6 +213,7 @@ export const MushafContextLines = ({
                   className={cn(
                     'relative inline-block transition-opacity',
                     interactive && 'cursor-pointer hover:opacity-70',
+                    !isTargetAyah && 'opacity-40',
                   )}
                   style={{ margin: '0 0.5px' }}
                   onClick={interactive
