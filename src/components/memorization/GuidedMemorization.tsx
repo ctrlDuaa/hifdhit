@@ -146,29 +146,69 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   }, [user, surahId, state.config.ayahStart, state.config.ayahEnd]);
 
   // ── Audio management ─────────────────────────────────────
+  // Reset playing state and tear down any prior Audio when the verse changes.
   useEffect(() => {
-    if (currentAyah?.audioUrl) {
-      const audio = new Audio(currentAyah.audioUrl);
-      audioRef.current = audio;
-      audio.addEventListener('ended', () => setIsPlaying(false));
-      return () => { audio.pause(); audio.src = ''; };
-    }
+    setIsPlaying(false);
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+        audioRef.current = null;
+      }
+    };
   }, [currentAyah?.audioUrl]);
 
+  /**
+   * Create / reuse the Audio element synchronously inside the user gesture so
+   * mobile browsers (iOS Safari especially) honor the play() call.
+   */
+  const ensureAudio = useCallback((): HTMLAudioElement | null => {
+    const url = currentAyah?.audioUrl;
+    if (!url) return null;
+    if (!audioRef.current || audioRef.current.src !== url) {
+      const a = new Audio(url);
+      a.preload = 'auto';
+      a.addEventListener('ended', () => setIsPlaying(false));
+      a.addEventListener('pause', () => setIsPlaying(false));
+      a.addEventListener('play', () => setIsPlaying(true));
+      a.addEventListener('error', () => {
+        console.error('[memorization] audio failed to load', url);
+        setIsPlaying(false);
+        toast({ title: 'Audio unavailable for this verse', variant: 'destructive' });
+      });
+      audioRef.current = a;
+    }
+    return audioRef.current;
+  }, [currentAyah?.audioUrl, toast]);
+
   const toggleAudio = useCallback(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (isPlaying) { audio.pause(); setIsPlaying(false); }
-    else { audio.play().catch(() => {}); setIsPlaying(true); }
-  }, [isPlaying]);
+    const audio = ensureAudio();
+    if (!audio) {
+      toast({ title: 'No audio available for this verse' });
+      return;
+    }
+    if (!audio.paused) {
+      audio.pause();
+    } else {
+      audio.play().catch((err) => {
+        console.error('[memorization] play() rejected', err);
+        setIsPlaying(false);
+      });
+    }
+  }, [ensureAudio, toast]);
 
   const replayAudio = useCallback(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
+    const audio = ensureAudio();
+    if (!audio) {
+      toast({ title: 'No audio available for this verse' });
+      return;
+    }
     audio.currentTime = 0;
-    audio.play().catch(() => {});
-    setIsPlaying(true);
-  }, []);
+    audio.play().catch((err) => {
+      console.error('[memorization] replay play() rejected', err);
+      setIsPlaying(false);
+    });
+  }, [ensureAudio, toast]);
 
   // ── Close popover on click outside ───────────────────────
   useEffect(() => {
@@ -538,10 +578,10 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
 
                 {/* Audio controls */}
                 <div className="flex items-center justify-center gap-3">
-                  <Button variant="outline" size="icon" onClick={toggleAudio} className="h-12 w-12 rounded-full" disabled={!currentAyah.audioUrl}>
+                  <Button variant="outline" size="icon" onClick={toggleAudio} className="h-12 w-12 rounded-full">
                     {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={replayAudio} disabled={!currentAyah.audioUrl}>
+                  <Button variant="ghost" size="sm" onClick={replayAudio}>
                     <RotateCcw className="w-4 h-4 mr-1" /> Replay
                   </Button>
                 </div>
