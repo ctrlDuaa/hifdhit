@@ -170,7 +170,6 @@ export const MushafContextLines = ({
             key={`ctx-line-${ln}`}
             className={cn(
               'text-xl md:text-2xl lg:text-3xl leading-tight w-full mx-auto px-2',
-              !isAyahLine && 'opacity-40',
             )}
             style={{
               lineHeight: '1.7',
