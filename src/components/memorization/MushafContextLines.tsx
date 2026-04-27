@@ -170,7 +170,6 @@ export const MushafContextLines = ({
             key={`ctx-line-${ln}`}
             className={cn(
               'text-xl md:text-2xl lg:text-3xl leading-tight w-full mx-auto px-2',
-              !isAyahLine && 'opacity-40',
             )}
             style={{
               lineHeight: '1.7',
@@ -214,6 +213,7 @@ export const MushafContextLines = ({
                   className={cn(
                     'relative inline-block transition-opacity',
                     interactive && 'cursor-pointer hover:opacity-70',
+                    !isTargetAyah && 'opacity-40',
                   )}
                   style={{ margin: '0 0.5px' }}
                   onClick={interactive
