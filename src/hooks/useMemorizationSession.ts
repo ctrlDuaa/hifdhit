@@ -60,6 +60,26 @@ function quranVerseToAyah(v: QuranVerse, audioUrls?: Record<string, string>): Me
   };
 }
 
+function buildAudioUrlMap(audioResult: unknown): Record<string, string> {
+  const audioUrls: Record<string, string> = {};
+  const audioFiles = (audioResult as { audio_files?: Array<{ verse_key?: string; url?: string }> })?.audio_files || [];
+
+  for (const af of audioFiles) {
+    if (af.verse_key && af.url) {
+      audioUrls[af.verse_key] = af.url.startsWith('http') ? af.url : `https://verses.quran.com/${af.url}`;
+    }
+  }
+
+  return audioUrls;
+}
+
+function hasAudioForRange(verses: Record<number, MemorizationAyah>, start: number, end: number): boolean {
+  for (let ayah = start; ayah <= end; ayah++) {
+    if (!verses[ayah]?.audioUrl) return false;
+  }
+  return true;
+}
+
 export function useMemorizationSession() {
   const [state, setState] = useState<MemorizationSessionState | null>(() => {
     try {
@@ -88,6 +108,36 @@ export function useMemorizationSession() {
     }
   }, [versesMap]);
 
+  useEffect(() => {
+    if (!state || Object.keys(versesMap).length === 0) return;
+    if (hasAudioForRange(versesMap, state.config.ayahStart, state.config.ayahEnd)) return;
+
+    let cancelled = false;
+    quranApi.getVerseAudio(state.config.surahId)
+      .then((audioResult) => {
+        if (cancelled) return;
+        const audioUrls = buildAudioUrlMap(audioResult);
+        setVersesMap(prev => {
+          const updated = { ...prev };
+          let changed = false;
+
+          for (let ayah = state.config.ayahStart; ayah <= state.config.ayahEnd; ayah++) {
+            const verse = updated[ayah];
+            const audioUrl = audioUrls[`${state.config.surahId}:${ayah}`];
+            if (verse && audioUrl && verse.audioUrl !== audioUrl) {
+              updated[ayah] = { ...verse, audioUrl };
+              changed = true;
+            }
+          }
+
+          return changed ? updated : prev;
+        });
+      })
+      .catch(err => console.error('Failed to refresh memorization audio:', err));
+
+    return () => { cancelled = true; };
+  }, [state?.config.surahId, state?.config.ayahStart, state?.config.ayahEnd, versesMap]);
+
   const startSession = useCallback(async (config: MemorizationSessionConfig) => {
     setLoadingVerses(true);
     try {
@@ -97,14 +147,7 @@ export function useMemorizationSession() {
         quranApi.getVerseAudio(config.surahId).catch(() => ({ audio_files: [] })),
       ]);
 
-      // Build audio URL map
-      const audioUrls: Record<string, string> = {};
-      const audioFiles = (audioResult as any)?.audio_files || [];
-      for (const af of audioFiles) {
-        if (af.verse_key && af.url) {
-          audioUrls[af.verse_key] = af.url.startsWith('http') ? af.url : `https://verses.quran.com/${af.url}`;
-        }
-      }
+      const audioUrls = buildAudioUrlMap(audioResult);
 
       // Convert to memorization ayahs
       const newVersesMap: Record<number, MemorizationAyah> = {};
@@ -265,11 +308,11 @@ export function useMemorizationSession() {
       if (!saved) return;
       const s: MemorizationSessionState = JSON.parse(saved);
       
-      // Check if versesMap is already populated
+      // Check if versesMap is already populated with current audio URLs
       const savedVerses = localStorage.getItem(VERSES_KEY);
       if (savedVerses) {
         const parsed = JSON.parse(savedVerses);
-        if (Object.keys(parsed).length > 0) {
+        if (Object.keys(parsed).length > 0 && hasAudioForRange(parsed, s.config.ayahStart, s.config.ayahEnd)) {
           setState(s);
           setVersesMap(parsed);
           return;
@@ -283,13 +326,7 @@ export function useMemorizationSession() {
         quranApi.getVerseAudio(s.config.surahId).catch(() => ({ audio_files: [] })),
       ]);
 
-      const audioUrls: Record<string, string> = {};
-      const audioFiles = (audioResult as any)?.audio_files || [];
-      for (const af of audioFiles) {
-        if (af.verse_key && af.url) {
-          audioUrls[af.verse_key] = af.url.startsWith('http') ? af.url : `https://verses.quran.com/${af.url}`;
-        }
-      }
+      const audioUrls = buildAudioUrlMap(audioResult);
 
       const newVersesMap: Record<number, MemorizationAyah> = {};
       for (const v of versesResult.verses) {
