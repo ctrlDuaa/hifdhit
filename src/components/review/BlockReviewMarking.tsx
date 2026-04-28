@@ -53,6 +53,9 @@ export const BlockReviewMarking = ({
   onRemoveMistake,
   onFinishMarking,
   surahName,
+  surahId,
+  startAyah,
+  endAyah,
 }: Props) => {
   const isMobile = useIsMobile();
   const popoverRef = useRef<HTMLDivElement | null>(null);
