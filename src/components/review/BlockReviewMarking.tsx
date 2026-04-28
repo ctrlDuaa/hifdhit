@@ -19,6 +19,7 @@ import { QuranVerse } from '@/services/quranApi';
 import { MistakeType, getMistakeTypeLabel } from '@/lib/reviewScheduler';
 import { X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { MushafReviewPage } from './MushafReviewPage';
 
 interface Props {
   verses: QuranVerse[];
@@ -27,6 +28,9 @@ interface Props {
   onRemoveMistake: (ayahNumber: number, wordIndex: number) => void;
   onFinishMarking: () => void;
   surahName: string;
+  surahId: number;
+  startAyah: number;
+  endAyah: number;
 }
 
 type MistakeCategory = MistakeType;
