@@ -87,6 +87,13 @@ export const BlockReviewMarking = ({
   }, [popoverOpen]);
 
   const handleWordClick = (ayahNumber: number, wordIndex: number, wordText: string, event: React.MouseEvent) => {
+    // If the word is already marked, tapping again clears it and restores the blur.
+    if (getMistakeForWord(ayahNumber, wordIndex)) {
+      onRemoveMistake(ayahNumber, wordIndex);
+      setPopoverOpen(false);
+      setSelectedWord(null);
+      return;
+    }
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     setPopoverPosition({ x: rect.left + rect.width / 2, y: rect.top });
     setSelectedWord({ ayahNumber, wordIndex, wordText });
