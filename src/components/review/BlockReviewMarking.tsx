@@ -159,51 +159,17 @@ export const BlockReviewMarking = ({
         </div>
       </div>
 
-      {/* All verses in a single card */}
+      {/* Full Mushaf page with QCF rendering — review range is blurred until tapped */}
       <div className="max-w-2xl mx-auto px-4 py-4">
         <Card className="overflow-hidden">
           <CardContent className="p-4">
-            {verses.map((verse, vIdx) => {
-              const allWords = verse.words || [];
-              const contentWords = allWords.filter(w => w.char_type_name !== 'end');
-              const endWord = allWords.find(w => w.char_type_name === 'end');
-              const verseNum = verse.verse_number;
-
-              return (
-                <div key={verse.verse_key}>
-                  <div className="flex flex-wrap gap-x-1 gap-y-1 items-baseline" dir="rtl">
-                    {contentWords.map((word, idx) => {
-                      const mistake = getMistakeForWord(verseNum, idx);
-                      return (
-                        <span
-                          key={idx}
-                          onClick={(e) => handleWordClick(verseNum, idx, word.text_uthmani, e)}
-                          className={`px-1 py-0.5 rounded cursor-pointer text-xl leading-loose font-arabic transition-all
-                            ${mistake ? '' : 'blur-sm hover:blur-none'}
-                            ${!mistake ? 'hover:bg-muted/50' : ''}
-                            dark:text-black`}
-                          style={mistake ? {
-                            backgroundColor: getCategoryColor(mistake),
-                          } : undefined}
-                        >
-                          {word.text_uthmani}
-                        </span>
-                      );
-                    })}
-                    {/* Verse end marker from API */}
-                    {endWord && (
-                      <span className="text-xl leading-loose font-arabic text-muted-foreground px-0.5">
-                        {endWord.text_uthmani}
-                      </span>
-                    )}
-                  </div>
-                  {/* Thin divider between verses (not after last) */}
-                  {vIdx < verses.length - 1 && (
-                    <hr className="border-border/40 my-3" />
-                  )}
-                </div>
-              );
-            })}
+            <MushafReviewPage
+              surahId={surahId}
+              startAyah={startAyah}
+              endAyah={endAyah}
+              getMistakeForWord={getMistakeForWord}
+              onWordClick={(ayah, idx, text, e) => handleWordClick(ayah, idx, text, e)}
+            />
           </CardContent>
         </Card>
       </div>
