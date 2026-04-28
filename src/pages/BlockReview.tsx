@@ -106,6 +106,9 @@ const BlockReviewPage = () => {
         onRemoveMistake={review.removeMistake}
         onFinishMarking={review.goToRating}
         surahName={review.block.surahName}
+        surahId={review.block.surahId}
+        startAyah={review.block.startAyah}
+        endAyah={review.block.endAyah}
       />
     );
   }
