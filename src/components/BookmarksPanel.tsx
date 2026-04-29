@@ -35,17 +35,30 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
+type DebugEntry = {
+  ts: string;
+  label: string;
+  status: 'ok' | 'error' | 'info';
+  detail?: any;
+};
+
 export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [bookmarksMap, setBookmarksMap] = useState<Record<string, Bookmark[]>>({});
+  const [bookmarksErrorMap, setBookmarksErrorMap] = useState<Record<string, string>>({});
   const [loadingBookmarks, setLoadingBookmarks] = useState<string | null>(null);
   const [deletingCollection, setDeletingCollection] = useState<Collection | null>(null);
   const [deletingBookmark, setDeletingBookmark] = useState<{ collectionId: string; bookmark: Bookmark } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  
+  const [debugOpen, setDebugOpen] = useState(false);
+  const [debugLog, setDebugLog] = useState<DebugEntry[]>([]);
+
+  const pushDebug = useCallback((entry: Omit<DebugEntry, 'ts'>) => {
+    setDebugLog(prev => [{ ts: new Date().toISOString().split('T')[1].replace('Z', ''), ...entry }, ...prev].slice(0, 50));
+  }, []);
 
   const { data: chapters } = useSurahList();
   const surahNameMap = useMemo(() => {
