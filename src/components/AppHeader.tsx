@@ -81,5 +81,7 @@ export const AppHeader = () => {
         </div>
       </div>
     </header>
+    <BookmarksPanel open={bookmarksOpen} onOpenChange={setBookmarksOpen} />
+    </>
   );
 };
