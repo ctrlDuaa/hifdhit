@@ -145,11 +145,12 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     }
   }, [open, fetchCollections]);
 
-  const fetchBookmarks = async (collectionId: string) => {
-    if (bookmarksMap[collectionId]) return;
+  const fetchBookmarks = async (collectionId: string, force = false) => {
+    if (!force && bookmarksMap[collectionId]) return;
     setLoadingBookmarks(collectionId);
+    setBookmarksErrorMap(prev => { const n = { ...prev }; delete n[collectionId]; return n; });
+    pushDebug({ label: `GET /collections/${collectionId}`, status: 'info' });
     try {
-      // Retry up to 3 times to handle transient edge function failures
       let res: any = null;
       let lastErr: unknown = null;
       for (let attempt = 0; attempt < 3; attempt++) {
@@ -160,18 +161,21 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
           break;
         } catch (e) {
           lastErr = e;
+          pushDebug({ label: `attempt ${attempt + 1} failed for ${collectionId}`, status: 'error', detail: String((e as Error)?.message ?? e) });
         }
       }
       if (lastErr) throw lastErr;
 
+      pushDebug({ label: `collection ${collectionId} response`, status: 'ok', detail: res });
+
       const resData = res?.data?.data ?? res?.data;
-      
+
       let rawItems: any[] = [];
       if (Array.isArray(resData?.items)) rawItems = resData.items;
       else if (Array.isArray(resData?.bookmarks)) rawItems = resData.bookmarks;
       else if (Array.isArray(resData?.data)) rawItems = resData.data;
       else if (Array.isArray(resData)) rawItems = resData;
-      
+
       if (rawItems.length === 0 && res?.data) {
         const d = res.data;
         if (Array.isArray(d.items)) rawItems = d.items;
@@ -183,19 +187,23 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
       const normalized: Bookmark[] = [];
       for (const raw of rawItems) {
         const id = raw.id ?? raw.verseKey ?? `${raw.key ?? raw.chapterId}:${raw.verseNumber ?? raw.ayah}`;
-        const key = raw.key ?? raw.chapterId ?? raw.chapter_id ?? raw.surahId 
+        const key = raw.key ?? raw.chapterId ?? raw.chapter_id ?? raw.surahId
           ?? (typeof raw.verseKey === 'string' ? parseInt(raw.verseKey.split(':')[0]) : null);
-        const verseNumber = raw.verseNumber ?? raw.verse_number ?? raw.ayah 
+        const verseNumber = raw.verseNumber ?? raw.verse_number ?? raw.ayah
           ?? (typeof raw.verseKey === 'string' ? parseInt(raw.verseKey.split(':')[1]) : null);
-        
+
         if (key != null && verseNumber != null && !isNaN(Number(key)) && !isNaN(Number(verseNumber))) {
           normalized.push({ id: String(id), key: Number(key), verseNumber: Number(verseNumber) });
         }
       }
 
+      pushDebug({ label: `collection ${collectionId} parsed`, status: 'ok', detail: { rawCount: rawItems.length, normalizedCount: normalized.length } });
       setBookmarksMap(prev => ({ ...prev, [collectionId]: normalized }));
     } catch (err) {
-      toast({ title: 'Failed to load bookmarks', description: 'Tap to retry', variant: 'destructive' });
+      const message = err instanceof Error ? err.message : 'Failed to load bookmarks';
+      setBookmarksErrorMap(prev => ({ ...prev, [collectionId]: message }));
+      pushDebug({ label: `fetchBookmarks ${collectionId} failed`, status: 'error', detail: message });
+      toast({ title: 'Failed to load bookmarks', description: message, variant: 'destructive' });
     } finally {
       setLoadingBookmarks(null);
     }
