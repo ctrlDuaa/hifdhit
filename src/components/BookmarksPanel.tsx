@@ -340,6 +340,14 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
                             <div className="flex items-center justify-center py-6">
                               <Loader2 className="w-4 h-4 animate-spin text-primary" />
                             </div>
+                          ) : bookmarksErrorMap[collection.id] ? (
+                            <div className="text-center py-4 space-y-2">
+                              <p className="text-xs text-destructive">Failed to load verses</p>
+                              <p className="text-[11px] text-muted-foreground px-3 break-words">{bookmarksErrorMap[collection.id]}</p>
+                              <Button variant="outline" size="sm" onClick={() => fetchBookmarks(collection.id, true)}>
+                                Try Again
+                              </Button>
+                            </div>
                           ) : !collectionBookmarks || collectionBookmarks.length === 0 ? (
                             <p className="text-xs text-muted-foreground text-center py-4">No verses in this collection</p>
                           ) : (
