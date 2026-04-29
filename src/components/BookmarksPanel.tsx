@@ -387,6 +387,61 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
               </div>
             )}
           </ScrollArea>
+
+          {/* Debug panel */}
+          <div className="border-t border-border/50 bg-muted/20 text-[11px] shrink-0 max-h-64 flex flex-col">
+            <button
+              type="button"
+              onClick={() => setDebugOpen(o => !o)}
+              className="flex items-center justify-between px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+            >
+              <span className="flex items-center gap-1.5">
+                {debugOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                Debug ({debugLog.length})
+              </span>
+              {debugOpen && debugLog.length > 0 && (
+                <span
+                  role="button"
+                  className="text-[10px] underline"
+                  onClick={(e) => { e.stopPropagation(); setDebugLog([]); }}
+                >
+                  clear
+                </span>
+              )}
+            </button>
+            {debugOpen && (
+              <ScrollArea className="flex-1 px-3 pb-3">
+                {debugLog.length === 0 ? (
+                  <p className="text-muted-foreground py-2">No events yet.</p>
+                ) : (
+                  <div className="space-y-2 font-mono">
+                    {debugLog.map((entry, i) => (
+                      <div
+                        key={i}
+                        className={`rounded border px-2 py-1.5 ${
+                          entry.status === 'error'
+                            ? 'border-destructive/40 bg-destructive/5 text-destructive'
+                            : entry.status === 'ok'
+                              ? 'border-border/40 bg-background/50 text-foreground'
+                              : 'border-border/40 bg-background/30 text-muted-foreground'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold truncate">{entry.label}</span>
+                          <span className="text-[10px] opacity-60 shrink-0">{entry.ts}</span>
+                        </div>
+                        {entry.detail !== undefined && (
+                          <pre className="mt-1 whitespace-pre-wrap break-words text-[10px] opacity-80 max-h-32 overflow-auto">
+                            {typeof entry.detail === 'string' ? entry.detail : JSON.stringify(entry.detail, null, 2)}
+                          </pre>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            )}
+          </div>
         </SheetContent>
       </Sheet>
 
