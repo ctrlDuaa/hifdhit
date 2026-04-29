@@ -35,17 +35,30 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
+type DebugEntry = {
+  ts: string;
+  label: string;
+  status: 'ok' | 'error' | 'info';
+  detail?: any;
+};
+
 export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [bookmarksMap, setBookmarksMap] = useState<Record<string, Bookmark[]>>({});
+  const [bookmarksErrorMap, setBookmarksErrorMap] = useState<Record<string, string>>({});
   const [loadingBookmarks, setLoadingBookmarks] = useState<string | null>(null);
   const [deletingCollection, setDeletingCollection] = useState<Collection | null>(null);
   const [deletingBookmark, setDeletingBookmark] = useState<{ collectionId: string; bookmark: Bookmark } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  
+  const [debugOpen, setDebugOpen] = useState(false);
+  const [debugLog, setDebugLog] = useState<DebugEntry[]>([]);
+
+  const pushDebug = useCallback((entry: Omit<DebugEntry, 'ts'>) => {
+    setDebugLog(prev => [{ ts: new Date().toISOString().split('T')[1].replace('Z', ''), ...entry }, ...prev].slice(0, 50));
+  }, []);
 
   const { data: chapters } = useSurahList();
   const surahNameMap = useMemo(() => {
@@ -77,7 +90,11 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
   const fetchCollections = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
+    pushDebug({ label: 'GET /collections (typed=ayah & all)', status: 'info' });
     try {
+      if (!isQfSessionValid()) {
+        throw new Error('Not connected to Quran.com. Please reconnect from the header.');
+      }
       const [typedResult, allResult] = await Promise.allSettled([
         callQfUserApi('/auth/v1/collections?first=20&type=ayah'),
         callQfUserApi('/auth/v1/collections?first=50'),
@@ -86,28 +103,39 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
       const merged = new Map<string, Collection>();
 
       if (typedResult.status === 'fulfilled') {
+        pushDebug({ label: 'collections?type=ayah response', status: 'ok', detail: typedResult.value });
         normalizeCollections(typedResult.value).forEach((collection) => merged.set(collection.id, collection));
+      } else {
+        pushDebug({ label: 'collections?type=ayah error', status: 'error', detail: String(typedResult.reason?.message ?? typedResult.reason) });
       }
 
       if (allResult.status === 'fulfilled') {
+        pushDebug({ label: 'collections (all) response', status: 'ok', detail: allResult.value });
         normalizeCollections(allResult.value).forEach((collection) => merged.set(collection.id, collection));
+      } else {
+        pushDebug({ label: 'collections (all) error', status: 'error', detail: String(allResult.reason?.message ?? allResult.reason) });
       }
 
       const nextCollections = Array.from(merged.values());
 
       if (nextCollections.length === 0) {
-        throw new Error('No collections returned');
+        // Both calls failed OR returned empty
+        if (typedResult.status === 'rejected' && allResult.status === 'rejected') {
+          throw new Error(typedResult.reason?.message || allResult.reason?.message || 'Both requests failed');
+        }
+        setCollections([]);
+      } else {
+        setCollections(nextCollections);
       }
-
-      setCollections(nextCollections);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load collections';
       setLoadError(message);
+      pushDebug({ label: 'fetchCollections failed', status: 'error', detail: message });
       toast({ title: 'Failed to load collections', description: message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [pushDebug]);
 
   useEffect(() => {
     if (open && isQfSessionValid()) {
@@ -117,11 +145,12 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     }
   }, [open, fetchCollections]);
 
-  const fetchBookmarks = async (collectionId: string) => {
-    if (bookmarksMap[collectionId]) return;
+  const fetchBookmarks = async (collectionId: string, force = false) => {
+    if (!force && bookmarksMap[collectionId]) return;
     setLoadingBookmarks(collectionId);
+    setBookmarksErrorMap(prev => { const n = { ...prev }; delete n[collectionId]; return n; });
+    pushDebug({ label: `GET /collections/${collectionId}`, status: 'info' });
     try {
-      // Retry up to 3 times to handle transient edge function failures
       let res: any = null;
       let lastErr: unknown = null;
       for (let attempt = 0; attempt < 3; attempt++) {
@@ -132,18 +161,21 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
           break;
         } catch (e) {
           lastErr = e;
+          pushDebug({ label: `attempt ${attempt + 1} failed for ${collectionId}`, status: 'error', detail: String((e as Error)?.message ?? e) });
         }
       }
       if (lastErr) throw lastErr;
 
+      pushDebug({ label: `collection ${collectionId} response`, status: 'ok', detail: res });
+
       const resData = res?.data?.data ?? res?.data;
-      
+
       let rawItems: any[] = [];
       if (Array.isArray(resData?.items)) rawItems = resData.items;
       else if (Array.isArray(resData?.bookmarks)) rawItems = resData.bookmarks;
       else if (Array.isArray(resData?.data)) rawItems = resData.data;
       else if (Array.isArray(resData)) rawItems = resData;
-      
+
       if (rawItems.length === 0 && res?.data) {
         const d = res.data;
         if (Array.isArray(d.items)) rawItems = d.items;
@@ -155,19 +187,23 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
       const normalized: Bookmark[] = [];
       for (const raw of rawItems) {
         const id = raw.id ?? raw.verseKey ?? `${raw.key ?? raw.chapterId}:${raw.verseNumber ?? raw.ayah}`;
-        const key = raw.key ?? raw.chapterId ?? raw.chapter_id ?? raw.surahId 
+        const key = raw.key ?? raw.chapterId ?? raw.chapter_id ?? raw.surahId
           ?? (typeof raw.verseKey === 'string' ? parseInt(raw.verseKey.split(':')[0]) : null);
-        const verseNumber = raw.verseNumber ?? raw.verse_number ?? raw.ayah 
+        const verseNumber = raw.verseNumber ?? raw.verse_number ?? raw.ayah
           ?? (typeof raw.verseKey === 'string' ? parseInt(raw.verseKey.split(':')[1]) : null);
-        
+
         if (key != null && verseNumber != null && !isNaN(Number(key)) && !isNaN(Number(verseNumber))) {
           normalized.push({ id: String(id), key: Number(key), verseNumber: Number(verseNumber) });
         }
       }
 
+      pushDebug({ label: `collection ${collectionId} parsed`, status: 'ok', detail: { rawCount: rawItems.length, normalizedCount: normalized.length } });
       setBookmarksMap(prev => ({ ...prev, [collectionId]: normalized }));
     } catch (err) {
-      toast({ title: 'Failed to load bookmarks', description: 'Tap to retry', variant: 'destructive' });
+      const message = err instanceof Error ? err.message : 'Failed to load bookmarks';
+      setBookmarksErrorMap(prev => ({ ...prev, [collectionId]: message }));
+      pushDebug({ label: `fetchBookmarks ${collectionId} failed`, status: 'error', detail: message });
+      toast({ title: 'Failed to load bookmarks', description: message, variant: 'destructive' });
     } finally {
       setLoadingBookmarks(null);
     }
@@ -304,6 +340,14 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
                             <div className="flex items-center justify-center py-6">
                               <Loader2 className="w-4 h-4 animate-spin text-primary" />
                             </div>
+                          ) : bookmarksErrorMap[collection.id] ? (
+                            <div className="text-center py-4 space-y-2">
+                              <p className="text-xs text-destructive">Failed to load verses</p>
+                              <p className="text-[11px] text-muted-foreground px-3 break-words">{bookmarksErrorMap[collection.id]}</p>
+                              <Button variant="outline" size="sm" onClick={() => fetchBookmarks(collection.id, true)}>
+                                Try Again
+                              </Button>
+                            </div>
                           ) : !collectionBookmarks || collectionBookmarks.length === 0 ? (
                             <p className="text-xs text-muted-foreground text-center py-4">No verses in this collection</p>
                           ) : (
@@ -343,6 +387,61 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
               </div>
             )}
           </ScrollArea>
+
+          {/* Debug panel */}
+          <div className="border-t border-border/50 bg-muted/20 text-[11px] shrink-0 max-h-64 flex flex-col">
+            <button
+              type="button"
+              onClick={() => setDebugOpen(o => !o)}
+              className="flex items-center justify-between px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+            >
+              <span className="flex items-center gap-1.5">
+                {debugOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                Debug ({debugLog.length})
+              </span>
+              {debugOpen && debugLog.length > 0 && (
+                <span
+                  role="button"
+                  className="text-[10px] underline"
+                  onClick={(e) => { e.stopPropagation(); setDebugLog([]); }}
+                >
+                  clear
+                </span>
+              )}
+            </button>
+            {debugOpen && (
+              <ScrollArea className="flex-1 px-3 pb-3">
+                {debugLog.length === 0 ? (
+                  <p className="text-muted-foreground py-2">No events yet.</p>
+                ) : (
+                  <div className="space-y-2 font-mono">
+                    {debugLog.map((entry, i) => (
+                      <div
+                        key={i}
+                        className={`rounded border px-2 py-1.5 ${
+                          entry.status === 'error'
+                            ? 'border-destructive/40 bg-destructive/5 text-destructive'
+                            : entry.status === 'ok'
+                              ? 'border-border/40 bg-background/50 text-foreground'
+                              : 'border-border/40 bg-background/30 text-muted-foreground'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold truncate">{entry.label}</span>
+                          <span className="text-[10px] opacity-60 shrink-0">{entry.ts}</span>
+                        </div>
+                        {entry.detail !== undefined && (
+                          <pre className="mt-1 whitespace-pre-wrap break-words text-[10px] opacity-80 max-h-32 overflow-auto">
+                            {typeof entry.detail === 'string' ? entry.detail : JSON.stringify(entry.detail, null, 2)}
+                          </pre>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            )}
+          </div>
         </SheetContent>
       </Sheet>
 
