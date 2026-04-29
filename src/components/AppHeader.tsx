@@ -36,6 +36,7 @@ export const AppHeader = () => {
   };
 
   return (
+    <>
     <header className="border-b bg-card">
       <div className="container mx-auto px-4 bg-[linear-gradient(90deg,#C6A477,#2a363b)] py-[8px]">
         <div className="flex items-center justify-between">
