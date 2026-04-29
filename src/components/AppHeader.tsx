@@ -44,6 +44,18 @@ export const AppHeader = () => {
           </Link>
           <div className="flex items-center gap-2">
             <ThemeToggle />
+            {qfConnected && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setBookmarksOpen(true)}
+                className="bg-[#c6a477] h-9 w-9"
+                aria-label="Open collections"
+                title="Your collections"
+              >
+                <Bookmark className="w-4 h-4" />
+              </Button>
+            )}
             {qfConnected ? (
               <Button variant="outline" size="sm" onClick={handleQfDisconnect} className="text-xs bg-[#c6a477]">
                 <Link2 className="w-3.5 h-3.5 mr-1.5" />
