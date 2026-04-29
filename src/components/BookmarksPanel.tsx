@@ -90,7 +90,11 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
   const fetchCollections = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
+    pushDebug({ label: 'GET /collections (typed=ayah & all)', status: 'info' });
     try {
+      if (!isQfSessionValid()) {
+        throw new Error('Not connected to Quran.com. Please reconnect from the header.');
+      }
       const [typedResult, allResult] = await Promise.allSettled([
         callQfUserApi('/auth/v1/collections?first=20&type=ayah'),
         callQfUserApi('/auth/v1/collections?first=50'),
@@ -99,28 +103,39 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
       const merged = new Map<string, Collection>();
 
       if (typedResult.status === 'fulfilled') {
+        pushDebug({ label: 'collections?type=ayah response', status: 'ok', detail: typedResult.value });
         normalizeCollections(typedResult.value).forEach((collection) => merged.set(collection.id, collection));
+      } else {
+        pushDebug({ label: 'collections?type=ayah error', status: 'error', detail: String(typedResult.reason?.message ?? typedResult.reason) });
       }
 
       if (allResult.status === 'fulfilled') {
+        pushDebug({ label: 'collections (all) response', status: 'ok', detail: allResult.value });
         normalizeCollections(allResult.value).forEach((collection) => merged.set(collection.id, collection));
+      } else {
+        pushDebug({ label: 'collections (all) error', status: 'error', detail: String(allResult.reason?.message ?? allResult.reason) });
       }
 
       const nextCollections = Array.from(merged.values());
 
       if (nextCollections.length === 0) {
-        throw new Error('No collections returned');
+        // Both calls failed OR returned empty
+        if (typedResult.status === 'rejected' && allResult.status === 'rejected') {
+          throw new Error(typedResult.reason?.message || allResult.reason?.message || 'Both requests failed');
+        }
+        setCollections([]);
+      } else {
+        setCollections(nextCollections);
       }
-
-      setCollections(nextCollections);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load collections';
       setLoadError(message);
+      pushDebug({ label: 'fetchCollections failed', status: 'error', detail: message });
       toast({ title: 'Failed to load collections', description: message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [pushDebug]);
 
   useEffect(() => {
     if (open && isQfSessionValid()) {
