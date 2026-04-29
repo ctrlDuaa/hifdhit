@@ -67,21 +67,52 @@ export const SaveToCollectionDialog = ({ verses, ctaText, open, onOpenChange }: 
     }
   }, [open]);
 
+  const extractUpstreamError = (res: any): string | null => {
+    const status = res?.upstreamStatus;
+    if (status && status >= 400) {
+      const body = res?.data;
+      const msg = body?.message || body?.error || body?.details?.error || (typeof body === 'string' ? body : JSON.stringify(body));
+      return `HTTP ${status}: ${msg}`;
+    }
+    return null;
+  };
+
   const handleCreateCollection = async () => {
     if (!newName.trim()) return;
     setSaving(true);
     try {
-      const res = await callQfUserApi('/auth/v1/collections', 'POST', { name: newName.trim() }) as any;
-      const created = res?.data?.data ?? res?.data;
-      if (created?.id) {
-        setCollections(prev => [created, ...prev]);
-        setSelectedId(created.id);
-        setShowCreate(false);
-        setNewName('');
-        toast({ title: 'Collection created', description: `"${created.name}" is ready.` });
+      // QF Collections API requires `type: 'ayah'` so the collection can hold ayah bookmarks.
+      const res = await callQfUserApi('/auth/v1/collections', 'POST', {
+        name: newName.trim(),
+        type: 'ayah',
+      }) as any;
+
+      const upstreamErr = extractUpstreamError(res);
+      if (upstreamErr) throw new Error(upstreamErr);
+
+      // QF wraps the created object in various shapes — try them all.
+      const created =
+        res?.data?.data?.collection ??
+        res?.data?.collection ??
+        res?.data?.data ??
+        res?.data;
+
+      if (!created?.id) {
+        throw new Error(`Collection created but no id returned. Response: ${JSON.stringify(res?.data)?.slice(0, 200)}`);
       }
+
+      const normalized: Collection = { id: String(created.id), name: created.name ?? newName.trim() };
+      setCollections(prev => [normalized, ...prev]);
+      setSelectedId(normalized.id);
+      setShowCreate(false);
+      setNewName('');
+      toast({ title: 'Collection created', description: `"${normalized.name}" is ready.` });
     } catch (err) {
-      toast({ title: 'Failed to create collection', description: err instanceof Error ? err.message : 'Please try again.', variant: 'destructive' });
+      toast({
+        title: 'Failed to create collection',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setSaving(false);
     }
@@ -92,12 +123,13 @@ export const SaveToCollectionDialog = ({ verses, ctaText, open, onOpenChange }: 
     setSaving(true);
     try {
       for (const v of verses) {
-        const collectionId = selectedId === 'default' ? '__default__' : selectedId;
-        await callQfUserApi(`/auth/v1/collections/${collectionId}`, 'POST', {
+        const res = await callQfUserApi(`/auth/v1/collections/${selectedId}`, 'POST', {
           key: v.surahId,
           type: 'ayah',
           verseNumber: v.ayah,
-        });
+        }) as any;
+        const upstreamErr = extractUpstreamError(res);
+        if (upstreamErr) throw new Error(upstreamErr);
       }
       setSaved(true);
       toast({
