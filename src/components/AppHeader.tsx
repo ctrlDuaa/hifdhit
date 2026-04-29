@@ -1,17 +1,19 @@
 import { Button } from '@/components/ui/button';
-import { LogOut, Link2 } from 'lucide-react';
+import { LogOut, Link2, Bookmark } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Link } from 'react-router-dom';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { startQfLogin, isQfSessionValid, logoutQf } from '@/services/qfAuth';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { BookmarksPanel } from '@/components/BookmarksPanel';
 
 export const AppHeader = () => {
   const { signOut } = useAuth();
   const { toast } = useToast();
   const [qfConnected, setQfConnected] = useState(isQfSessionValid());
   const [qfLoading, setQfLoading] = useState(false);
+  const [bookmarksOpen, setBookmarksOpen] = useState(false);
 
   const handleQfConnect = async () => {
     setQfLoading(true);
@@ -34,6 +36,7 @@ export const AppHeader = () => {
   };
 
   return (
+    <>
     <header className="border-b bg-card">
       <div className="container mx-auto px-4 bg-[linear-gradient(90deg,#C6A477,#2a363b)] py-[8px]">
         <div className="flex items-center justify-between">
@@ -42,6 +45,18 @@ export const AppHeader = () => {
           </Link>
           <div className="flex items-center gap-2">
             <ThemeToggle />
+            {qfConnected && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setBookmarksOpen(true)}
+                className="bg-[#c6a477] h-9 w-9"
+                aria-label="Open collections"
+                title="Your collections"
+              >
+                <Bookmark className="w-4 h-4" />
+              </Button>
+            )}
             {qfConnected ? (
               <Button variant="outline" size="sm" onClick={handleQfDisconnect} className="text-xs bg-[#c6a477]">
                 <Link2 className="w-3.5 h-3.5 mr-1.5" />
@@ -67,5 +82,7 @@ export const AppHeader = () => {
         </div>
       </div>
     </header>
+    <BookmarksPanel open={bookmarksOpen} onOpenChange={setBookmarksOpen} />
+    </>
   );
 };
