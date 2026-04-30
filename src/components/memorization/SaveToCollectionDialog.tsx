@@ -122,10 +122,11 @@ export const SaveToCollectionDialog = ({ verses, ctaText, open, onOpenChange }: 
     setSaving(true);
     try {
       for (const v of verses) {
-        const res = await callQfUserApi(`/auth/v1/collections/${selectedId}`, 'POST', {
+        const res = await callQfUserApi(`/auth/v1/collections/${selectedId}/bookmarks`, 'POST', {
           key: v.surahId,
           type: 'ayah',
           verseNumber: v.ayah,
+          mushaf: 1,
         }) as any;
         const upstreamErr = extractUpstreamError(res);
         if (upstreamErr) throw new Error(upstreamErr);
