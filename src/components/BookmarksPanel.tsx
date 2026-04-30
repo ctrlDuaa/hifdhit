@@ -156,7 +156,7 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           if (attempt > 0) await new Promise(r => setTimeout(r, 500 * attempt));
-          res = await callQfUserApi(`/auth/v1/collections/${collectionId}?first=50`);
+          res = await callQfUserApi(`/auth/v1/collections/${collectionId}/bookmarks?first=50`);
           lastErr = null;
           break;
         } catch (e) {
@@ -244,7 +244,7 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     const { collectionId, bookmark } = deletingBookmark;
     setActionLoading(true);
     try {
-      await callQfUserApi(`/auth/v1/collections/${collectionId}/${bookmark.id}`, 'DELETE');
+      await callQfUserApi(`/auth/v1/collections/${collectionId}/bookmarks/${bookmark.id}`, 'DELETE');
       setBookmarksMap(prev => ({
         ...prev,
         [collectionId]: (prev[collectionId] || []).filter(b => b.id !== bookmark.id),
