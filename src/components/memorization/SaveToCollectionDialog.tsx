@@ -81,10 +81,9 @@ export const SaveToCollectionDialog = ({ verses, ctaText, open, onOpenChange }: 
     if (!newName.trim()) return;
     setSaving(true);
     try {
-      // QF Collections API requires `type: 'ayah'` so the collection can hold ayah bookmarks.
+      // QF Collections API: only `name` is allowed on create. Type is set per-bookmark on add.
       const res = await callQfUserApi('/auth/v1/collections', 'POST', {
         name: newName.trim(),
-        type: 'ayah',
       }) as any;
 
       const upstreamErr = extractUpstreamError(res);
