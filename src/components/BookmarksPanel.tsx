@@ -341,13 +341,40 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
                               <Loader2 className="w-4 h-4 animate-spin text-primary" />
                             </div>
                           ) : bookmarksErrorMap[collection.id] ? (
-                            <div className="text-center py-4 space-y-2">
-                              <p className="text-xs text-destructive">Failed to load verses</p>
-                              <p className="text-[11px] text-muted-foreground px-3 break-words">{bookmarksErrorMap[collection.id]}</p>
-                              <Button variant="outline" size="sm" onClick={() => fetchBookmarks(collection.id, true)}>
-                                Try Again
-                              </Button>
-                            </div>
+                            (() => {
+                              const errMsg = bookmarksErrorMap[collection.id];
+                              const isScopeIssue = /insufficient_scope|required scopes/i.test(errMsg);
+                              return (
+                                <div className="text-center py-4 space-y-2">
+                                  <p className="text-xs text-destructive">
+                                    {isScopeIssue ? 'Permission missing' : 'Failed to load verses'}
+                                  </p>
+                                  <p className="text-[11px] text-muted-foreground px-3 break-words">
+                                    {isScopeIssue
+                                      ? 'Your Quran.com session was authorized before this feature was added. Please reconnect to grant access to bookmarks.'
+                                      : errMsg}
+                                  </p>
+                                  {isScopeIssue ? (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={async () => {
+                                        logoutQf();
+                                        try { await startQfLogin(); } catch (e) {
+                                          toast({ title: 'Failed to reconnect', description: e instanceof Error ? e.message : String(e), variant: 'destructive' });
+                                        }
+                                      }}
+                                    >
+                                      Reconnect Quran.com
+                                    </Button>
+                                  ) : (
+                                    <Button variant="outline" size="sm" onClick={() => fetchBookmarks(collection.id, true)}>
+                                      Try Again
+                                    </Button>
+                                  )}
+                                </div>
+                              );
+                            })()
                           ) : !collectionBookmarks || collectionBookmarks.length === 0 ? (
                             <p className="text-xs text-muted-foreground text-center py-4">No verses in this collection</p>
                           ) : (
