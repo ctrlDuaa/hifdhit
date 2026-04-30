@@ -244,7 +244,7 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     const { collectionId, bookmark } = deletingBookmark;
     setActionLoading(true);
     try {
-      await callQfUserApi(`/auth/v1/collections/${collectionId}/${bookmark.id}`, 'DELETE');
+      await callQfUserApi(`/auth/v1/collections/${collectionId}/bookmarks/${bookmark.id}`, 'DELETE');
       setBookmarksMap(prev => ({
         ...prev,
         [collectionId]: (prev[collectionId] || []).filter(b => b.id !== bookmark.id),
