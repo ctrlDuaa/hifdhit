@@ -104,6 +104,150 @@ export type Database = {
           },
         ]
       }
+      mushaf_lines: {
+        Row: {
+          created_at: string
+          id: string
+          line_number: number
+          page_number: number
+          sort_order: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          line_number: number
+          page_number: number
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          line_number?: number
+          page_number?: number
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mushaf_lines_page_number_fkey"
+            columns: ["page_number"]
+            isOneToOne: false
+            referencedRelation: "mushaf_pages"
+            referencedColumns: ["page_number"]
+          },
+          {
+            foreignKeyName: "mushaf_lines_page_number_fkey"
+            columns: ["page_number"]
+            isOneToOne: false
+            referencedRelation: "v_mushaf_page"
+            referencedColumns: ["page_number"]
+          },
+        ]
+      }
+      mushaf_pages: {
+        Row: {
+          ayah_end: number | null
+          ayah_start: number | null
+          created_at: string
+          hizb_number: number | null
+          juz_number: number | null
+          page_number: number
+          rub_number: number | null
+          surah_end: number | null
+          surah_start: number | null
+          updated_at: string
+        }
+        Insert: {
+          ayah_end?: number | null
+          ayah_start?: number | null
+          created_at?: string
+          hizb_number?: number | null
+          juz_number?: number | null
+          page_number: number
+          rub_number?: number | null
+          surah_end?: number | null
+          surah_start?: number | null
+          updated_at?: string
+        }
+        Update: {
+          ayah_end?: number | null
+          ayah_start?: number | null
+          created_at?: string
+          hizb_number?: number | null
+          juz_number?: number | null
+          page_number?: number
+          rub_number?: number | null
+          surah_end?: number | null
+          surah_start?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      mushaf_words: {
+        Row: {
+          ayah_number: number
+          char_type: Database["public"]["Enums"]["mushaf_char_type"] | null
+          created_at: string
+          external_ayah_key: string | null
+          external_word_id: number | null
+          id: string
+          line_number: number
+          page_number: number
+          position_in_ayah: number | null
+          position_in_line: number | null
+          surah_number: number
+          text_uthmani: string
+          updated_at: string
+        }
+        Insert: {
+          ayah_number: number
+          char_type?: Database["public"]["Enums"]["mushaf_char_type"] | null
+          created_at?: string
+          external_ayah_key?: string | null
+          external_word_id?: number | null
+          id?: string
+          line_number: number
+          page_number: number
+          position_in_ayah?: number | null
+          position_in_line?: number | null
+          surah_number: number
+          text_uthmani: string
+          updated_at?: string
+        }
+        Update: {
+          ayah_number?: number
+          char_type?: Database["public"]["Enums"]["mushaf_char_type"] | null
+          created_at?: string
+          external_ayah_key?: string | null
+          external_word_id?: number | null
+          id?: string
+          line_number?: number
+          page_number?: number
+          position_in_ayah?: number | null
+          position_in_line?: number | null
+          surah_number?: number
+          text_uthmani?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mushaf_words_page_number_fkey"
+            columns: ["page_number"]
+            isOneToOne: false
+            referencedRelation: "mushaf_pages"
+            referencedColumns: ["page_number"]
+          },
+          {
+            foreignKeyName: "mushaf_words_page_number_fkey"
+            columns: ["page_number"]
+            isOneToOne: false
+            referencedRelation: "v_mushaf_page"
+            referencedColumns: ["page_number"]
+          },
+        ]
+      }
       private_sessions: {
         Row: {
           created_at: string
@@ -434,13 +578,29 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_mushaf_page: {
+        Row: {
+          line_number: number | null
+          page_number: number | null
+          words: Json | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       expire_old_invites: { Args: never; Returns: undefined }
       generate_session_code: { Args: never; Returns: string }
     }
     Enums: {
+      mushaf_char_type:
+        | "word"
+        | "end"
+        | "pause"
+        | "ruby"
+        | "bismillah"
+        | "sajdah"
+        | "hamza"
+        | "other"
       revision_status: "pending" | "revised" | "needsReview"
       room_role: "reciter" | "checker"
     }
@@ -570,6 +730,16 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      mushaf_char_type: [
+        "word",
+        "end",
+        "pause",
+        "ruby",
+        "bismillah",
+        "sajdah",
+        "hamza",
+        "other",
+      ],
       revision_status: ["pending", "revised", "needsReview"],
       room_role: ["reciter", "checker"],
     },
