@@ -14,6 +14,147 @@ export type Database = {
   }
   public: {
     Tables: {
+      feature_requests: {
+        Row: {
+          created_at: string
+          id: string
+          request_text: string
+          status: string
+          updated_at: string
+          user_email: string | null
+          user_id: string | null
+          user_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          request_text: string
+          status?: string
+          updated_at?: string
+          user_email?: string | null
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          request_text?: string
+          status?: string
+          updated_at?: string
+          user_email?: string | null
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Relationships: []
+      }
+      mistakes: {
+        Row: {
+          ayah_number: number
+          created_at: string
+          id: string
+          mistake_category: string | null
+          note: string | null
+          page_number: number | null
+          reciter_id: string
+          room_id: string | null
+          session_id: string | null
+          surah_number: number
+          word_index: number
+        }
+        Insert: {
+          ayah_number: number
+          created_at?: string
+          id?: string
+          mistake_category?: string | null
+          note?: string | null
+          page_number?: number | null
+          reciter_id: string
+          room_id?: string | null
+          session_id?: string | null
+          surah_number: number
+          word_index: number
+        }
+        Update: {
+          ayah_number?: number
+          created_at?: string
+          id?: string
+          mistake_category?: string | null
+          note?: string | null
+          page_number?: number | null
+          reciter_id?: string
+          room_id?: string | null
+          session_id?: string | null
+          surah_number?: number
+          word_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mistakes_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "revision_rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mistakes_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "private_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      private_sessions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          current_ayah: number
+          current_page: number | null
+          ending_ayah: number | null
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          session_code: string | null
+          session_name: string
+          session_ranges: Json | null
+          starting_ayah: number
+          surah_number: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          current_ayah?: number
+          current_page?: number | null
+          ending_ayah?: number | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          session_code?: string | null
+          session_name?: string
+          session_ranges?: Json | null
+          starting_ayah?: number
+          surah_number: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          current_ayah?: number
+          current_page?: number | null
+          ending_ayah?: number | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          session_code?: string | null
+          session_name?: string
+          session_ranges?: Json | null
+          starting_ayah?: number
+          surah_number?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -181,12 +322,123 @@ export type Database = {
           },
         ]
       }
+      session_activity: {
+        Row: {
+          ayat_revised: number
+          completed_at: string
+          created_at: string
+          ending_ayah: number
+          id: string
+          mistake_count: number
+          role: string
+          session_id: string
+          started_at: string
+          starting_ayah: number
+          surah_number: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ayat_revised?: number
+          completed_at?: string
+          created_at?: string
+          ending_ayah: number
+          id?: string
+          mistake_count?: number
+          role: string
+          session_id: string
+          started_at: string
+          starting_ayah: number
+          surah_number: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ayat_revised?: number
+          completed_at?: string
+          created_at?: string
+          ending_ayah?: number
+          id?: string
+          mistake_count?: number
+          role?: string
+          session_id?: string
+          started_at?: string
+          starting_ayah?: number
+          surah_number?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      session_participants: {
+        Row: {
+          has_been_reciter: boolean | null
+          id: string
+          joined_at: string
+          role: string
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          has_been_reciter?: boolean | null
+          id?: string
+          joined_at?: string
+          role: string
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          has_been_reciter?: boolean | null
+          id?: string
+          joined_at?: string
+          role?: string
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_participants_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "private_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      surah_ratings: {
+        Row: {
+          created_at: string
+          id: string
+          rating: string
+          surah_number: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          rating: string
+          surah_number: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          rating?: string
+          surah_number?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       expire_old_invites: { Args: never; Returns: undefined }
+      generate_session_code: { Args: never; Returns: string }
     }
     Enums: {
       revision_status: "pending" | "revised" | "needsReview"
