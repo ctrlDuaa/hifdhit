@@ -14,6 +14,240 @@ export type Database = {
   }
   public: {
     Tables: {
+      block_ayah_stats: {
+        Row: {
+          ayah_number: number
+          block_id: string
+          id: string
+          last_reviewed_at: string | null
+          strength_score: number
+          total_mistakes: number
+          total_reviews: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ayah_number: number
+          block_id: string
+          id?: string
+          last_reviewed_at?: string | null
+          strength_score?: number
+          total_mistakes?: number
+          total_reviews?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ayah_number?: number
+          block_id?: string
+          id?: string
+          last_reviewed_at?: string | null
+          strength_score?: number
+          total_mistakes?: number
+          total_reviews?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "block_ayah_stats_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "memorization_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      block_review_mistakes: {
+        Row: {
+          ayah_number: number
+          block_id: string
+          created_at: string
+          id: string
+          mistake_type: string
+          review_id: string
+          surah_id: number
+          user_id: string
+          word_index: number
+          word_text: string
+        }
+        Insert: {
+          ayah_number: number
+          block_id: string
+          created_at?: string
+          id?: string
+          mistake_type: string
+          review_id: string
+          surah_id: number
+          user_id: string
+          word_index: number
+          word_text?: string
+        }
+        Update: {
+          ayah_number?: number
+          block_id?: string
+          created_at?: string
+          id?: string
+          mistake_type?: string
+          review_id?: string
+          surah_id?: number
+          user_id?: string
+          word_index?: number
+          word_text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "block_review_mistakes_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "memorization_blocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "block_review_mistakes_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "block_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      block_reviews: {
+        Row: {
+          block_id: string
+          block_mistake_score: number
+          created_at: string
+          ease_after: number
+          ease_before: number
+          entered_focus_review: boolean
+          id: string
+          interval_after: number
+          interval_before: number
+          mistake_count_forgot: number
+          mistake_count_incorrect: number
+          mistake_count_missed: number
+          mistake_count_tajweed: number
+          normalized_mistake_score: number
+          override_applied: string | null
+          repeated_problem_words_count: number
+          session_rating: string
+          strength_after: number
+          strength_before: number
+          total_words_in_block: number
+          user_id: string
+        }
+        Insert: {
+          block_id: string
+          block_mistake_score?: number
+          created_at?: string
+          ease_after?: number
+          ease_before?: number
+          entered_focus_review?: boolean
+          id?: string
+          interval_after?: number
+          interval_before?: number
+          mistake_count_forgot?: number
+          mistake_count_incorrect?: number
+          mistake_count_missed?: number
+          mistake_count_tajweed?: number
+          normalized_mistake_score?: number
+          override_applied?: string | null
+          repeated_problem_words_count?: number
+          session_rating: string
+          strength_after?: number
+          strength_before?: number
+          total_words_in_block?: number
+          user_id: string
+        }
+        Update: {
+          block_id?: string
+          block_mistake_score?: number
+          created_at?: string
+          ease_after?: number
+          ease_before?: number
+          entered_focus_review?: boolean
+          id?: string
+          interval_after?: number
+          interval_before?: number
+          mistake_count_forgot?: number
+          mistake_count_incorrect?: number
+          mistake_count_missed?: number
+          mistake_count_tajweed?: number
+          normalized_mistake_score?: number
+          override_applied?: string | null
+          repeated_problem_words_count?: number
+          session_rating?: string
+          strength_after?: number
+          strength_before?: number
+          total_words_in_block?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "block_reviews_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "memorization_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      block_word_stats: {
+        Row: {
+          ayah_number: number
+          block_id: string
+          id: string
+          last_mistake_at: string | null
+          recent_mistake_count_7d: number
+          total_forgot_count: number
+          total_incorrect_count: number
+          total_missed_count: number
+          total_tajweed_count: number
+          updated_at: string
+          user_id: string
+          word_index: number
+          word_text: string
+        }
+        Insert: {
+          ayah_number: number
+          block_id: string
+          id?: string
+          last_mistake_at?: string | null
+          recent_mistake_count_7d?: number
+          total_forgot_count?: number
+          total_incorrect_count?: number
+          total_missed_count?: number
+          total_tajweed_count?: number
+          updated_at?: string
+          user_id: string
+          word_index: number
+          word_text?: string
+        }
+        Update: {
+          ayah_number?: number
+          block_id?: string
+          id?: string
+          last_mistake_at?: string | null
+          recent_mistake_count_7d?: number
+          total_forgot_count?: number
+          total_incorrect_count?: number
+          total_missed_count?: number
+          total_tajweed_count?: number
+          updated_at?: string
+          user_id?: string
+          word_index?: number
+          word_text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "block_word_stats_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "memorization_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feature_requests: {
         Row: {
           created_at: string
@@ -44,6 +278,146 @@ export type Database = {
           user_email?: string | null
           user_id?: string | null
           user_name?: string | null
+        }
+        Relationships: []
+      }
+      local_bookmarks: {
+        Row: {
+          ayah_number: number
+          collection_id: string
+          created_at: string
+          id: string
+          surah_id: number
+          user_id: string
+        }
+        Insert: {
+          ayah_number: number
+          collection_id: string
+          created_at?: string
+          id?: string
+          surah_id: number
+          user_id: string
+        }
+        Update: {
+          ayah_number?: number
+          collection_id?: string
+          created_at?: string
+          id?: string
+          surah_id?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "local_bookmarks_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "local_collections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      local_collections: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      memorization_blocks: {
+        Row: {
+          created_at: string
+          current_streak: number
+          ease_factor: number
+          end_ayah: number
+          id: string
+          interval_days: number
+          last_reviewed_at: string | null
+          last_session_rating: string | null
+          mastery_status: string
+          needs_focus_review: boolean
+          next_review_at: string | null
+          overdue_count: number
+          perfect_reviews: number
+          priority_level: string
+          recent_mistakes_7d: number
+          recent_ratings: Json
+          repeated_problem_words_count: number
+          start_ayah: number
+          strength_score: number
+          successful_reviews: number
+          surah_id: number
+          total_mistakes: number
+          total_reviews: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_streak?: number
+          ease_factor?: number
+          end_ayah: number
+          id?: string
+          interval_days?: number
+          last_reviewed_at?: string | null
+          last_session_rating?: string | null
+          mastery_status?: string
+          needs_focus_review?: boolean
+          next_review_at?: string | null
+          overdue_count?: number
+          perfect_reviews?: number
+          priority_level?: string
+          recent_mistakes_7d?: number
+          recent_ratings?: Json
+          repeated_problem_words_count?: number
+          start_ayah: number
+          strength_score?: number
+          successful_reviews?: number
+          surah_id: number
+          total_mistakes?: number
+          total_reviews?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_streak?: number
+          ease_factor?: number
+          end_ayah?: number
+          id?: string
+          interval_days?: number
+          last_reviewed_at?: string | null
+          last_session_rating?: string | null
+          mastery_status?: string
+          needs_focus_review?: boolean
+          next_review_at?: string | null
+          overdue_count?: number
+          perfect_reviews?: number
+          priority_level?: string
+          recent_mistakes_7d?: number
+          recent_ratings?: Json
+          repeated_problem_words_count?: number
+          start_ayah?: number
+          strength_score?: number
+          successful_reviews?: number
+          surah_id?: number
+          total_mistakes?: number
+          total_reviews?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -362,6 +736,147 @@ export type Database = {
           surah_number?: number
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      quran_audio_cache: {
+        Row: {
+          audio_data: Json | null
+          audio_url: string
+          chapter_number: number
+          fetched_at: string
+          id: string
+          reciter_id: number
+          updated_at: string
+          verse_key: string | null
+        }
+        Insert: {
+          audio_data?: Json | null
+          audio_url: string
+          chapter_number: number
+          fetched_at?: string
+          id?: string
+          reciter_id?: number
+          updated_at?: string
+          verse_key?: string | null
+        }
+        Update: {
+          audio_data?: Json | null
+          audio_url?: string
+          chapter_number?: number
+          fetched_at?: string
+          id?: string
+          reciter_id?: number
+          updated_at?: string
+          verse_key?: string | null
+        }
+        Relationships: []
+      }
+      quran_chapters_cache: {
+        Row: {
+          chapter_data: Json | null
+          chapter_number: number
+          fetched_at: string
+          name_arabic: string
+          name_english: string
+          name_simple: string
+          pages: Json | null
+          revelation_place: string | null
+          updated_at: string
+          verses_count: number
+        }
+        Insert: {
+          chapter_data?: Json | null
+          chapter_number: number
+          fetched_at?: string
+          name_arabic: string
+          name_english: string
+          name_simple: string
+          pages?: Json | null
+          revelation_place?: string | null
+          updated_at?: string
+          verses_count?: number
+        }
+        Update: {
+          chapter_data?: Json | null
+          chapter_number?: number
+          fetched_at?: string
+          name_arabic?: string
+          name_english?: string
+          name_simple?: string
+          pages?: Json | null
+          revelation_place?: string | null
+          updated_at?: string
+          verses_count?: number
+        }
+        Relationships: []
+      }
+      quran_tafsir_cache: {
+        Row: {
+          fetched_at: string
+          id: string
+          tafsir_data: Json | null
+          tafsir_id: number
+          tafsir_text: string | null
+          updated_at: string
+          verse_key: string
+        }
+        Insert: {
+          fetched_at?: string
+          id?: string
+          tafsir_data?: Json | null
+          tafsir_id?: number
+          tafsir_text?: string | null
+          updated_at?: string
+          verse_key: string
+        }
+        Update: {
+          fetched_at?: string
+          id?: string
+          tafsir_data?: Json | null
+          tafsir_id?: number
+          tafsir_text?: string | null
+          updated_at?: string
+          verse_key?: string
+        }
+        Relationships: []
+      }
+      quran_verses_cache: {
+        Row: {
+          chapter_number: number
+          fetched_at: string
+          id: string
+          text_uthmani: string
+          translation_id: number
+          translation_text: string | null
+          updated_at: string
+          verse_key: string
+          verse_number: number
+          words: Json | null
+        }
+        Insert: {
+          chapter_number: number
+          fetched_at?: string
+          id?: string
+          text_uthmani: string
+          translation_id?: number
+          translation_text?: string | null
+          updated_at?: string
+          verse_key: string
+          verse_number: number
+          words?: Json | null
+        }
+        Update: {
+          chapter_number?: number
+          fetched_at?: string
+          id?: string
+          text_uthmani?: string
+          translation_id?: number
+          translation_text?: string | null
+          updated_at?: string
+          verse_key?: string
+          verse_number?: number
+          words?: Json | null
         }
         Relationships: []
       }
