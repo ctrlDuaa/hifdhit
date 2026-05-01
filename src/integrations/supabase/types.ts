@@ -622,6 +622,39 @@ export type Database = {
           },
         ]
       }
+      pages: {
+        Row: {
+          first_word_id: number | null
+          id: number
+          is_centered: boolean
+          last_word_id: number | null
+          line_number: number
+          line_type: string
+          page_number: number
+          surah_number: number | null
+        }
+        Insert: {
+          first_word_id?: number | null
+          id?: number
+          is_centered?: boolean
+          last_word_id?: number | null
+          line_number: number
+          line_type?: string
+          page_number: number
+          surah_number?: number | null
+        }
+        Update: {
+          first_word_id?: number | null
+          id?: number
+          is_centered?: boolean
+          last_word_id?: number | null
+          line_number?: number
+          line_type?: string
+          page_number?: number
+          surah_number?: number | null
+        }
+        Relationships: []
+      }
       private_sessions: {
         Row: {
           created_at: string
@@ -1088,6 +1121,33 @@ export type Database = {
           surah_number?: number
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      words: {
+        Row: {
+          ayah: number
+          id: number
+          location: string | null
+          surah: number
+          text: string
+          word: number
+        }
+        Insert: {
+          ayah: number
+          id?: number
+          location?: string | null
+          surah: number
+          text: string
+          word: number
+        }
+        Update: {
+          ayah?: number
+          id?: number
+          location?: string | null
+          surah?: number
+          text?: string
+          word?: number
         }
         Relationships: []
       }
