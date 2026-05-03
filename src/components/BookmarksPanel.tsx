@@ -1,13 +1,10 @@
 /**
- * Side panel (Sheet) showing:
- *   1. Local (Hifdh it) collections from local_collections / local_bookmarks
- *   2. Quran.com collections (if the user is connected via QF OAuth)
+ * Side panel (Sheet) showing all Quran.com collections and their bookmarks.
+ * Supports deleting entire collections or individual verses within them.
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { callQfUserApi, isQfSessionValid, logoutQf, startQfLogin } from '@/services/qfAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
 import { useSurahList } from '@/hooks/useQuranData';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -22,18 +19,15 @@ import {
 import { Loader2, Trash2, ChevronDown, ChevronRight, BookOpen } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
-/* ---------- types ---------- */
-
 interface Collection {
   id: string;
   name: string;
-  source: 'local' | 'qf';
 }
 
 interface Bookmark {
   id: string;
-  key: number;        // surah number
-  verseNumber: number; // ayah number
+  key: number;
+  verseNumber: number;
 }
 
 interface Props {
@@ -41,10 +35,14 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
-/* ---------- component ---------- */
+type DebugEntry = {
+  ts: string;
+  label: string;
+  status: 'ok' | 'error' | 'info';
+  detail?: any;
+};
 
 export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
-  const { user } = useAuth();
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -53,8 +51,14 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
   const [bookmarksErrorMap, setBookmarksErrorMap] = useState<Record<string, string>>({});
   const [loadingBookmarks, setLoadingBookmarks] = useState<string | null>(null);
   const [deletingCollection, setDeletingCollection] = useState<Collection | null>(null);
-  const [deletingBookmark, setDeletingBookmark] = useState<{ collectionId: string; source: 'local' | 'qf'; bookmark: Bookmark } | null>(null);
+  const [deletingBookmark, setDeletingBookmark] = useState<{ collectionId: string; bookmark: Bookmark } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [debugOpen, setDebugOpen] = useState(false);
+  const [debugLog, setDebugLog] = useState<DebugEntry[]>([]);
+
+  const pushDebug = useCallback((entry: Omit<DebugEntry, 'ts'>) => {
+    setDebugLog(prev => [{ ts: new Date().toISOString().split('T')[1].replace('Z', ''), ...entry }, ...prev].slice(0, 50));
+  }, []);
 
   const { data: chapters } = useSurahList();
   const surahNameMap = useMemo(() => {
@@ -63,159 +67,168 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     return map;
   }, [chapters]);
 
-  /* ============================
-   *  Fetch collections (local + QF)
-   * ============================ */
+  const normalizeCollections = (res: any): Collection[] => {
+    const upstreamStatus = res?.upstreamStatus;
+    if (upstreamStatus && upstreamStatus >= 400) {
+      throw new Error(`HTTP ${upstreamStatus}`);
+    }
+
+    const innerData = res?.data?.data ?? res?.data;
+    const items = Array.isArray(innerData?.data)
+      ? innerData.data
+      : Array.isArray(innerData?.collections)
+        ? innerData.collections
+        : Array.isArray(innerData)
+          ? innerData
+          : [];
+
+    return items
+      .filter((c: any) => !!c?.id)
+      .map((c: any) => ({ id: String(c.id), name: c.name ?? c.title ?? 'Untitled Collection' }));
+  };
 
   const fetchCollections = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
-
-    const merged: Collection[] = [];
-
-    // 1. Local collections
-    if (user) {
-      try {
-        const { data, error } = await supabase
-          .from('local_collections')
-          .select('id, name')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-        if (error) throw error;
-        (data ?? []).forEach(c => merged.push({ id: c.id, name: c.name, source: 'local' }));
-      } catch (err: any) {
-        console.error('Failed to load local collections', err);
+    pushDebug({ label: 'GET /collections (typed=ayah & all)', status: 'info' });
+    try {
+      if (!isQfSessionValid()) {
+        throw new Error('Not connected to Quran.com. Please reconnect from the header.');
       }
-    }
+      const [typedResult, allResult] = await Promise.allSettled([
+        callQfUserApi('/auth/v1/collections?first=20&type=ayah'),
+        callQfUserApi('/auth/v1/collections?first=50'),
+      ]);
 
-    // 2. QF collections (only when connected)
-    if (isQfSessionValid()) {
-      try {
-        const res = await callQfUserApi('/auth/v1/collections?first=50') as any;
-        const innerData = res?.data?.data ?? res?.data;
-        const items = Array.isArray(innerData?.data)
-          ? innerData.data
-          : Array.isArray(innerData?.collections)
-            ? innerData.collections
-            : Array.isArray(innerData)
-              ? innerData
-              : [];
+      const merged = new Map<string, Collection>();
 
-        items
-          .filter((c: any) => !!c?.id)
-          .forEach((c: any) => merged.push({ id: String(c.id), name: c.name ?? c.title ?? 'Untitled', source: 'qf' }));
-      } catch (err: any) {
-        // QF errors are non-fatal — local collections still show
-        console.warn('QF collections fetch failed', err?.message);
+      if (typedResult.status === 'fulfilled') {
+        pushDebug({ label: 'collections?type=ayah response', status: 'ok', detail: typedResult.value });
+        normalizeCollections(typedResult.value).forEach((collection) => merged.set(collection.id, collection));
+      } else {
+        pushDebug({ label: 'collections?type=ayah error', status: 'error', detail: String(typedResult.reason?.message ?? typedResult.reason) });
       }
-    }
 
-    if (merged.length === 0 && !user) {
-      setLoadError('Please sign in to view your collections.');
-    }
+      if (allResult.status === 'fulfilled') {
+        pushDebug({ label: 'collections (all) response', status: 'ok', detail: allResult.value });
+        normalizeCollections(allResult.value).forEach((collection) => merged.set(collection.id, collection));
+      } else {
+        pushDebug({ label: 'collections (all) error', status: 'error', detail: String(allResult.reason?.message ?? allResult.reason) });
+      }
 
-    setCollections(merged);
-    setLoading(false);
-  }, [user]);
+      const nextCollections = Array.from(merged.values());
+
+      if (nextCollections.length === 0) {
+        // Both calls failed OR returned empty
+        if (typedResult.status === 'rejected' && allResult.status === 'rejected') {
+          throw new Error(typedResult.reason?.message || allResult.reason?.message || 'Both requests failed');
+        }
+        setCollections([]);
+      } else {
+        setCollections(nextCollections);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load collections';
+      setLoadError(message);
+      pushDebug({ label: 'fetchCollections failed', status: 'error', detail: message });
+      toast({ title: 'Failed to load collections', description: message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  }, [pushDebug]);
 
   useEffect(() => {
-    if (open) {
+    if (open && isQfSessionValid()) {
       fetchCollections();
       setExpandedId(null);
       setBookmarksMap({});
     }
   }, [open, fetchCollections]);
 
-  /* ============================
-   *  Fetch bookmarks for a collection
-   * ============================ */
-
-  const fetchBookmarks = async (collection: Collection, force = false) => {
-    if (!force && bookmarksMap[collection.id]) return;
-    setLoadingBookmarks(collection.id);
-    setBookmarksErrorMap(prev => { const n = { ...prev }; delete n[collection.id]; return n; });
-
+  const fetchBookmarks = async (collectionId: string, force = false) => {
+    if (!force && bookmarksMap[collectionId]) return;
+    setLoadingBookmarks(collectionId);
+    setBookmarksErrorMap(prev => { const n = { ...prev }; delete n[collectionId]; return n; });
+    pushDebug({ label: `GET /collections/${collectionId}`, status: 'info' });
     try {
-      if (collection.source === 'local') {
-        const { data, error } = await supabase
-          .from('local_bookmarks')
-          .select('id, surah_id, ayah_number')
-          .eq('collection_id', collection.id)
-          .order('created_at', { ascending: true });
-        if (error) throw error;
-        const normalized: Bookmark[] = (data ?? []).map(b => ({
-          id: b.id,
-          key: b.surah_id,
-          verseNumber: b.ayah_number,
-        }));
-        setBookmarksMap(prev => ({ ...prev, [collection.id]: normalized }));
-      } else {
-        // QF source
-        const res = await callQfUserApi(`/auth/v1/collections/${collection.id}/bookmarks?first=50`) as any;
-        const resData = res?.data?.data ?? res?.data;
-        let rawItems: any[] = [];
-        if (Array.isArray(resData?.items)) rawItems = resData.items;
-        else if (Array.isArray(resData?.bookmarks)) rawItems = resData.bookmarks;
-        else if (Array.isArray(resData?.data)) rawItems = resData.data;
-        else if (Array.isArray(resData)) rawItems = resData;
-
-        if (rawItems.length === 0 && res?.data) {
-          const d = res.data;
-          if (Array.isArray(d.items)) rawItems = d.items;
-          else if (Array.isArray(d.bookmarks)) rawItems = d.bookmarks;
-          else if (Array.isArray(d.data?.items)) rawItems = d.data.items;
-          else if (Array.isArray(d.data?.bookmarks)) rawItems = d.data.bookmarks;
+      let res: any = null;
+      let lastErr: unknown = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          if (attempt > 0) await new Promise(r => setTimeout(r, 500 * attempt));
+          res = await callQfUserApi(`/auth/v1/collections/${collectionId}/bookmarks?first=50`);
+          lastErr = null;
+          break;
+        } catch (e) {
+          lastErr = e;
+          pushDebug({ label: `attempt ${attempt + 1} failed for ${collectionId}`, status: 'error', detail: String((e as Error)?.message ?? e) });
         }
-
-        const normalized: Bookmark[] = [];
-        for (const raw of rawItems) {
-          const id = raw.id ?? raw.verseKey ?? `${raw.key ?? raw.chapterId}:${raw.verseNumber ?? raw.ayah}`;
-          const key = raw.key ?? raw.chapterId ?? raw.chapter_id ?? raw.surahId
-            ?? (typeof raw.verseKey === 'string' ? parseInt(raw.verseKey.split(':')[0]) : null);
-          const verseNumber = raw.verseNumber ?? raw.verse_number ?? raw.ayah
-            ?? (typeof raw.verseKey === 'string' ? parseInt(raw.verseKey.split(':')[1]) : null);
-          if (key != null && verseNumber != null && !isNaN(Number(key)) && !isNaN(Number(verseNumber))) {
-            normalized.push({ id: String(id), key: Number(key), verseNumber: Number(verseNumber) });
-          }
-        }
-        setBookmarksMap(prev => ({ ...prev, [collection.id]: normalized }));
       }
-    } catch (err: any) {
-      const message = err?.message ?? 'Failed to load bookmarks';
-      setBookmarksErrorMap(prev => ({ ...prev, [collection.id]: message }));
+      if (lastErr) throw lastErr;
+
+      pushDebug({ label: `collection ${collectionId} response`, status: 'ok', detail: res });
+
+      const resData = res?.data?.data ?? res?.data;
+
+      let rawItems: any[] = [];
+      if (Array.isArray(resData?.items)) rawItems = resData.items;
+      else if (Array.isArray(resData?.bookmarks)) rawItems = resData.bookmarks;
+      else if (Array.isArray(resData?.data)) rawItems = resData.data;
+      else if (Array.isArray(resData)) rawItems = resData;
+
+      if (rawItems.length === 0 && res?.data) {
+        const d = res.data;
+        if (Array.isArray(d.items)) rawItems = d.items;
+        else if (Array.isArray(d.bookmarks)) rawItems = d.bookmarks;
+        else if (Array.isArray(d.data?.items)) rawItems = d.data.items;
+        else if (Array.isArray(d.data?.bookmarks)) rawItems = d.data.bookmarks;
+      }
+
+      const normalized: Bookmark[] = [];
+      for (const raw of rawItems) {
+        const id = raw.id ?? raw.verseKey ?? `${raw.key ?? raw.chapterId}:${raw.verseNumber ?? raw.ayah}`;
+        const key = raw.key ?? raw.chapterId ?? raw.chapter_id ?? raw.surahId
+          ?? (typeof raw.verseKey === 'string' ? parseInt(raw.verseKey.split(':')[0]) : null);
+        const verseNumber = raw.verseNumber ?? raw.verse_number ?? raw.ayah
+          ?? (typeof raw.verseKey === 'string' ? parseInt(raw.verseKey.split(':')[1]) : null);
+
+        if (key != null && verseNumber != null && !isNaN(Number(key)) && !isNaN(Number(verseNumber))) {
+          normalized.push({ id: String(id), key: Number(key), verseNumber: Number(verseNumber) });
+        }
+      }
+
+      pushDebug({ label: `collection ${collectionId} parsed`, status: 'ok', detail: { rawCount: rawItems.length, normalizedCount: normalized.length } });
+      setBookmarksMap(prev => ({ ...prev, [collectionId]: normalized }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load bookmarks';
+      setBookmarksErrorMap(prev => ({ ...prev, [collectionId]: message }));
+      pushDebug({ label: `fetchBookmarks ${collectionId} failed`, status: 'error', detail: message });
       toast({ title: 'Failed to load bookmarks', description: message, variant: 'destructive' });
     } finally {
       setLoadingBookmarks(null);
     }
   };
 
-  const toggleExpand = (collection: Collection) => {
-    if (expandedId === collection.id) {
+  const toggleExpand = (collectionId: string) => {
+    if (expandedId === collectionId) {
       setExpandedId(null);
     } else {
-      setExpandedId(collection.id);
-      fetchBookmarks(collection);
+      setExpandedId(collectionId);
+      fetchBookmarks(collectionId);
     }
   };
-
-  /* ============================
-   *  Delete collection
-   * ============================ */
 
   const handleDeleteCollection = async () => {
     if (!deletingCollection) return;
     setActionLoading(true);
     try {
-      if (deletingCollection.source === 'local') {
-        // Delete bookmarks first, then collection
-        await supabase.from('local_bookmarks').delete().eq('collection_id', deletingCollection.id);
-        const { error } = await supabase.from('local_collections').delete().eq('id', deletingCollection.id);
-        if (error) throw error;
-      } else {
-        await callQfUserApi(`/auth/v1/collections/${deletingCollection.id}`, 'DELETE');
-      }
+      await callQfUserApi(`/auth/v1/collections/${deletingCollection.id}`, 'DELETE');
       setCollections(prev => prev.filter(c => c.id !== deletingCollection.id));
-      setBookmarksMap(prev => { const n = { ...prev }; delete n[deletingCollection.id]; return n; });
+      setBookmarksMap(prev => {
+        const next = { ...prev };
+        delete next[deletingCollection.id];
+        return next;
+      });
       if (expandedId === deletingCollection.id) setExpandedId(null);
       toast({ title: 'Collection deleted' });
     } catch {
@@ -226,21 +239,12 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     }
   };
 
-  /* ============================
-   *  Delete bookmark
-   * ============================ */
-
   const handleDeleteBookmark = async () => {
     if (!deletingBookmark) return;
-    const { collectionId, source, bookmark } = deletingBookmark;
+    const { collectionId, bookmark } = deletingBookmark;
     setActionLoading(true);
     try {
-      if (source === 'local') {
-        const { error } = await supabase.from('local_bookmarks').delete().eq('id', bookmark.id);
-        if (error) throw error;
-      } else {
-        await callQfUserApi(`/auth/v1/collections/${collectionId}/bookmarks/${bookmark.id}`, 'DELETE');
-      }
+      await callQfUserApi(`/auth/v1/collections/${collectionId}/bookmarks/${bookmark.id}`, 'DELETE');
       setBookmarksMap(prev => ({
         ...prev,
         [collectionId]: (prev[collectionId] || []).filter(b => b.id !== bookmark.id),
@@ -254,120 +258,13 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     }
   };
 
-  /* ============================
-   *  Helpers
-   * ============================ */
-
-  const groupBookmarks = (bookmarks: Bookmark[]) =>
-    bookmarks.reduce<Record<number, Bookmark[]>>((acc, b) => {
+  const groupBookmarks = (bookmarks: Bookmark[]) => {
+    return bookmarks.reduce<Record<number, Bookmark[]>>((acc, b) => {
       if (!acc[b.key]) acc[b.key] = [];
       acc[b.key].push(b);
       return acc;
     }, {});
-
-  const localCollections = collections.filter(c => c.source === 'local');
-  const qfCollections = collections.filter(c => c.source === 'qf');
-
-  /* ============================
-   *  Render a single collection row
-   * ============================ */
-
-  const renderCollection = (collection: Collection) => {
-    const isExpanded = expandedId === collection.id;
-    const collectionBookmarks = bookmarksMap[collection.id];
-    const isLoadingThis = loadingBookmarks === collection.id;
-    const errMsg = bookmarksErrorMap[collection.id];
-    const isScopeIssue = errMsg ? /insufficient_scope|required scopes/i.test(errMsg) : false;
-
-    return (
-      <div key={collection.id} className="rounded-lg border border-border/50 overflow-hidden">
-        <div className="flex items-center gap-2 px-3 py-2.5 bg-muted/30">
-          <button
-            type="button"
-            onClick={() => toggleExpand(collection)}
-            className="flex-1 flex items-center gap-2 text-left text-sm font-medium text-foreground"
-          >
-            {isExpanded
-              ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
-              : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
-            {collection.name}
-            {collectionBookmarks && (
-              <span className="text-xs text-muted-foreground">({collectionBookmarks.length})</span>
-            )}
-          </button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-muted-foreground hover:text-destructive"
-            onClick={() => setDeletingCollection(collection)}
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </Button>
-        </div>
-
-        {isExpanded && (
-          <div className="border-t border-border/30">
-            {isLoadingThis ? (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="w-4 h-4 animate-spin text-primary" />
-              </div>
-            ) : errMsg ? (
-              <div className="text-center py-4 space-y-2">
-                <p className="text-xs text-destructive">{isScopeIssue ? 'Permission missing' : 'Failed to load verses'}</p>
-                <p className="text-[11px] text-muted-foreground px-3 break-words">
-                  {isScopeIssue
-                    ? 'Your Quran.com session needs to be refreshed to grant bookmark access.'
-                    : errMsg}
-                </p>
-                {isScopeIssue ? (
-                  <Button variant="outline" size="sm" onClick={async () => {
-                    logoutQf();
-                    try { await startQfLogin(); } catch (e: any) {
-                      toast({ title: 'Failed to reconnect', description: e?.message ?? String(e), variant: 'destructive' });
-                    }
-                  }}>Reconnect Quran.com</Button>
-                ) : (
-                  <Button variant="outline" size="sm" onClick={() => fetchBookmarks(collection, true)}>Try Again</Button>
-                )}
-              </div>
-            ) : !collectionBookmarks || collectionBookmarks.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">No verses in this collection</p>
-            ) : (
-              <div className="divide-y divide-border/20">
-                {Object.entries(groupBookmarks(collectionBookmarks)).map(([surahStr, items]) => {
-                  const surahNum = parseInt(surahStr);
-                  return (
-                    <div key={surahNum} className="px-3 py-2">
-                      <p className="text-xs font-medium text-muted-foreground mb-1">
-                        {surahNum}. {surahNameMap[surahNum] ?? `Surah ${surahNum}`}
-                      </p>
-                      {items.map(bookmark => (
-                        <div key={bookmark.id} className="flex items-center justify-between py-1 pl-4">
-                          <span className="text-sm text-foreground">Ayah {bookmark.verseNumber}</span>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                            onClick={() => setDeletingBookmark({ collectionId: collection.id, source: collection.source, bookmark })}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
   };
-
-  /* ============================
-   *  Main render
-   * ============================ */
 
   return (
     <>
@@ -379,7 +276,7 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
               Your Collections
             </SheetTitle>
             <SheetDescription>
-              Manage your saved verses and collections
+              Manage your Quran.com collections and saved verses
             </SheetDescription>
           </SheetHeader>
 
@@ -390,38 +287,193 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
               </div>
             ) : loadError ? (
               <div className="text-center py-12 space-y-3">
-                <p className="text-sm text-destructive">{loadError}</p>
+                <p className="text-sm text-destructive">Failed to load collections</p>
+                <p className="text-xs text-muted-foreground">{loadError}</p>
                 <Button variant="outline" size="sm" onClick={fetchCollections}>Try Again</Button>
               </div>
             ) : collections.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-sm text-muted-foreground">No collections found. Save verses during a memorization session to get started.</p>
+              <div className="text-center py-12 space-y-3">
+                <p className="text-sm text-muted-foreground">No collections found</p>
+                <Button variant="outline" size="sm" onClick={() => window.open('https://quran.com', '_blank')}>
+                  Go to Quran.com
+                </Button>
               </div>
             ) : (
-              <div className="space-y-5">
-                {/* Local collections section */}
-                {localCollections.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Hifdh it</p>
-                    {localCollections.map(renderCollection)}
-                  </div>
-                )}
+              <div className="space-y-2">
+                {collections.map(collection => {
+                  const isExpanded = expandedId === collection.id;
+                  const collectionBookmarks = bookmarksMap[collection.id];
+                  const isLoadingThis = loadingBookmarks === collection.id;
 
-                {/* QF collections section */}
-                {qfCollections.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Quran.com</p>
-                    {qfCollections.map(renderCollection)}
-                  </div>
-                )}
+                  return (
+                    <div key={collection.id} className="rounded-lg border border-border/50 overflow-hidden">
+                      {/* Collection header */}
+                      <div className="flex items-center gap-2 px-3 py-2.5 bg-muted/30">
+                        <button
+                          type="button"
+                          onClick={() => toggleExpand(collection.id)}
+                          className="flex-1 flex items-center gap-2 text-left text-sm font-medium text-foreground"
+                        >
+                          {isExpanded
+                            ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                            : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                          }
+                          {collection.name}
+                          {collectionBookmarks && (
+                            <span className="text-xs text-muted-foreground">({collectionBookmarks.length})</span>
+                          )}
+                        </button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          onClick={() => setDeletingCollection(collection)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+
+                      {/* Expanded bookmarks */}
+                      {isExpanded && (
+                        <div className="border-t border-border/30">
+                          {isLoadingThis ? (
+                            <div className="flex items-center justify-center py-6">
+                              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                            </div>
+                          ) : bookmarksErrorMap[collection.id] ? (
+                            (() => {
+                              const errMsg = bookmarksErrorMap[collection.id];
+                              const isScopeIssue = /insufficient_scope|required scopes/i.test(errMsg);
+                              return (
+                                <div className="text-center py-4 space-y-2">
+                                  <p className="text-xs text-destructive">
+                                    {isScopeIssue ? 'Permission missing' : 'Failed to load verses'}
+                                  </p>
+                                  <p className="text-[11px] text-muted-foreground px-3 break-words">
+                                    {isScopeIssue
+                                      ? 'Your Quran.com session was authorized before this feature was added. Please reconnect to grant access to bookmarks.'
+                                      : errMsg}
+                                  </p>
+                                  {isScopeIssue ? (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={async () => {
+                                        logoutQf();
+                                        try { await startQfLogin(); } catch (e) {
+                                          toast({ title: 'Failed to reconnect', description: e instanceof Error ? e.message : String(e), variant: 'destructive' });
+                                        }
+                                      }}
+                                    >
+                                      Reconnect Quran.com
+                                    </Button>
+                                  ) : (
+                                    <Button variant="outline" size="sm" onClick={() => fetchBookmarks(collection.id, true)}>
+                                      Try Again
+                                    </Button>
+                                  )}
+                                </div>
+                              );
+                            })()
+                          ) : !collectionBookmarks || collectionBookmarks.length === 0 ? (
+                            <p className="text-xs text-muted-foreground text-center py-4">No verses in this collection</p>
+                          ) : (
+                            <div className="divide-y divide-border/20">
+                              {Object.entries(groupBookmarks(collectionBookmarks)).map(([surahStr, items]) => {
+                                const surahNum = parseInt(surahStr);
+                                return (
+                                  <div key={surahNum} className="px-3 py-2">
+                                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                                      {surahNum}. {surahNameMap[surahNum] ?? `Surah ${surahNum}`}
+                                    </p>
+                                    {items.map(bookmark => (
+                                      <div key={bookmark.id} className="flex items-center justify-between py-1 pl-4">
+                                        <span className="text-sm text-foreground">
+                                          Ayah {bookmark.verseNumber}
+                                        </span>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                          onClick={() => setDeletingBookmark({ collectionId: collection.id, bookmark })}
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                        </Button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </ScrollArea>
+
+          {/* Debug panel */}
+          <div className="border-t border-border/50 bg-muted/20 text-[11px] shrink-0 max-h-64 flex flex-col">
+            <button
+              type="button"
+              onClick={() => setDebugOpen(o => !o)}
+              className="flex items-center justify-between px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+            >
+              <span className="flex items-center gap-1.5">
+                {debugOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                Debug ({debugLog.length})
+              </span>
+              {debugOpen && debugLog.length > 0 && (
+                <span
+                  role="button"
+                  className="text-[10px] underline"
+                  onClick={(e) => { e.stopPropagation(); setDebugLog([]); }}
+                >
+                  clear
+                </span>
+              )}
+            </button>
+            {debugOpen && (
+              <ScrollArea className="flex-1 px-3 pb-3">
+                {debugLog.length === 0 ? (
+                  <p className="text-muted-foreground py-2">No events yet.</p>
+                ) : (
+                  <div className="space-y-2 font-mono">
+                    {debugLog.map((entry, i) => (
+                      <div
+                        key={i}
+                        className={`rounded border px-2 py-1.5 ${
+                          entry.status === 'error'
+                            ? 'border-destructive/40 bg-destructive/5 text-destructive'
+                            : entry.status === 'ok'
+                              ? 'border-border/40 bg-background/50 text-foreground'
+                              : 'border-border/40 bg-background/30 text-muted-foreground'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold truncate">{entry.label}</span>
+                          <span className="text-[10px] opacity-60 shrink-0">{entry.ts}</span>
+                        </div>
+                        {entry.detail !== undefined && (
+                          <pre className="mt-1 whitespace-pre-wrap break-words text-[10px] opacity-80 max-h-32 overflow-auto">
+                            {typeof entry.detail === 'string' ? entry.detail : JSON.stringify(entry.detail, null, 2)}
+                          </pre>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            )}
+          </div>
         </SheetContent>
       </Sheet>
 
       {/* Delete collection confirmation */}
-      <AlertDialog open={!!deletingCollection} onOpenChange={o => { if (!o) setDeletingCollection(null); }}>
+      <AlertDialog open={!!deletingCollection} onOpenChange={open => { if (!open) setDeletingCollection(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Collection</AlertDialogTitle>
@@ -439,7 +491,7 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
       </AlertDialog>
 
       {/* Delete bookmark confirmation */}
-      <AlertDialog open={!!deletingBookmark} onOpenChange={o => { if (!o) setDeletingBookmark(null); }}>
+      <AlertDialog open={!!deletingBookmark} onOpenChange={open => { if (!open) setDeletingBookmark(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Verse</AlertDialogTitle>

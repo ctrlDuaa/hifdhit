@@ -1,11 +1,10 @@
 /**
- * Dialog to save verses to a LOCAL collection stored in Supabase (local_collections / local_bookmarks).
- * No longer talks to Quran.com — all data lives in the app's own database.
+ * Dialog to save verses to a Quran.com collection.
+ * Supports selecting an existing collection or creating a new one.
  */
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { callQfUserApi, isQfSessionValid } from '@/services/qfAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -21,16 +20,15 @@ interface Collection {
 }
 
 interface Props {
+  /** The verses to save — { surahId, ayah } pairs */
   verses: { surahId: number; ayah: number }[];
+  /** CTA label shown on the trigger */
   ctaText: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Called after a successful save so the panel can refresh */
-  onSaved?: () => void;
 }
 
-export const SaveToCollectionDialog = ({ verses, ctaText, open, onOpenChange, onSaved }: Props) => {
-  const { user } = useAuth();
+export const SaveToCollectionDialog = ({ verses, ctaText, open, onOpenChange }: Props) => {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -40,94 +38,121 @@ export const SaveToCollectionDialog = ({ verses, ctaText, open, onOpenChange, on
   const [newName, setNewName] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  const isConnected = isQfSessionValid();
+
   const fetchCollections = async () => {
-    if (!user) return;
     setLoading(true);
     setError(null);
     try {
-      const { data, error: dbErr } = await supabase
-        .from('local_collections')
-        .select('id, name')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (dbErr) throw dbErr;
-      const items: Collection[] = (data ?? []).map(c => ({ id: c.id, name: c.name }));
-      setCollections(items);
-      if (items.length > 0 && !selectedId) setSelectedId(items[0].id);
-    } catch (err: any) {
-      setError(err?.message ?? 'Failed to load collections');
+      const res = await callQfUserApi('/auth/v1/collections?first=20&type=ayah') as any;
+      const innerData = res?.data;
+      const items: Collection[] = Array.isArray(innerData?.data)
+        ? innerData.data
+        : Array.isArray(innerData) ? innerData : [];
+      setCollections(items.filter(c => !!c?.id));
+      if (items.length > 0 && !selectedId) {
+        setSelectedId(items[0].id);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load collections');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (open && user) {
+    if (open && isConnected) {
       setSaved(false);
       fetchCollections();
     }
-  }, [open, user]);
+  }, [open]);
+
+  const extractUpstreamError = (res: any): string | null => {
+    const status = res?.upstreamStatus;
+    if (status && status >= 400) {
+      const body = res?.data;
+      const msg = body?.message || body?.error || body?.details?.error || (typeof body === 'string' ? body : JSON.stringify(body));
+      return `HTTP ${status}: ${msg}`;
+    }
+    return null;
+  };
 
   const handleCreateCollection = async () => {
-    if (!newName.trim() || !user) return;
+    if (!newName.trim()) return;
     setSaving(true);
     try {
-      const { data, error: dbErr } = await supabase
-        .from('local_collections')
-        .insert({ user_id: user.id, name: newName.trim() })
-        .select('id, name')
-        .single();
+      // QF Collections API: only `name` is allowed on create. Type is set per-bookmark on add.
+      const res = await callQfUserApi('/auth/v1/collections', 'POST', {
+        name: newName.trim(),
+      }) as any;
 
-      if (dbErr) throw dbErr;
-      const created: Collection = { id: data.id, name: data.name };
-      setCollections(prev => [created, ...prev]);
-      setSelectedId(created.id);
+      const upstreamErr = extractUpstreamError(res);
+      if (upstreamErr) throw new Error(upstreamErr);
+
+      // QF wraps the created object in various shapes — try them all.
+      const created =
+        res?.data?.data?.collection ??
+        res?.data?.collection ??
+        res?.data?.data ??
+        res?.data;
+
+      if (!created?.id) {
+        throw new Error(`Collection created but no id returned. Response: ${JSON.stringify(res?.data)?.slice(0, 200)}`);
+      }
+
+      const normalized: Collection = { id: String(created.id), name: created.name ?? newName.trim() };
+      setCollections(prev => [normalized, ...prev]);
+      setSelectedId(normalized.id);
       setShowCreate(false);
       setNewName('');
-      toast({ title: 'Collection created', description: `"${created.name}" is ready.` });
-    } catch (err: any) {
-      toast({ title: 'Failed to create collection', description: err?.message ?? 'Please try again.', variant: 'destructive' });
+      toast({ title: 'Collection created', description: `"${normalized.name}" is ready.` });
+    } catch (err) {
+      toast({
+        title: 'Failed to create collection',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setSaving(false);
     }
   };
 
   const handleSave = async () => {
-    if (!selectedId || verses.length === 0 || !user) return;
+    if (!selectedId || verses.length === 0) return;
     setSaving(true);
     try {
-      const rows = verses.map(v => ({
-        user_id: user.id,
-        collection_id: selectedId,
-        surah_id: v.surahId,
-        ayah_number: v.ayah,
-      }));
-
-      const { error: dbErr } = await supabase.from('local_bookmarks').insert(rows);
-      if (dbErr) throw dbErr;
-
+      for (const v of verses) {
+        const res = await callQfUserApi(`/auth/v1/collections/${selectedId}/bookmarks`, 'POST', {
+          key: v.surahId,
+          type: 'ayah',
+          verseNumber: v.ayah,
+          mushaf: 1,
+        }) as any;
+        const upstreamErr = extractUpstreamError(res);
+        if (upstreamErr) throw new Error(upstreamErr);
+      }
       setSaved(true);
       toast({
         title: 'Saved!',
         description: `${verses.length} ${verses.length === 1 ? 'verse' : 'verses'} added to your collection.`,
       });
-      onSaved?.();
-    } catch (err: any) {
-      toast({ title: 'Failed to save', description: err?.message ?? 'Please try again.', variant: 'destructive' });
+    } catch (err) {
+      toast({ title: 'Failed to save', description: err instanceof Error ? err.message : 'Please try again.', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
   };
 
-  if (!user) return null;
+  if (!isConnected) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Save to Collection</DialogTitle>
-          <DialogDescription>{ctaText}</DialogDescription>
+          <DialogDescription>
+            {ctaText}
+          </DialogDescription>
         </DialogHeader>
 
         {loading ? (
@@ -149,6 +174,7 @@ export const SaveToCollectionDialog = ({ verses, ctaText, open, onOpenChange, on
           </div>
         ) : (
           <div className="space-y-4">
+            {/* Collection list */}
             <ScrollArea className="max-h-48 rounded-md border border-border/50">
               <div className="p-2 space-y-1">
                 {collections.map(c => (
@@ -169,6 +195,7 @@ export const SaveToCollectionDialog = ({ verses, ctaText, open, onOpenChange, on
               </div>
             </ScrollArea>
 
+            {/* Create new */}
             {showCreate ? (
               <div className="flex gap-2">
                 <Input
@@ -188,8 +215,17 @@ export const SaveToCollectionDialog = ({ verses, ctaText, open, onOpenChange, on
               </Button>
             )}
 
-            <Button onClick={handleSave} disabled={saving || !selectedId} className="w-full gap-2">
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookmarkPlus className="w-4 h-4" />}
+            {/* Save button */}
+            <Button
+              onClick={handleSave}
+              disabled={saving || !selectedId}
+              className="w-full gap-2"
+            >
+              {saving ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <BookmarkPlus className="w-4 h-4" />
+              )}
               Save {verses.length} {verses.length === 1 ? 'verse' : 'verses'}
             </Button>
           </div>
