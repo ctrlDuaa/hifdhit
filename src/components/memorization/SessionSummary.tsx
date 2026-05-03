@@ -80,7 +80,7 @@ export const SessionSummary = ({ state, confidenceSummary, weakPassages, mistake
   const totalAyahs = state.config.ayahEnd - state.config.ayahStart + 1;
   const reviewScheduleDays = getBlockReviewSchedule(confidenceSummary);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const qfConnected = isQfSessionValid();
+  const { user } = useAuth();
 
   const allVerses = useMemo(() => {
     const v: { surahId: number; ayah: number }[] = [];
