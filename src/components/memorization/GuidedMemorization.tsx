@@ -625,7 +625,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
               open={saveDialogOpen}
               onOpenChange={setSaveDialogOpen}
               verses={[{ surahId: state.config.surahId, ayah: currentAyahNum }]}
-              ctaText="Save the current verse to one of your Quran.com collections."
+              ctaText="Save the current verse to one of your collections."
             />
           </>
         )}
