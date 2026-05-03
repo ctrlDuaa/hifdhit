@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, Calendar, BarChart3, BookmarkPlus } from 'lucide-react';
 import { MemorizationSessionState, AyahPerformance } from '@/types/memorization';
 import { useMemo, useState } from 'react';
-import { isQfSessionValid } from '@/services/qfAuth';
+import { useAuth } from '@/hooks/useAuth';
 import { SaveToCollectionDialog } from '@/components/memorization/SaveToCollectionDialog';
 
 interface Props {
