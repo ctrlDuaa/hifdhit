@@ -612,7 +612,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
         )}
 
         {/* Save to collection CTA */}
-        {qfConnected && (
+        {user && (
           <>
             <button
               onClick={() => setSaveDialogOpen(true)}
