@@ -184,7 +184,7 @@ export const SessionSummary = ({ state, confidenceSummary, weakPassages, mistake
         </Card>
 
         {/* Save to collection CTA */}
-        {qfConnected && (
+        {user && (
           <>
             <button
               onClick={() => setSaveDialogOpen(true)}
@@ -197,7 +197,7 @@ export const SessionSummary = ({ state, confidenceSummary, weakPassages, mistake
               open={saveDialogOpen}
               onOpenChange={setSaveDialogOpen}
               verses={allVerses}
-              ctaText="Save all the verses from this session to one of your Quran.com collections."
+              ctaText="Save all the verses from this session to your collection."
             />
           </>
         )}
