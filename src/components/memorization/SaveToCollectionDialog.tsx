@@ -43,13 +43,13 @@ export const SaveToCollectionDialog = ({ verses, ctaText, open, onOpenChange }: 
     setLoading(true);
     setError(null);
     try {
-      const { data, error: err } = await supabase
+      const { data, error: err } = await (supabase as any)
         .from('local_collections')
         .select('id, name')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       if (err) throw err;
-      const items = (data ?? []).map(c => ({ id: c.id, name: c.name }));
+      const items = (data ?? []).map((c: any) => ({ id: c.id, name: c.name }));
       setCollections(items);
       if (items.length > 0 && !selectedId) {
         setSelectedId(items[0].id);
