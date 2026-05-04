@@ -227,7 +227,7 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     setActionLoading(true);
     try {
       if (source === 'local') {
-        const { error } = await supabase.from('local_bookmarks').delete().eq('id', bookmark.id);
+        const { error } = await (supabase as any).from('local_bookmarks').delete().eq('id', bookmark.id);
         if (error) throw error;
       } else {
         await callQfUserApi(`/auth/v1/collections/${collectionId}/bookmarks/${bookmark.id}`, 'DELETE');
