@@ -103,8 +103,19 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
   const fetchCollections = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
+    const debug: DebugInfo = { timestamp: new Date().toISOString() };
     try {
-      const [local, qf] = await Promise.all([fetchLocalCollections(), fetchQfCollections()]);
+      let local: Collection[] = [];
+      let qf: Collection[] = [];
+      try { local = await fetchLocalCollections(); debug.localCount = local.length; } catch (e) { debug.localError = e instanceof Error ? e.message : String(e); }
+      try { qf = await fetchQfCollections(); debug.qfCount = qf.length; } catch (e) { debug.qfError = e instanceof Error ? e.message : String(e); }
+      setDebugInfo(debug);
+      if (debug.localError && debug.qfError) {
+        throw new Error(`Local: ${debug.localError} | QF: ${debug.qfError}`);
+      }
+      if (debug.localError) {
+        throw new Error(debug.localError);
+      }
       setCollections([...local, ...qf]);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load collections';
