@@ -70,13 +70,13 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
   // ── Fetch local collections from Supabase ──
   const fetchLocalCollections = useCallback(async (): Promise<Collection[]> => {
     if (!user) return [];
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('local_collections')
       .select('id, name')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
-    if (error) throw error;
-    return (data ?? []).map(c => ({ id: c.id, name: c.name, source: 'local' as const }));
+    if (error) throw new Error(`local_collections: ${error.message}`);
+    return (data ?? []).map((c: any) => ({ id: c.id, name: c.name, source: 'local' as const }));
   }, [user]);
 
   // ── Fetch QF collections ──
