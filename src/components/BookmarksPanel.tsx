@@ -424,6 +424,21 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
                 )}
               </div>
             )}
+
+            {/* Debug rendering */}
+            <div className="mt-6 p-3 rounded-lg bg-muted/50 border border-border/30">
+              <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-1">Debug Info</p>
+              <pre className="text-[10px] font-mono text-muted-foreground whitespace-pre-wrap break-all">
+{JSON.stringify({
+  ...debugInfo,
+  loadError,
+  totalCollections: collections.length,
+  localCount: localCollections.length,
+  qfCount: qfCollections.length,
+  userId: user?.id?.slice(0, 8),
+}, null, 2)}
+              </pre>
+            </div>
           </ScrollArea>
         </SheetContent>
       </Sheet>
