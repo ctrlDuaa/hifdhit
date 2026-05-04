@@ -33,6 +33,14 @@ interface Bookmark {
   verseNumber: number;
 }
 
+interface DebugInfo {
+  localError?: string;
+  qfError?: string;
+  localCount?: number;
+  qfCount?: number;
+  timestamp?: string;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
