@@ -72,7 +72,7 @@ export const SaveToCollectionDialog = ({ verses, ctaText, open, onOpenChange }: 
     if (!newName.trim() || !user) return;
     setSaving(true);
     try {
-      const { data, error: err } = await supabase
+      const { data, error: err } = await (supabase as any)
         .from('local_collections')
         .insert({ name: newName.trim(), user_id: user.id })
         .select('id, name')
