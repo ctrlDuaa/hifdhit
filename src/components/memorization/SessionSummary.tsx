@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, Calendar, BarChart3, BookmarkPlus } from 'lucide-react';
 import { MemorizationSessionState, AyahPerformance } from '@/types/memorization';
 import { useMemo, useState } from 'react';
-import { isQfSessionValid } from '@/services/qfAuth';
+import { useAuth } from '@/hooks/useAuth';
 import { SaveToCollectionDialog } from '@/components/memorization/SaveToCollectionDialog';
 
 interface Props {
@@ -80,7 +80,7 @@ export const SessionSummary = ({ state, confidenceSummary, weakPassages, mistake
   const totalAyahs = state.config.ayahEnd - state.config.ayahStart + 1;
   const reviewScheduleDays = getBlockReviewSchedule(confidenceSummary);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const qfConnected = isQfSessionValid();
+  const { user } = useAuth();
 
   const allVerses = useMemo(() => {
     const v: { surahId: number; ayah: number }[] = [];
@@ -184,7 +184,7 @@ export const SessionSummary = ({ state, confidenceSummary, weakPassages, mistake
         </Card>
 
         {/* Save to collection CTA */}
-        {qfConnected && (
+        {user && (
           <>
             <button
               onClick={() => setSaveDialogOpen(true)}
@@ -197,7 +197,7 @@ export const SessionSummary = ({ state, confidenceSummary, weakPassages, mistake
               open={saveDialogOpen}
               onOpenChange={setSaveDialogOpen}
               verses={allVerses}
-              ctaText="Save all the verses from this session to one of your Quran.com collections."
+              ctaText="Save all the verses from this session to your collection."
             />
           </>
         )}
