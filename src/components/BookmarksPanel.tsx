@@ -143,13 +143,13 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
       let normalized: Bookmark[] = [];
 
       if (collection.source === 'local') {
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from('local_bookmarks')
           .select('id, surah_id, ayah_number')
           .eq('collection_id', collection.id)
           .order('created_at', { ascending: true });
         if (error) throw error;
-        normalized = (data ?? []).map(b => ({ id: b.id, key: b.surah_id, verseNumber: b.ayah_number }));
+        normalized = (data ?? []).map((b: any) => ({ id: b.id, key: b.surah_id, verseNumber: b.ayah_number }));
       } else {
         // QF collection
         const res = await callQfUserApi(`/auth/v1/collections/${collection.id}/bookmarks?first=50`) as any;
