@@ -33,6 +33,14 @@ interface Bookmark {
   verseNumber: number;
 }
 
+interface DebugInfo {
+  localError?: string;
+  qfError?: string;
+  localCount?: number;
+  qfCount?: number;
+  timestamp?: string;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -43,6 +51,7 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<DebugInfo>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [bookmarksMap, setBookmarksMap] = useState<Record<string, Bookmark[]>>({});
   const [bookmarksErrorMap, setBookmarksErrorMap] = useState<Record<string, string>>({});
@@ -61,13 +70,13 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
   // ── Fetch local collections from Supabase ──
   const fetchLocalCollections = useCallback(async (): Promise<Collection[]> => {
     if (!user) return [];
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('local_collections')
       .select('id, name')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
-    if (error) throw error;
-    return (data ?? []).map(c => ({ id: c.id, name: c.name, source: 'local' as const }));
+    if (error) throw new Error(`local_collections: ${error.message}`);
+    return (data ?? []).map((c: any) => ({ id: c.id, name: c.name, source: 'local' as const }));
   }, [user]);
 
   // ── Fetch QF collections ──
@@ -94,8 +103,19 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
   const fetchCollections = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
+    const debug: DebugInfo = { timestamp: new Date().toISOString() };
     try {
-      const [local, qf] = await Promise.all([fetchLocalCollections(), fetchQfCollections()]);
+      let local: Collection[] = [];
+      let qf: Collection[] = [];
+      try { local = await fetchLocalCollections(); debug.localCount = local.length; } catch (e) { debug.localError = e instanceof Error ? e.message : String(e); }
+      try { qf = await fetchQfCollections(); debug.qfCount = qf.length; } catch (e) { debug.qfError = e instanceof Error ? e.message : String(e); }
+      setDebugInfo(debug);
+      if (debug.localError && debug.qfError) {
+        throw new Error(`Local: ${debug.localError} | QF: ${debug.qfError}`);
+      }
+      if (debug.localError) {
+        throw new Error(debug.localError);
+      }
       setCollections([...local, ...qf]);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load collections';
@@ -123,13 +143,13 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
       let normalized: Bookmark[] = [];
 
       if (collection.source === 'local') {
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from('local_bookmarks')
           .select('id, surah_id, ayah_number')
           .eq('collection_id', collection.id)
           .order('created_at', { ascending: true });
         if (error) throw error;
-        normalized = (data ?? []).map(b => ({ id: b.id, key: b.surah_id, verseNumber: b.ayah_number }));
+        normalized = (data ?? []).map((b: any) => ({ id: b.id, key: b.surah_id, verseNumber: b.ayah_number }));
       } else {
         // QF collection
         const res = await callQfUserApi(`/auth/v1/collections/${collection.id}/bookmarks?first=50`) as any;
@@ -183,8 +203,8 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     try {
       if (deletingCollection.source === 'local') {
         // Delete bookmarks first, then collection
-        await supabase.from('local_bookmarks').delete().eq('collection_id', deletingCollection.id);
-        const { error } = await supabase.from('local_collections').delete().eq('id', deletingCollection.id);
+         await (supabase as any).from('local_bookmarks').delete().eq('collection_id', deletingCollection.id);
+         const { error } = await (supabase as any).from('local_collections').delete().eq('id', deletingCollection.id);
         if (error) throw error;
       } else {
         await callQfUserApi(`/auth/v1/collections/${deletingCollection.id}`, 'DELETE');
@@ -207,7 +227,7 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     setActionLoading(true);
     try {
       if (source === 'local') {
-        const { error } = await supabase.from('local_bookmarks').delete().eq('id', bookmark.id);
+        const { error } = await (supabase as any).from('local_bookmarks').delete().eq('id', bookmark.id);
         if (error) throw error;
       } else {
         await callQfUserApi(`/auth/v1/collections/${collectionId}/bookmarks/${bookmark.id}`, 'DELETE');
@@ -404,6 +424,21 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
                 )}
               </div>
             )}
+
+            {/* Debug rendering */}
+            <div className="mt-6 p-3 rounded-lg bg-muted/50 border border-border/30">
+              <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-1">Debug Info</p>
+              <pre className="text-[10px] font-mono text-muted-foreground whitespace-pre-wrap break-all">
+{JSON.stringify({
+  ...debugInfo,
+  loadError,
+  totalCollections: collections.length,
+  localCount: localCollections.length,
+  qfCount: qfCollections.length,
+  userId: user?.id?.slice(0, 8),
+}, null, 2)}
+              </pre>
+            </div>
           </ScrollArea>
         </SheetContent>
       </Sheet>
