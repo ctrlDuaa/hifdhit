@@ -105,7 +105,7 @@ export const SaveToCollectionDialog = ({ verses, ctaText, open, onOpenChange }: 
         surah_id: v.surahId,
         ayah_number: v.ayah,
       }));
-      const { error: err } = await supabase.from('local_bookmarks').insert(rows);
+      const { error: err } = await (supabase as any).from('local_bookmarks').insert(rows);
       if (err) throw err;
       setSaved(true);
       toast({
