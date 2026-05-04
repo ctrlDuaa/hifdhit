@@ -51,6 +51,7 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<DebugInfo>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [bookmarksMap, setBookmarksMap] = useState<Record<string, Bookmark[]>>({});
   const [bookmarksErrorMap, setBookmarksErrorMap] = useState<Record<string, string>>({});
