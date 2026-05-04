@@ -19,7 +19,7 @@ import { MemorizationSessionState, MemorizationStage, ConfidenceRating } from '@
 import { MemorizationAyah } from '@/hooks/useMemorizationSession';
 import { cn } from '@/lib/utils';
 import { MushafContextLines } from '@/components/memorization/MushafContextLines';
-
+import { isQfSessionValid } from '@/services/qfAuth';
 import { SaveToCollectionDialog } from '@/components/memorization/SaveToCollectionDialog';
 import { BookmarkPlus } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -84,6 +84,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   const [showTranslation, setShowTranslation] = useState(state.config.showTranslation);
   const [showFullPage, setShowFullPage] = useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const qfConnected = isQfSessionValid();
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -612,7 +613,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
         )}
 
         {/* Save to collection CTA */}
-        {user && (
+        {qfConnected && (
           <>
             <button
               onClick={() => setSaveDialogOpen(true)}
@@ -625,7 +626,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
               open={saveDialogOpen}
               onOpenChange={setSaveDialogOpen}
               verses={[{ surahId: state.config.surahId, ayah: currentAyahNum }]}
-              ctaText="Save the current verse to one of your collections."
+              ctaText="Save the current verse to one of your Quran.com collections."
             />
           </>
         )}
