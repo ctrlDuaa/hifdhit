@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Tag, CircleDot, Circle, FileText } from 'lucide-react';
 import { useSupabaseMushaf, SupabasePage, SupabaseWord } from '@/hooks/useSupabaseMushaf';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/runtimeClient';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { useQcfFontLoader, prefetchQcfPageFont } from '@/hooks/useQcfFontLoader';

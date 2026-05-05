@@ -11,7 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { SessionMushafViewer } from '@/components/SessionMushafViewer';
 import { SessionExitDialog } from '@/components/SessionExitDialog';
 import { Users, LogOut, RotateCcw, Navigation, Tag, Menu } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/runtimeClient';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { AppHeader } from '@/components/AppHeader';

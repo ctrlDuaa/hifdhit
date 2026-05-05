@@ -8,7 +8,7 @@ import { SessionSummary } from '@/components/memorization/SessionSummary';
 import { AppHeader } from '@/components/AppHeader';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/runtimeClient';
 
 import { MemorizationSessionState, MemorizationSessionConfig } from '@/types/memorization';
 import { createDefaultBlockState } from '@/lib/reviewScheduler';
