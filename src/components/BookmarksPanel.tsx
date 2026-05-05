@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { callQfUserApi, isQfSessionValid, logoutQf, startQfLogin } from '@/services/qfAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/runtimeClient';
 import { useAuth } from '@/hooks/useAuth';
 import { useSurahList } from '@/hooks/useQuranData';
 import { Button } from '@/components/ui/button';

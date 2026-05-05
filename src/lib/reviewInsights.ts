@@ -2,7 +2,7 @@
  * Review analytics — generates natural-language insights from block review history.
  */
 
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/runtimeClient';
 import { MistakeType, getMistakeTypeLabel, MasteryStatus } from '@/lib/reviewScheduler';
 
 export interface BlockInsight {

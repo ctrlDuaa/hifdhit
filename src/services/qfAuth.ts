@@ -106,7 +106,7 @@ export function isQfSessionValid(): boolean {
 
 // ── Edge function caller ─────────────────────────────────────
 
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/runtimeClient';
 
 async function callEdgeFunction(action: string, body: Record<string, unknown>) {
   console.log(`[QF OAuth] Calling edge function: ${action}`, body);
