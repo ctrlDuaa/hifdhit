@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/runtimeClient';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface SupabaseWord {
   id: number;

@@ -5,7 +5,7 @@
 
 import { useState, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/runtimeClient';
+import { supabase } from '@/integrations/supabase/client';
 import { quranApi, QuranVerse } from '@/services/quranApi';
 import {
   WordMistake,

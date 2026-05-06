@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/runtimeClient';
+import { supabase } from '@/integrations/supabase/client';
 
 interface MushafWord {
   id: string;

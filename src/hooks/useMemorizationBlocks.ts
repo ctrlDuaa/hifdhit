@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/runtimeClient';
+import { supabase } from '@/integrations/supabase/client';
 import { createDefaultBlockState } from '@/lib/reviewScheduler';
 import { getBlockProjectedReviewDates } from '@/lib/memorizationReviewTimeline';
 

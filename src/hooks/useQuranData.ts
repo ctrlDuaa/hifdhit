@@ -6,7 +6,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { quranApi, QuranChapter, QuranVerse } from '@/services/quranApi';
-import { supabase } from '@/integrations/supabase/runtimeClient';
+import { supabase } from '@/integrations/supabase/client';
 import { CACHE_TTL_MS, DEFAULT_TRANSLATION_ID } from '@/config/quranDefaults';
 
 // ── Cache helpers ────────────────────────────────────────────

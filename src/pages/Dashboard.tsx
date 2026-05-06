@@ -13,7 +13,7 @@ import { JoinSessionDialog } from '@/components/JoinSessionDialog';
 import { WeeklyMistakesCard } from '@/components/WeeklyMistakesCard';
 import { useAuth } from '@/hooks/useAuth';
 import { useSurahList } from '@/hooks/useQuranData';
-import { supabase } from '@/integrations/supabase/runtimeClient';
+import { supabase } from '@/integrations/supabase/client';
 import { BookOpen, BarChart3, GraduationCap, ClipboardCheck, Play, Calendar } from 'lucide-react';
 import { useMemorizationBlocks } from '@/hooks/useMemorizationBlocks';
 import { useSurahList as useSurahListForReview } from '@/hooks/useQuranData';
