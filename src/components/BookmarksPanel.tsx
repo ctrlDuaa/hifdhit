@@ -1,6 +1,10 @@
 /**
  * Side panel (Sheet) showing all Quran.com collections and their bookmarks.
  * Supports deleting entire collections or individual verses within them.
+ *
+ * Source-of-truth model:
+ *  - Signed-in QF users → Quran Foundation PRE-LIVE API
+ *  - Signed-out users   → local/Supabase (not yet implemented)
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -42,6 +46,47 @@ type DebugEntry = {
   detail?: any;
 };
 
+/**
+ * Try every known field name the QF API might use for collection membership.
+ * Returns an array of collection IDs the resource belongs to.
+ */
+function extractCollectionIds(resource: any): string[] {
+  const ids: string[] = [];
+  // Direct fields
+  for (const field of ['collectionId', 'collection_id', 'collectionID']) {
+    if (resource[field] != null) ids.push(String(resource[field]));
+  }
+  // Nested under .collections array
+  if (Array.isArray(resource.collections)) {
+    for (const c of resource.collections) {
+      if (typeof c === 'string') ids.push(c);
+      else if (c?.id != null) ids.push(String(c.id));
+      else if (c?.collectionId != null) ids.push(String(c.collectionId));
+    }
+  }
+  // collectionIds array
+  if (Array.isArray(resource.collectionIds)) {
+    for (const cid of resource.collectionIds) ids.push(String(cid));
+  }
+  if (Array.isArray(resource.collection_ids)) {
+    for (const cid of resource.collection_ids) ids.push(String(cid));
+  }
+  return ids;
+}
+
+function normalizeBookmark(raw: any): Bookmark | null {
+  const id = raw.id ?? raw.verseKey ?? `${raw.key ?? raw.chapterId}:${raw.verseNumber ?? raw.ayah}`;
+  const key = raw.key ?? raw.chapterId ?? raw.chapter_id ?? raw.surahId
+    ?? (typeof raw.verseKey === 'string' ? parseInt(raw.verseKey.split(':')[0]) : null);
+  const verseNumber = raw.verseNumber ?? raw.verse_number ?? raw.ayah
+    ?? (typeof raw.verseKey === 'string' ? parseInt(raw.verseKey.split(':')[1]) : null);
+
+  if (key != null && verseNumber != null && !isNaN(Number(key)) && !isNaN(Number(verseNumber))) {
+    return { id: String(id), key: Number(key), verseNumber: Number(verseNumber) };
+  }
+  return null;
+}
+
 export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(false);
@@ -57,7 +102,7 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
   const [debugLog, setDebugLog] = useState<DebugEntry[]>([]);
 
   const pushDebug = useCallback((entry: Omit<DebugEntry, 'ts'>) => {
-    setDebugLog(prev => [{ ts: new Date().toISOString().split('T')[1].replace('Z', ''), ...entry }, ...prev].slice(0, 50));
+    setDebugLog(prev => [{ ts: new Date().toISOString().split('T')[1].replace('Z', ''), ...entry }, ...prev].slice(0, 80));
   }, []);
 
   const { data: chapters } = useSurahList();
@@ -67,12 +112,14 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     return map;
   }, [chapters]);
 
+  // Store all raw resources fetched via /collections/all (keep raw for field inspection)
+  const [allRawResources, setAllRawResources] = useState<any[]>([]);
+
   const normalizeCollections = (res: any): Collection[] => {
     const upstreamStatus = res?.upstreamStatus;
     if (upstreamStatus && upstreamStatus >= 400) {
       throw new Error(`HTTP ${upstreamStatus}`);
     }
-
     const innerData = res?.data?.data ?? res?.data;
     const items = Array.isArray(innerData?.data)
       ? innerData.data
@@ -81,14 +128,10 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
         : Array.isArray(innerData)
           ? innerData
           : [];
-
     return items
       .filter((c: any) => !!c?.id)
       .map((c: any) => ({ id: String(c.id), name: c.name ?? c.title ?? 'Untitled Collection' }));
   };
-
-  // Store all collection resources fetched via /collections/all
-  const [allCollectionResources, setAllCollectionResources] = useState<any[]>([]);
 
   const fetchCollections = useCallback(async () => {
     setLoading(true);
@@ -101,26 +144,19 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
       }
 
       const res: any = await callQfUserApi(collectionsUrl);
+      const parsed = normalizeCollections(res);
       pushDebug({
         label: 'collections response',
         status: 'ok',
         detail: {
-          upstreamUrl: collectionsUrl,
-          statusCode: res?.data?.status ?? 'n/a',
-          collectionIds: (() => {
-            try { return normalizeCollections(res).map(c => c.id); } catch { return []; }
-          })(),
-          itemCount: (() => {
-            try { return normalizeCollections(res).length; } catch { return 0; }
-          })(),
-          body: res,
+          collectionIds: parsed.map(c => c.id),
+          collectionNames: parsed.map(c => c.name),
+          itemCount: parsed.length,
         },
       });
-
-      const parsed = normalizeCollections(res);
       setCollections(parsed);
 
-      // Also fetch all collection resources for expanding later
+      // Fetch all resources for mapping to collections
       const resourcesUrl = '/auth/v1/collections/all?type=ayah&first=20&sortBy=recentlyAdded';
       pushDebug({ label: `GET ${resourcesUrl}`, status: 'info' });
       try {
@@ -153,7 +189,8 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
               upstreamUrl: paginatedUrl,
               itemCount: items.length,
               paginationCursor: nextCursor ?? null,
-              body: rRes,
+              sampleKeys: items.slice(0, 3).map((it: any) => Object.keys(it)),
+              sampleItems: items.slice(0, 2),
             },
           });
 
@@ -162,7 +199,7 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
           page++;
         } while (cursor && page < 10);
 
-        setAllCollectionResources(allResources);
+        setAllRawResources(allResources);
         pushDebug({ label: 'all resources loaded', status: 'ok', detail: { totalItems: allResources.length } });
       } catch (resErr) {
         pushDebug({ label: 'resources fetch failed', status: 'error', detail: String((resErr as Error)?.message ?? resErr) });
@@ -185,52 +222,71 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     }
   }, [open, fetchCollections]);
 
-  const fetchBookmarks = useCallback((collectionId: string, force = false) => {
+  /**
+   * Filter pre-fetched resources by exact QF collection ID.
+   * NEVER falls back to showing all resources.
+   */
+  const fetchBookmarks = useCallback((collectionId: string, collectionName: string, force = false) => {
     if (!force && bookmarksMap[collectionId]) return;
     setLoadingBookmarks(collectionId);
     setBookmarksErrorMap(prev => { const n = { ...prev }; delete n[collectionId]; return n; });
 
-    pushDebug({ label: `filter resources for collection ${collectionId}`, status: 'info', detail: { totalResources: allCollectionResources.length } });
+    pushDebug({
+      label: `expand collection`,
+      status: 'info',
+      detail: {
+        selectedCollectionId: collectionId,
+        selectedCollectionName: collectionName,
+        source: 'quran_foundation',
+        totalRawResources: allRawResources.length,
+      },
+    });
 
     try {
-      // Filter from the pre-fetched /collections/all resources
-      const matching = allCollectionResources.filter((r: any) => {
-        const rColId = r.collectionId ?? r.collection_id ?? r.collectionID;
-        return String(rColId) === String(collectionId);
+      // Log all collection IDs found on each resource for debugging
+      const resourceCollectionMap = allRawResources.map((r: any, idx: number) => ({
+        index: idx,
+        extractedCollectionIds: extractCollectionIds(r),
+        rawCollectionFields: {
+          collectionId: r.collectionId,
+          collection_id: r.collection_id,
+          collections: r.collections,
+          collectionIds: r.collectionIds,
+          collection_ids: r.collection_ids,
+        },
+      }));
+
+      pushDebug({
+        label: `resource→collection mapping`,
+        status: 'info',
+        detail: resourceCollectionMap.slice(0, 5),
       });
 
-      pushDebug({ label: `matched resources for ${collectionId}`, status: 'ok', detail: { matchCount: matching.length, sample: matching.slice(0, 3) } });
+      // Filter by exact collection ID match
+      const matching = allRawResources.filter((r: any) => {
+        const ids = extractCollectionIds(r);
+        return ids.includes(String(collectionId));
+      });
 
       const normalized: Bookmark[] = [];
       for (const raw of matching) {
-        const id = raw.id ?? raw.verseKey ?? `${raw.key ?? raw.chapterId}:${raw.verseNumber ?? raw.ayah}`;
-        const key = raw.key ?? raw.chapterId ?? raw.chapter_id ?? raw.surahId
-          ?? (typeof raw.verseKey === 'string' ? parseInt(raw.verseKey.split(':')[0]) : null);
-        const verseNumber = raw.verseNumber ?? raw.verse_number ?? raw.ayah
-          ?? (typeof raw.verseKey === 'string' ? parseInt(raw.verseKey.split(':')[1]) : null);
-
-        if (key != null && verseNumber != null && !isNaN(Number(key)) && !isNaN(Number(verseNumber))) {
-          normalized.push({ id: String(id), key: Number(key), verseNumber: Number(verseNumber) });
-        }
+        const bm = normalizeBookmark(raw);
+        if (bm) normalized.push(bm);
       }
 
-      // If no collectionId field matched, show ALL resources (the API may not tag by collection)
-      if (normalized.length === 0 && allCollectionResources.length > 0) {
-        pushDebug({ label: `no collectionId match — showing all resources`, status: 'info' });
-        for (const raw of allCollectionResources) {
-          const id = raw.id ?? raw.verseKey ?? `${raw.key ?? raw.chapterId}:${raw.verseNumber ?? raw.ayah}`;
-          const key = raw.key ?? raw.chapterId ?? raw.chapter_id ?? raw.surahId
-            ?? (typeof raw.verseKey === 'string' ? parseInt(raw.verseKey.split(':')[0]) : null);
-          const verseNumber = raw.verseNumber ?? raw.verse_number ?? raw.ayah
-            ?? (typeof raw.verseKey === 'string' ? parseInt(raw.verseKey.split(':')[1]) : null);
+      pushDebug({
+        label: `collection ${collectionId} result`,
+        status: 'ok',
+        detail: {
+          selectedCollectionId: collectionId,
+          selectedCollectionName: collectionName,
+          source: 'quran_foundation',
+          qfItemsFetched: allRawResources.length,
+          filteredItemCount: normalized.length,
+          matchingRawCount: matching.length,
+        },
+      });
 
-          if (key != null && verseNumber != null && !isNaN(Number(key)) && !isNaN(Number(verseNumber))) {
-            normalized.push({ id: String(id), key: Number(key), verseNumber: Number(verseNumber) });
-          }
-        }
-      }
-
-      pushDebug({ label: `collection ${collectionId} parsed`, status: 'ok', detail: { normalizedCount: normalized.length } });
       setBookmarksMap(prev => ({ ...prev, [collectionId]: normalized }));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load bookmarks';
@@ -239,14 +295,14 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     } finally {
       setLoadingBookmarks(null);
     }
-  }, [allCollectionResources, bookmarksMap, pushDebug]);
+  }, [allRawResources, bookmarksMap, pushDebug]);
 
-  const toggleExpand = (collectionId: string) => {
-    if (expandedId === collectionId) {
+  const toggleExpand = (collection: Collection) => {
+    if (expandedId === collection.id) {
       setExpandedId(null);
     } else {
-      setExpandedId(collectionId);
-      fetchBookmarks(collectionId);
+      setExpandedId(collection.id);
+      fetchBookmarks(collection.id, collection.name);
     }
   };
 
@@ -339,11 +395,10 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
 
                   return (
                     <div key={collection.id} className="rounded-lg border border-border/50 overflow-hidden">
-                      {/* Collection header */}
                       <div className="flex items-center gap-2 px-3 py-2.5 bg-muted/30">
                         <button
                           type="button"
-                          onClick={() => toggleExpand(collection.id)}
+                          onClick={() => toggleExpand(collection)}
                           className="flex-1 flex items-center gap-2 text-left text-sm font-medium text-foreground"
                         >
                           {isExpanded
@@ -365,7 +420,6 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
                         </Button>
                       </div>
 
-                      {/* Expanded bookmarks */}
                       {isExpanded && (
                         <div className="border-t border-border/30">
                           {isLoadingThis ? (
@@ -376,7 +430,7 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
                             <div className="text-center py-4 space-y-2">
                               <p className="text-xs text-destructive">Failed to load verses</p>
                               <p className="text-[11px] text-muted-foreground px-3 break-words">{bookmarksErrorMap[collection.id]}</p>
-                              <Button variant="outline" size="sm" onClick={() => fetchBookmarks(collection.id, true)}>
+                              <Button variant="outline" size="sm" onClick={() => fetchBookmarks(collection.id, collection.name, true)}>
                                 Try Again
                               </Button>
                             </div>
@@ -483,7 +537,7 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Collection</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{deletingCollection?.name}"? This will remove all bookmarks in it and cannot be undone.
+              Are you sure you want to delete &quot;{deletingCollection?.name}&quot;? This will remove all bookmarks in it and cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
