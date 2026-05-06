@@ -87,45 +87,85 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
       .map((c: any) => ({ id: String(c.id), name: c.name ?? c.title ?? 'Untitled Collection' }));
   };
 
+  // Store all collection resources fetched via /collections/all
+  const [allCollectionResources, setAllCollectionResources] = useState<any[]>([]);
+
   const fetchCollections = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
-    pushDebug({ label: 'GET /collections (typed=ayah & all)', status: 'info' });
+    const collectionsUrl = '/auth/v1/collections?type=ayah&first=20';
+    pushDebug({ label: `GET ${collectionsUrl}`, status: 'info' });
     try {
       if (!isQfSessionValid()) {
         throw new Error('Not connected to Quran.com. Please reconnect from the header.');
       }
-      const [typedResult, allResult] = await Promise.allSettled([
-        callQfUserApi('/auth/v1/collections?first=20&type=ayah'),
-        callQfUserApi('/auth/v1/collections?first=50'),
-      ]);
 
-      const merged = new Map<string, Collection>();
+      const res: any = await callQfUserApi(collectionsUrl);
+      pushDebug({
+        label: 'collections response',
+        status: 'ok',
+        detail: {
+          upstreamUrl: collectionsUrl,
+          statusCode: res?.data?.status ?? 'n/a',
+          collectionIds: (() => {
+            try { return normalizeCollections(res).map(c => c.id); } catch { return []; }
+          })(),
+          itemCount: (() => {
+            try { return normalizeCollections(res).length; } catch { return 0; }
+          })(),
+          body: res,
+        },
+      });
 
-      if (typedResult.status === 'fulfilled') {
-        pushDebug({ label: 'collections?type=ayah response', status: 'ok', detail: typedResult.value });
-        normalizeCollections(typedResult.value).forEach((collection) => merged.set(collection.id, collection));
-      } else {
-        pushDebug({ label: 'collections?type=ayah error', status: 'error', detail: String(typedResult.reason?.message ?? typedResult.reason) });
-      }
+      const parsed = normalizeCollections(res);
+      setCollections(parsed);
 
-      if (allResult.status === 'fulfilled') {
-        pushDebug({ label: 'collections (all) response', status: 'ok', detail: allResult.value });
-        normalizeCollections(allResult.value).forEach((collection) => merged.set(collection.id, collection));
-      } else {
-        pushDebug({ label: 'collections (all) error', status: 'error', detail: String(allResult.reason?.message ?? allResult.reason) });
-      }
+      // Also fetch all collection resources for expanding later
+      const resourcesUrl = '/auth/v1/collections/all?type=ayah&first=20&sortBy=recentlyAdded';
+      pushDebug({ label: `GET ${resourcesUrl}`, status: 'info' });
+      try {
+        let allResources: any[] = [];
+        let cursor: string | undefined;
+        let page = 0;
+        do {
+          const paginatedUrl = cursor
+            ? `${resourcesUrl}&after=${cursor}`
+            : resourcesUrl;
+          const rRes: any = await callQfUserApi(paginatedUrl);
+          const rData = rRes?.data?.data ?? rRes?.data;
 
-      const nextCollections = Array.from(merged.values());
+          let items: any[] = [];
+          if (Array.isArray(rData?.data)) items = rData.data;
+          else if (Array.isArray(rData?.resources)) items = rData.resources;
+          else if (Array.isArray(rData?.items)) items = rData.items;
+          else if (Array.isArray(rData?.bookmarks)) items = rData.bookmarks;
+          else if (Array.isArray(rData)) items = rData;
 
-      if (nextCollections.length === 0) {
-        // Both calls failed OR returned empty
-        if (typedResult.status === 'rejected' && allResult.status === 'rejected') {
-          throw new Error(typedResult.reason?.message || allResult.reason?.message || 'Both requests failed');
-        }
-        setCollections([]);
-      } else {
-        setCollections(nextCollections);
+          const nextCursor = rData?.pagination?.endCursor
+            ?? rData?.meta?.nextCursor
+            ?? rData?.nextCursor
+            ?? rData?.pagination?.next_cursor;
+
+          pushDebug({
+            label: `resources page ${page}`,
+            status: 'ok',
+            detail: {
+              upstreamUrl: paginatedUrl,
+              itemCount: items.length,
+              paginationCursor: nextCursor ?? null,
+              body: rRes,
+            },
+          });
+
+          allResources = allResources.concat(items);
+          cursor = nextCursor;
+          page++;
+        } while (cursor && page < 10);
+
+        setAllCollectionResources(allResources);
+        pushDebug({ label: 'all resources loaded', status: 'ok', detail: { totalItems: allResources.length } });
+      } catch (resErr) {
+        pushDebug({ label: 'resources fetch failed', status: 'error', detail: String((resErr as Error)?.message ?? resErr) });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load collections';
