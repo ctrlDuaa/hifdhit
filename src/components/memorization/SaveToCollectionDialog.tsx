@@ -127,6 +127,7 @@ export const SaveToCollectionDialog = ({ verses, ctaText, open, onOpenChange }: 
           type: 'ayah',
           verseNumber: v.ayah,
           mushaf: 1,
+          mushafId: 1,
         }) as any;
         const upstreamErr = extractUpstreamError(res);
         if (upstreamErr) throw new Error(upstreamErr);
