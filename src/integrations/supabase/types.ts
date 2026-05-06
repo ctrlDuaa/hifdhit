@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.4"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -278,6 +278,62 @@ export type Database = {
           user_email?: string | null
           user_id?: string | null
           user_name?: string | null
+        }
+        Relationships: []
+      }
+      local_bookmarks: {
+        Row: {
+          ayah_number: number
+          collection_id: string
+          created_at: string
+          id: string
+          surah_id: number
+          user_id: string
+        }
+        Insert: {
+          ayah_number: number
+          collection_id: string
+          created_at?: string
+          id?: string
+          surah_id: number
+          user_id: string
+        }
+        Update: {
+          ayah_number?: number
+          collection_id?: string
+          created_at?: string
+          id?: string
+          surah_id?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "local_bookmarks_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "local_collections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      local_collections: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -569,59 +625,32 @@ export type Database = {
       pages: {
         Row: {
           first_word_id: number | null
-          is_centered: boolean | null
+          id: number
+          is_centered: boolean
           last_word_id: number | null
-          line_number: number | null
-          line_type: string | null
-          page_number: number | null
+          line_number: number
+          line_type: string
+          page_number: number
           surah_number: number | null
         }
         Insert: {
           first_word_id?: number | null
-          is_centered?: boolean | null
+          id?: number
+          is_centered?: boolean
           last_word_id?: number | null
-          line_number?: number | null
-          line_type?: string | null
-          page_number?: number | null
+          line_number: number
+          line_type?: string
+          page_number: number
           surah_number?: number | null
         }
         Update: {
           first_word_id?: number | null
-          is_centered?: boolean | null
+          id?: number
+          is_centered?: boolean
           last_word_id?: number | null
-          line_number?: number | null
-          line_type?: string | null
-          page_number?: number | null
-          surah_number?: number | null
-        }
-        Relationships: []
-      }
-      pages_duplicate: {
-        Row: {
-          first_word_id: number | null
-          is_centered: boolean | null
-          last_word_id: number | null
-          line_number: number | null
-          line_type: string | null
-          page_number: number | null
-          surah_number: number | null
-        }
-        Insert: {
-          first_word_id?: number | null
-          is_centered?: boolean | null
-          last_word_id?: number | null
-          line_number?: number | null
-          line_type?: string | null
-          page_number?: number | null
-          surah_number?: number | null
-        }
-        Update: {
-          first_word_id?: number | null
-          is_centered?: boolean | null
-          last_word_id?: number | null
-          line_number?: number | null
-          line_type?: string | null
-          page_number?: number | null
+          line_number?: number
+          line_type?: string
+          page_number?: number
           surah_number?: number | null
         }
         Relationships: []
@@ -1097,55 +1126,28 @@ export type Database = {
       }
       words: {
         Row: {
-          ayah: number | null
+          ayah: number
           id: number
           location: string | null
-          surah: number | null
-          text: string | null
-          word: number | null
+          surah: number
+          text: string
+          word: number
         }
         Insert: {
-          ayah?: number | null
-          id: number
-          location?: string | null
-          surah?: number | null
-          text?: string | null
-          word?: number | null
-        }
-        Update: {
-          ayah?: number | null
+          ayah: number
           id?: number
           location?: string | null
-          surah?: number | null
-          text?: string | null
-          word?: number | null
-        }
-        Relationships: []
-      }
-      words_duplicate: {
-        Row: {
-          ayah: number | null
-          id: number
-          location: string | null
-          surah: number | null
-          text: string | null
-          word: number | null
-        }
-        Insert: {
-          ayah?: number | null
-          id: number
-          location?: string | null
-          surah?: number | null
-          text?: string | null
-          word?: number | null
+          surah: number
+          text: string
+          word: number
         }
         Update: {
-          ayah?: number | null
+          ayah?: number
           id?: number
           location?: string | null
-          surah?: number | null
-          text?: string | null
-          word?: number | null
+          surah?: number
+          text?: string
+          word?: number
         }
         Relationships: []
       }
