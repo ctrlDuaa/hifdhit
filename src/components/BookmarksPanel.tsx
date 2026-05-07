@@ -259,16 +259,28 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     });
 
     try {
+      // Log raw item structure for debugging
+      console.log("RAW QF ITEMS SAMPLE", JSON.stringify(allRawResources.slice(0, 3), null, 2));
+
       // Log all collection IDs found on each resource for debugging
+      const itemCollectionIds = allRawResources.map((r: any) => getCollectionIdsForItem(r));
+      console.log("selectedCollectionId", collectionId);
+      console.log("item collection ids", itemCollectionIds);
+
       const resourceCollectionMap = allRawResources.map((r: any, idx: number) => ({
         index: idx,
-        extractedCollectionIds: extractCollectionIds(r),
+        extractedCollectionIds: getCollectionIdsForItem(r),
         rawCollectionFields: {
           collectionId: r.collectionId,
           collection_id: r.collection_id,
           collections: r.collections,
           collectionIds: r.collectionIds,
           collection_ids: r.collection_ids,
+          'collection.id': r.collection?.id,
+          'collection.url': r.collection?.url,
+          'collection.isDefault': r.collection?.isDefault,
+          isDefault: r.isDefault,
+          url: r.url,
         },
       }));
 
@@ -278,9 +290,9 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
         detail: resourceCollectionMap.slice(0, 5),
       });
 
-      // Filter by exact collection ID match
+      // Filter by collection ID match (with special **default** handling)
       const matching = allRawResources.filter((r: any) => {
-        const ids = extractCollectionIds(r);
+        const ids = getCollectionIdsForItem(r);
         return ids.includes(String(collectionId));
       });
 
@@ -289,6 +301,8 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
         const bm = normalizeBookmark(raw);
         if (bm) normalized.push(bm);
       }
+
+      console.log("filteredItems", matching);
 
       pushDebug({
         label: `collection ${collectionId} result`,
