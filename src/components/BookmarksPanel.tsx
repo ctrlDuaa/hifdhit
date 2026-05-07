@@ -50,28 +50,44 @@ type DebugEntry = {
  * Try every known field name the QF API might use for collection membership.
  * Returns an array of collection IDs the resource belongs to.
  */
-function extractCollectionIds(resource: any): string[] {
-  const ids: string[] = [];
-  // Direct fields
-  for (const field of ['collectionId', 'collection_id', 'collectionID']) {
-    if (resource[field] != null) ids.push(String(resource[field]));
+function getCollectionIdsForItem(item: any): string[] {
+  const ids = new Set<string>();
+
+  if (item.collectionId != null) ids.add(String(item.collectionId));
+  if (item.collection_id != null) ids.add(String(item.collection_id));
+  if (item.collectionID != null) ids.add(String(item.collectionID));
+  if (item.collection?.id != null) ids.add(String(item.collection.id));
+  if (item.collection?.url != null) ids.add(String(item.collection.url));
+  if (item.bookmark?.collectionId != null) ids.add(String(item.bookmark.collectionId));
+  if (item.bookmark?.collection_id != null) ids.add(String(item.bookmark.collection_id));
+  if (item.resource?.collectionId != null) ids.add(String(item.resource.collectionId));
+  if (item.resource?.collection_id != null) ids.add(String(item.resource.collection_id));
+
+  if (Array.isArray(item.collections)) {
+    item.collections.forEach((c: any) => {
+      if (typeof c === 'string') ids.add(c);
+      else {
+        if (c?.id != null) ids.add(String(c.id));
+        if (c?.url != null) ids.add(String(c.url));
+      }
+    });
   }
-  // Nested under .collections array
-  if (Array.isArray(resource.collections)) {
-    for (const c of resource.collections) {
-      if (typeof c === 'string') ids.push(c);
-      else if (c?.id != null) ids.push(String(c.id));
-      else if (c?.collectionId != null) ids.push(String(c.collectionId));
-    }
+  if (Array.isArray(item.collectionIds)) {
+    item.collectionIds.forEach((id: any) => ids.add(String(id)));
   }
-  // collectionIds array
-  if (Array.isArray(resource.collectionIds)) {
-    for (const cid of resource.collectionIds) ids.push(String(cid));
+  if (Array.isArray(item.collection_ids)) {
+    item.collection_ids.forEach((id: any) => ids.add(String(id)));
   }
-  if (Array.isArray(resource.collection_ids)) {
-    for (const cid of resource.collection_ids) ids.push(String(cid));
+
+  // Handle default/favorites detection
+  if (item.collection?.isDefault === true || item.isDefault === true) {
+    ids.add('**default**');
   }
-  return ids;
+  if (item.url === '**default**' || item.collection?.url === '**default**') {
+    ids.add('**default**');
+  }
+
+  return [...ids].filter(Boolean);
 }
 
 function normalizeBookmark(raw: any): Bookmark | null {
