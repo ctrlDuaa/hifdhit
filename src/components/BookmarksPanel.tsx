@@ -239,10 +239,12 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
   }, [open, fetchCollections]);
 
   /**
-   * Filter pre-fetched resources by exact QF collection ID.
-   * NEVER falls back to showing all resources.
+   * Show bookmarks for a collection.
+   * - Favorites (**default**): filter allRawResources by isInDefaultCollection === true
+   * - Custom collections: fetch per-collection items from /auth/v1/collections/{id}/resources
+   * NEVER falls back to local/Supabase data or shows all resources.
    */
-  const fetchBookmarks = useCallback((collectionId: string, collectionName: string, force = false) => {
+  const fetchBookmarks = useCallback(async (collectionId: string, collectionName: string, force = false) => {
     if (!force && bookmarksMap[collectionId]) return;
     setLoadingBookmarks(collectionId);
     setBookmarksErrorMap(prev => { const n = { ...prev }; delete n[collectionId]; return n; });
@@ -259,42 +261,77 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     });
 
     try {
-      // Log raw item structure for debugging
+      // Always log raw sample for debugging
       console.log("RAW QF ITEMS SAMPLE", JSON.stringify(allRawResources.slice(0, 3), null, 2));
-
-      // Log all collection IDs found on each resource for debugging
-      const itemCollectionIds = allRawResources.map((r: any) => getCollectionIdsForItem(r));
       console.log("selectedCollectionId", collectionId);
-      console.log("item collection ids", itemCollectionIds);
 
-      const resourceCollectionMap = allRawResources.map((r: any, idx: number) => ({
-        index: idx,
-        extractedCollectionIds: getCollectionIdsForItem(r),
-        rawCollectionFields: {
-          collectionId: r.collectionId,
-          collection_id: r.collection_id,
-          collections: r.collections,
-          collectionIds: r.collectionIds,
-          collection_ids: r.collection_ids,
-          'collection.id': r.collection?.id,
-          'collection.url': r.collection?.url,
-          'collection.isDefault': r.collection?.isDefault,
-          isDefault: r.isDefault,
-          url: r.url,
-        },
-      }));
+      let matching: any[] = [];
 
-      pushDebug({
-        label: `resource→collection mapping`,
-        status: 'info',
-        detail: resourceCollectionMap.slice(0, 5),
-      });
+      if (collectionId === '**default**') {
+        // Favorites: use isInDefaultCollection from the /collections/all response
+        matching = allRawResources.filter((r: any) => r.isInDefaultCollection === true);
+        const defaultCount = matching.length;
+        console.log(`Favorites filter: ${defaultCount} items with isInDefaultCollection=true out of ${allRawResources.length}`);
+        pushDebug({
+          label: `favorites filter`,
+          status: 'ok',
+          detail: {
+            totalRawResources: allRawResources.length,
+            itemsWithIsInDefaultCollection: defaultCount,
+          },
+        });
+      } else {
+        // Custom collections: /collections/all does NOT expose collectionId on items.
+        // Fetch per-collection resources from the dedicated endpoint.
+        pushDebug({
+          label: `custom collection — fetching per-collection items`,
+          status: 'info',
+          detail: { note: '/collections/all does not expose collectionId on items, using per-collection endpoint' },
+        });
 
-      // Filter by collection ID match (with special **default** handling)
-      const matching = allRawResources.filter((r: any) => {
-        const ids = getCollectionIdsForItem(r);
-        return ids.includes(String(collectionId));
-      });
+        let cursor: string | undefined;
+        let page = 0;
+        do {
+          const url = cursor
+            ? `/auth/v1/collections/${collectionId}/resources?type=ayah&first=20&after=${cursor}`
+            : `/auth/v1/collections/${collectionId}/resources?type=ayah&first=20`;
+          console.log(`Fetching custom collection items: ${url}`);
+          pushDebug({ label: `GET ${url}`, status: 'info' });
+
+          const res: any = await callQfUserApi(url);
+          const rData = res?.data?.data ?? res?.data;
+
+          let items: any[] = [];
+          if (Array.isArray(rData?.data)) items = rData.data;
+          else if (Array.isArray(rData?.resources)) items = rData.resources;
+          else if (Array.isArray(rData?.items)) items = rData.items;
+          else if (Array.isArray(rData?.bookmarks)) items = rData.bookmarks;
+          else if (Array.isArray(rData)) items = rData;
+
+          const nextCursor = rData?.pagination?.endCursor
+            ?? rData?.meta?.nextCursor
+            ?? rData?.nextCursor
+            ?? rData?.pagination?.next_cursor;
+
+          pushDebug({
+            label: `collection ${collectionId} resources page ${page}`,
+            status: 'ok',
+            detail: {
+              upstreamUrl: url,
+              statusCode: res?.upstreamStatus ?? 'n/a',
+              itemCount: items.length,
+              paginationCursor: nextCursor ?? null,
+              sampleItem: items[0] ?? null,
+            },
+          });
+
+          matching = matching.concat(items);
+          cursor = nextCursor;
+          page++;
+        } while (cursor && page < 10);
+
+        console.log(`Custom collection ${collectionId}: fetched ${matching.length} items via per-collection endpoint`);
+      }
 
       const normalized: Bookmark[] = [];
       for (const raw of matching) {
@@ -311,9 +348,8 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
           selectedCollectionId: collectionId,
           selectedCollectionName: collectionName,
           source: 'quran_foundation',
-          qfItemsFetched: allRawResources.length,
+          qfItemsFetched: matching.length,
           filteredItemCount: normalized.length,
-          matchingRawCount: matching.length,
         },
       });
 
