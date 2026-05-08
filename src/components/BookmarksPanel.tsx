@@ -316,6 +316,15 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
           const url = cursor
             ? `/auth/v1/collections/${collectionId}/resources?type=ayah&first=20&after=${cursor}`
             : `/auth/v1/collections/${collectionId}/resources?type=ayah&first=20`;
+
+          // Hard guard: Favorites must NEVER hit per-collection resources endpoint
+          if (
+            (normalizedId === 'default' || normalizedId === '**default**') &&
+            url.includes('/collections/default/resources')
+          ) {
+            throw new Error("BUG: Favorites must not use per-collection resources endpoint");
+          }
+
           console.log(`Fetching custom collection items: ${url}`);
           pushDebug({ label: `GET ${url}`, status: 'info' });
 
