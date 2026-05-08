@@ -233,27 +233,44 @@ export const MushafContextLines = ({
                       }}
                     />
                   )}
-                  {hidden ? (
-                    <span
-                      className="inline-block px-2 rounded bg-muted/60 text-muted-foreground/60 text-base align-middle"
-                      style={{ minWidth: '2.25rem', textAlign: 'center', fontFamily: "'UthmanicHafs', serif" }}
-                    >
-                      {firstLetterOnly
-                        ? ((word.text_qpc_hafs ?? '').trim().charAt(0) || '•') + '…'
-                        : '•••'}
-                    </span>
-                  ) : useGlyph ? (
+                  {useGlyph ? (
                     <span
                       className={cn('relative', hasMistake && 'dark:text-black')}
-                      style={{ zIndex: 1, fontFamily: family }}
+                      style={{
+                        zIndex: 1,
+                        fontFamily: family,
+                        color: hidden ? 'transparent' : undefined,
+                        textShadow: hidden ? 'none' : undefined,
+                      }}
                       dangerouslySetInnerHTML={{ __html: word.code_v2! }}
                     />
                   ) : (
                     <span
                       className={cn('relative', hasMistake && 'dark:text-black')}
-                      style={{ zIndex: 1, fontFamily: family }}
+                      style={{
+                        zIndex: 1,
+                        fontFamily: family,
+                        color: hidden ? 'transparent' : undefined,
+                        textShadow: hidden ? 'none' : undefined,
+                      }}
                     >
                       {word.text_qpc_hafs ?? ''}
+                    </span>
+                  )}
+                  {hidden && (
+                    <span
+                      className="absolute inset-0 flex items-center justify-center pointer-events-none text-muted-foreground/70"
+                      style={{
+                        zIndex: 2,
+                        fontFamily: "'UthmanicHafs', serif",
+                        fontSize: '0.7em',
+                        lineHeight: 1,
+                      }}
+                      aria-hidden="true"
+                    >
+                      {firstLetterOnly
+                        ? ((word.text_qpc_hafs ?? '').trim().charAt(0) || '•') + '…'
+                        : '•••'}
                     </span>
                   )}
                 </span>
