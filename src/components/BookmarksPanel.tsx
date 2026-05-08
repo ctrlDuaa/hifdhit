@@ -267,7 +267,8 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
 
       let matching: any[] = [];
 
-      if (collectionId === '**default**') {
+      const isFavorites = collectionId === 'default' || collectionId === '**default**';
+      if (isFavorites) {
         // Favorites: use isInDefaultCollection from the /collections/all response
         matching = allRawResources.filter((r: any) => r.isInDefaultCollection === true);
         const defaultCount = matching.length;
