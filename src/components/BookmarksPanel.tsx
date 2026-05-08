@@ -552,12 +552,45 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
                 Debug ({debugLog.length})
               </span>
               {debugOpen && debugLog.length > 0 && (
-                <span
-                  role="button"
-                  className="text-[10px] underline"
-                  onClick={(e) => { e.stopPropagation(); setDebugLog([]); }}
-                >
-                  clear
+                <span className="flex items-center gap-3">
+                  <span
+                    role="button"
+                    className="text-[10px] underline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const text = debugLog
+                        .slice()
+                        .reverse()
+                        .map(en => {
+                          const detail = en.detail === undefined
+                            ? ''
+                            : '\n' + (typeof en.detail === 'string' ? en.detail : JSON.stringify(en.detail, null, 2));
+                          return `[${en.ts}] (${en.status}) ${en.label}${detail}`;
+                        })
+                        .join('\n\n');
+                      const done = () => toast({ title: 'Debug logs copied' });
+                      if (navigator.clipboard?.writeText) {
+                        navigator.clipboard.writeText(text).then(done).catch(() => {
+                          const ta = document.createElement('textarea');
+                          ta.value = text; document.body.appendChild(ta); ta.select();
+                          document.execCommand('copy'); document.body.removeChild(ta); done();
+                        });
+                      } else {
+                        const ta = document.createElement('textarea');
+                        ta.value = text; document.body.appendChild(ta); ta.select();
+                        document.execCommand('copy'); document.body.removeChild(ta); done();
+                      }
+                    }}
+                  >
+                    copy
+                  </span>
+                  <span
+                    role="button"
+                    className="text-[10px] underline"
+                    onClick={(e) => { e.stopPropagation(); setDebugLog([]); }}
+                  >
+                    clear
+                  </span>
                 </span>
               )}
             </button>
