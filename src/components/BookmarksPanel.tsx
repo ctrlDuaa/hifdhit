@@ -267,21 +267,41 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
 
       let matching: any[] = [];
 
-      const isFavorites = collectionId === 'default' || collectionId === '**default**';
+      const normalizedId = String(collectionId ?? '').trim();
+      const isFavorites =
+        normalizedId === 'default' ||
+        normalizedId === '**default**' ||
+        normalizedId.toLowerCase() === 'favorites';
+
+      console.log("selectedCollectionId", collectionId, "normalized:", normalizedId, "isFavorites:", isFavorites);
+
       if (isFavorites) {
-        // Favorites: use isInDefaultCollection from the /collections/all response
-        matching = allRawResources.filter((r: any) => r.isInDefaultCollection === true);
-        const defaultCount = matching.length;
-        console.log(`Favorites filter: ${defaultCount} items with isInDefaultCollection=true out of ${allRawResources.length}`);
+        console.log("Favorites branch selected — using isInDefaultCollection");
+        const favoriteItems = allRawResources.filter(
+          (item: any) => item.type === 'ayah' && item.isInDefaultCollection === true
+        );
+        console.log("Favorites filtered result", {
+          totalRawResources: allRawResources.length,
+          favoriteCount: favoriteItems.length,
+          favoriteKeys: favoriteItems.map((item: any) => item.key),
+        });
+        matching = favoriteItems;
         pushDebug({
-          label: `favorites filter`,
+          label: `favorites branch (isInDefaultCollection)`,
           status: 'ok',
           detail: {
+            selectedCollectionId: collectionId,
+            normalizedId,
             totalRawResources: allRawResources.length,
-            itemsWithIsInDefaultCollection: defaultCount,
+            favoriteCount: favoriteItems.length,
+            favoriteKeys: favoriteItems.map((item: any) => item.key),
           },
         });
       } else {
+        console.log("Custom Quran Foundation collection branch", {
+          selectedCollectionId: collectionId,
+          selectedCollectionName: collectionName,
+        });
         // Custom collections: /collections/all does NOT expose collectionId on items.
         // Fetch per-collection resources from the dedicated endpoint.
         pushDebug({
@@ -296,6 +316,15 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
           const url = cursor
             ? `/auth/v1/collections/${collectionId}/resources?type=ayah&first=20&after=${cursor}`
             : `/auth/v1/collections/${collectionId}/resources?type=ayah&first=20`;
+
+          // Hard guard: Favorites must NEVER hit per-collection resources endpoint
+          if (
+            (normalizedId === 'default' || normalizedId === '**default**') &&
+            url.includes('/collections/default/resources')
+          ) {
+            throw new Error("BUG: Favorites must not use per-collection resources endpoint");
+          }
+
           console.log(`Fetching custom collection items: ${url}`);
           pushDebug({ label: `GET ${url}`, status: 'info' });
 
