@@ -261,6 +261,43 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     });
 
     try {
+      const qfResources = allRawResources;
+
+      if (collectionId === "default") {
+        console.log("Favorites branch selected inside ACTIVE expand handler");
+
+        const favoriteItems = qfResources.filter(
+          (item: any) => item.type === 'ayah' && item.isInDefaultCollection === true
+        );
+
+        console.log("Favorites filtered result", {
+          totalRawResources: qfResources.length,
+          favoriteCount: favoriteItems.length,
+          favoriteKeys: favoriteItems.map((item: any) => item.key),
+        });
+
+        pushDebug({
+          label: 'favorites branch selected inside ACTIVE expand handler',
+          status: 'ok',
+          detail: {
+            selectedCollectionId: collectionId,
+            selectedCollectionName: collectionName,
+            totalRawResources: qfResources.length,
+            favoriteCount: favoriteItems.length,
+            favoriteKeys: favoriteItems.map((item: any) => item.key),
+          },
+        });
+
+        const normalizedFavorites: Bookmark[] = [];
+        for (const raw of favoriteItems) {
+          const bm = normalizeBookmark(raw);
+          if (bm) normalizedFavorites.push(bm);
+        }
+
+        setBookmarksMap(prev => ({ ...prev, [collectionId]: normalizedFavorites }));
+        return;
+      }
+
       // Always log raw sample for debugging
       console.log("RAW QF ITEMS SAMPLE", JSON.stringify(allRawResources.slice(0, 3), null, 2));
       console.log("selectedCollectionId", collectionId);
@@ -313,6 +350,10 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
         let cursor: string | undefined;
         let page = 0;
         do {
+          if (collectionId === 'default') {
+            throw new Error('BUG: Favorites reached custom collection fetch path');
+          }
+
           const url = cursor
             ? `/auth/v1/collections/${collectionId}/resources?type=ayah&first=20&after=${cursor}`
             : `/auth/v1/collections/${collectionId}/resources?type=ayah&first=20`;
