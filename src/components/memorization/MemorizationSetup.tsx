@@ -95,7 +95,7 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
           </CardTitle>
           <CardDescription>
             {isContinuing
-              ? <>{selectedSurah?.name_simple || `Surah ${surahId}`} — starting from Ayah {ayahStart} · <button type="button" onClick={() => setOverrideSurah(true)} className="text-primary underline underline-offset-2 hover:text-primary/80 transition-colors">Change Surah</button></>
+              ? <>{selectedSurah?.name_simple || `Surah ${surahId}`} — {overrideAyah && validCustomAyah ? `starting from Ayah ${parsedCustomAyah}` : `continue from Ayah ${initialAyahStart}`} · <button type="button" onClick={() => setOverrideAyah(v => !v)} className="text-primary underline underline-offset-2 hover:text-primary/80 transition-colors">{overrideAyah ? 'Continue from last' : 'Choose starting ayah'}</button> · <button type="button" onClick={() => { setOverrideSurah(true); setOverrideAyah(false); }} className="text-primary underline underline-offset-2 hover:text-primary/80 transition-colors">Change Surah</button></>
               : 'Configure your guided memorization session'}
           </CardDescription>
         </CardHeader>
