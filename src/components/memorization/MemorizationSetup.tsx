@@ -245,7 +245,3 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
   );
 };
 
-// Inline cn helper since we import it from lib/utils but this file doesn't currently import it
-function cn(...inputs: (string | boolean | undefined)[]) {
-  return inputs.filter(Boolean).join(' ');
-}
