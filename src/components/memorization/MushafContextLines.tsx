@@ -156,14 +156,16 @@ export const MushafContextLines = ({
     );
   }
 
+  // 0-based word index within the *target* ayah, counted GLOBALLY across all
+  // rendered lines so an ayah that wraps onto multiple lines doesn't restart
+  // numbering (which previously caused two words to share the same mistake key).
+  let targetAyahWordIdx = -1;
+
   return (
     <div className={cn('space-y-1.5', className)}>
       {linesToRender.map((ln) => {
         const words = lineMap.get(ln) ?? [];
         const isAyahLine = ayahLines.includes(ln);
-
-        // 0-based word index within the *target* ayah for mistake-key alignment.
-        let targetAyahWordIdx = -1;
 
         return (
           <div
