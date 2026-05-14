@@ -120,8 +120,22 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
             </div>
           )}
 
+          {isContinuing && overrideAyah && (
+            <div className="space-y-2">
+              <Label>Starting Ayah</Label>
+              <Input
+                type="number"
+                min={1}
+                max={maxAyahs}
+                placeholder={`1 – ${maxAyahs}`}
+                value={customAyahStart}
+                onChange={e => setCustomAyahStart(e.target.value)}
+              />
+            </div>
+          )}
+
           <div className="space-y-2">
-            <Label>Chunk Size</Label>
+            <Label>How many verses would you like to memorize today?</Label>
             <Select value={String(chunkSize)} onValueChange={v => setChunkSize(parseInt(v))}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
