@@ -26,6 +26,8 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
   const [chunkSize, setChunkSize] = useState(3);
   const [customChunk, setCustomChunk] = useState('');
   const [overrideSurah, setOverrideSurah] = useState(false);
+  const [overrideAyah, setOverrideAyah] = useState(false);
+  const [customAyahStart, setCustomAyahStart] = useState<string>('');
 
   useEffect(() => {
     if (initialSurahId) setSurahId(initialSurahId);
@@ -36,7 +38,11 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
   const effectiveChunkSize = chunkSize === -1 ? parseInt(customChunk) || 1 : chunkSize;
 
   const isContinuing = !!initialSurahId && !!initialAyahStart && !overrideSurah;
-  const ayahStart = isContinuing ? initialAyahStart! : 1;
+  const parsedCustomAyah = parseInt(customAyahStart);
+  const validCustomAyah = !isNaN(parsedCustomAyah) && parsedCustomAyah >= 1 && parsedCustomAyah <= maxAyahs;
+  const ayahStart = isContinuing
+    ? (overrideAyah && validCustomAyah ? parsedCustomAyah : initialAyahStart!)
+    : (overrideAyah && validCustomAyah ? parsedCustomAyah : 1);
 
   const handleSurahChange = (val: string) => {
     setSurahId(parseInt(val));
@@ -89,7 +95,7 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
           </CardTitle>
           <CardDescription>
             {isContinuing
-              ? <>{selectedSurah?.name_simple || `Surah ${surahId}`} — starting from Ayah {ayahStart} · <button type="button" onClick={() => setOverrideSurah(true)} className="text-primary underline underline-offset-2 hover:text-primary/80 transition-colors">Change Surah</button></>
+              ? <>{selectedSurah?.name_simple || `Surah ${surahId}`} — {overrideAyah && validCustomAyah ? `starting from Ayah ${parsedCustomAyah}` : `continue from Ayah ${initialAyahStart}`} · <button type="button" onClick={() => setOverrideAyah(v => !v)} className="text-primary underline underline-offset-2 hover:text-primary/80 transition-colors">{overrideAyah ? 'Continue from last' : 'Choose starting ayah'}</button> · <button type="button" onClick={() => { setOverrideSurah(true); setOverrideAyah(false); }} className="text-primary underline underline-offset-2 hover:text-primary/80 transition-colors">Change Surah</button></>
               : 'Configure your guided memorization session'}
           </CardDescription>
         </CardHeader>
@@ -114,8 +120,22 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
             </div>
           )}
 
+          {isContinuing && overrideAyah && (
+            <div className="space-y-2">
+              <Label>Starting Ayah</Label>
+              <Input
+                type="number"
+                min={1}
+                max={maxAyahs}
+                placeholder={`1 – ${maxAyahs}`}
+                value={customAyahStart}
+                onChange={e => setCustomAyahStart(e.target.value)}
+              />
+            </div>
+          )}
+
           <div className="space-y-2">
-            <Label>Chunk Size</Label>
+            <Label>How many verses would you like to memorize today?</Label>
             <Select value={String(chunkSize)} onValueChange={v => setChunkSize(parseInt(v))}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
