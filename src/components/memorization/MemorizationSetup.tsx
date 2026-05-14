@@ -26,6 +26,8 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
   const [chunkSize, setChunkSize] = useState(3);
   const [customChunk, setCustomChunk] = useState('');
   const [overrideSurah, setOverrideSurah] = useState(false);
+  const [overrideAyah, setOverrideAyah] = useState(false);
+  const [customAyahStart, setCustomAyahStart] = useState<string>('');
 
   useEffect(() => {
     if (initialSurahId) setSurahId(initialSurahId);
@@ -36,7 +38,11 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
   const effectiveChunkSize = chunkSize === -1 ? parseInt(customChunk) || 1 : chunkSize;
 
   const isContinuing = !!initialSurahId && !!initialAyahStart && !overrideSurah;
-  const ayahStart = isContinuing ? initialAyahStart! : 1;
+  const parsedCustomAyah = parseInt(customAyahStart);
+  const validCustomAyah = !isNaN(parsedCustomAyah) && parsedCustomAyah >= 1 && parsedCustomAyah <= maxAyahs;
+  const ayahStart = isContinuing
+    ? (overrideAyah && validCustomAyah ? parsedCustomAyah : initialAyahStart!)
+    : (overrideAyah && validCustomAyah ? parsedCustomAyah : 1);
 
   const handleSurahChange = (val: string) => {
     setSurahId(parseInt(val));
