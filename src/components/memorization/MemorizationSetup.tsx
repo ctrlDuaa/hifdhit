@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Check, ChevronsUpDown } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -11,6 +12,19 @@ import { useSurahList } from '@/hooks/useQuranData';
 import { Skeleton } from '@/components/ui/skeleton';
 import { HifdhCollectionPicker } from './HifdhCollectionPicker';
 import { Separator } from '@/components/ui/separator';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 
 interface Props {
   onStart: (config: MemorizationSessionConfig) => void;
@@ -28,6 +42,7 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
   const [overrideSurah, setOverrideSurah] = useState(false);
   const [overrideAyah, setOverrideAyah] = useState(false);
   const [customAyahStart, setCustomAyahStart] = useState<string>('');
+  const [surahOpen, setSurahOpen] = useState(false);
 
   useEffect(() => {
     if (initialSurahId) setSurahId(initialSurahId);
@@ -44,8 +59,11 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
     ? (overrideAyah && validCustomAyah ? parsedCustomAyah : initialAyahStart!)
     : (overrideAyah && validCustomAyah ? parsedCustomAyah : 1);
 
-  const handleSurahChange = (val: string) => {
-    setSurahId(parseInt(val));
+  const handleSurahChange = (val: number) => {
+    setSurahId(val);
+    setSurahOpen(false);
+    setOverrideAyah(false);
+    setCustomAyahStart('');
   };
 
   const handleStart = () => {
@@ -65,7 +83,6 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
 
   const handleHifdhSelect = (verses: { surahId: number; ayah: number }[]) => {
     if (verses.length === 0) return;
-    // Group by surah — use the first surah group for a session
     const firstSurah = verses[0].surahId;
     const surahVerses = verses.filter(v => v.surahId === firstSurah).sort((a, b) => a.ayah - b.ayah);
     const surah = chapters?.find(s => s.id === firstSurah);
@@ -80,6 +97,15 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
       showTransliteration: false,
     });
   };
+
+  const surahOptions = useMemo(() => {
+    if (!chapters) return [];
+    return chapters.map(s => ({
+      value: s.id,
+      label: `${s.id}. ${s.name_arabic} — ${s.name_simple} (${s.verses_count} ayat)`,
+      searchText: `${s.id} ${s.name_simple} ${s.name_arabic} ${s.translated_name?.name || ''}`.toLowerCase(),
+    }));
+  }, [chapters]);
 
   return (
     <div className="min-h-[calc(100vh-64px)] flex items-center justify-center p-4 bg-background">
@@ -100,37 +126,86 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5 pt-4">
-          {!isContinuing && (
+          {(!isContinuing || overrideSurah) && (
             <div className="space-y-2">
               <Label>Surah</Label>
               {chaptersLoading ? (
                 <Skeleton className="h-10 w-full" />
               ) : (
-                <Select value={String(surahId)} onValueChange={handleSurahChange}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent className="max-h-80">
-                    {(chapters || []).map(s => (
-                      <SelectItem key={s.id} value={String(s.id)}>
-                        {s.id}. {s.name_arabic} — {s.name_simple} ({s.verses_count} ayat)
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={surahOpen} onOpenChange={setSurahOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={surahOpen}
+                      className="w-full justify-between font-normal"
+                    >
+                      {selectedSurah
+                        ? `${selectedSurah.id}. ${selectedSurah.name_arabic} — ${selectedSurah.name_simple}`
+                        : 'Select a Surah...'}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Type a surah name or number..." />
+                      <CommandList>
+                        <CommandEmpty>No surah found.</CommandEmpty>
+                        <CommandGroup>
+                          {surahOptions.map(option => (
+                            <CommandItem
+                              key={option.value}
+                              value={option.searchText}
+                              onSelect={() => handleSurahChange(option.value)}
+                              className="cursor-pointer"
+                            >
+                              <Check
+                                className={cn(
+                                  'mr-2 h-4 w-4',
+                                  surahId === option.value ? 'opacity-100' : 'opacity-0'
+                                )}
+                              />
+                              {option.label}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               )}
             </div>
           )}
 
-          {isContinuing && overrideAyah && (
+          {(!isContinuing || overrideAyah) && (
             <div className="space-y-2">
-              <Label>Starting Ayah</Label>
-              <Input
-                type="number"
-                min={1}
-                max={maxAyahs}
-                placeholder={`1 – ${maxAyahs}`}
-                value={customAyahStart}
-                onChange={e => setCustomAyahStart(e.target.value)}
-              />
+              <div className="flex items-center justify-between">
+                <Label>Starting Ayah</Label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOverrideAyah(v => !v);
+                    if (overrideAyah) setCustomAyahStart('');
+                  }}
+                  className="text-xs text-primary underline underline-offset-2 hover:text-primary/80 transition-colors"
+                >
+                  {overrideAyah ? 'Start from beginning' : 'Choose starting ayah'}
+                </button>
+              </div>
+              {overrideAyah ? (
+                <Input
+                  type="number"
+                  min={1}
+                  max={maxAyahs}
+                  placeholder={`1 – ${maxAyahs}`}
+                  value={customAyahStart}
+                  onChange={e => setCustomAyahStart(e.target.value)}
+                />
+              ) : (
+                <div className="flex h-10 w-full items-center rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                  Ayah 1
+                </div>
+              )}
             </div>
           )}
 
@@ -169,3 +244,4 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
     </div>
   );
 };
+
