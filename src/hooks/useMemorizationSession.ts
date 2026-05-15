@@ -322,8 +322,8 @@ export function useMemorizationSession() {
       // Re-fetch verses
       setLoadingVerses(true);
       const [versesResult, audioResult] = await Promise.all([
-        quranApi.getVerseRange(s.config.surahId, s.config.ayahStart, s.config.ayahEnd),
-        quranApi.getVerseAudio(s.config.surahId).catch(() => ({ audio_files: [] })),
+        quranApi.getVerseRange(s.config.surahId, s.config.ayahStart, s.config.ayahEnd, s.config.translationId),
+        quranApi.getVerseAudio(s.config.surahId, s.config.reciterId).catch(() => ({ audio_files: [] })),
       ]);
 
       const audioUrls = buildAudioUrlMap(audioResult);
