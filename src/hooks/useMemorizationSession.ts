@@ -113,7 +113,7 @@ export function useMemorizationSession() {
     if (hasAudioForRange(versesMap, state.config.ayahStart, state.config.ayahEnd)) return;
 
     let cancelled = false;
-    quranApi.getVerseAudio(state.config.surahId)
+    quranApi.getVerseAudio(state.config.surahId, state.config.reciterId)
       .then((audioResult) => {
         if (cancelled) return;
         const audioUrls = buildAudioUrlMap(audioResult);
@@ -136,15 +136,15 @@ export function useMemorizationSession() {
       .catch(err => console.error('Failed to refresh memorization audio:', err));
 
     return () => { cancelled = true; };
-  }, [state?.config.surahId, state?.config.ayahStart, state?.config.ayahEnd, versesMap]);
+  }, [state?.config.surahId, state?.config.ayahStart, state?.config.ayahEnd, state?.config.reciterId, versesMap]);
 
   const startSession = useCallback(async (config: MemorizationSessionConfig) => {
     setLoadingVerses(true);
     try {
-      // Fetch verses from API
+      // Fetch verses from API using user's preferred translation + reciter when available
       const [versesResult, audioResult] = await Promise.all([
-        quranApi.getVerseRange(config.surahId, config.ayahStart, config.ayahEnd),
-        quranApi.getVerseAudio(config.surahId).catch(() => ({ audio_files: [] })),
+        quranApi.getVerseRange(config.surahId, config.ayahStart, config.ayahEnd, config.translationId),
+        quranApi.getVerseAudio(config.surahId, config.reciterId).catch(() => ({ audio_files: [] })),
       ]);
 
       const audioUrls = buildAudioUrlMap(audioResult);
