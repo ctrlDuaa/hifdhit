@@ -11,6 +11,7 @@ import { MemorizationSessionConfig } from '@/types/memorization';
 import { useSurahList } from '@/hooks/useQuranData';
 import { Skeleton } from '@/components/ui/skeleton';
 import { HifdhCollectionPicker } from './HifdhCollectionPicker';
+import { useQfPreferences } from '@/hooks/useQfPreferences';
 import { Separator } from '@/components/ui/separator';
 import {
   Command,
