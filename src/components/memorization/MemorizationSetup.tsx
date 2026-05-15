@@ -68,6 +68,14 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
     setCustomAyahStart('');
   };
 
+  const prefsPayload = {
+    reciterId: qfPrefs.reciterId,
+    reciterName: qfPrefs.reciterName,
+    translationId: qfPrefs.translationId,
+    translationName: qfPrefs.translationName,
+    language: qfPrefs.language,
+  };
+
   const handleStart = () => {
     const remainingAyahs = maxAyahs - ayahStart + 1;
     const blockSize = Math.min(effectiveChunkSize, remainingAyahs);
@@ -80,6 +88,7 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
       chunkSize: blockSize,
       showTranslation: false,
       showTransliteration: false,
+      ...prefsPayload,
     });
   };
 
@@ -97,6 +106,7 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
       chunkSize: surahVerses.length,
       showTranslation: false,
       showTransliteration: false,
+      ...prefsPayload,
     });
   };
 
