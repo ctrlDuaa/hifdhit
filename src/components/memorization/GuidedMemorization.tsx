@@ -484,6 +484,23 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
             <LogOut className="w-4 h-4 mr-1" /> Exit
           </Button>
         </div>
+        {(state.config.reciterName || state.config.translationName) && (
+          <div className="max-w-3xl mx-auto px-4 pb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+            {state.config.reciterName && (
+              <span>
+                Reciter: <span className="text-foreground font-medium">{state.config.reciterName}</span>
+              </span>
+            )}
+            {state.config.translationName && (
+              <span>
+                Translation: <span className="text-foreground font-medium">{state.config.translationName}</span>
+                {state.config.language && state.config.language !== 'en' && (
+                  <span className="ml-1 uppercase tracking-wide text-muted-foreground/70">[{state.config.language}]</span>
+                )}
+              </span>
+            )}
+          </div>
+        )}
         <div className="max-w-3xl mx-auto px-4 pb-2">
           <Progress value={progressPercent} className="h-1.5" />
           <p className="text-xs text-muted-foreground mt-1">{completedAyahs}/{totalAyahs} ayat completed</p>

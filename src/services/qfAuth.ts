@@ -333,3 +333,39 @@ export function logoutQf() {
   clearQfSession();
   clearPkceState();
 }
+
+// ── Preferences ──────────────────────────────────────────────
+
+export interface QfPreferences {
+  reciterId?: number;
+  translationId?: number;
+  language?: string;
+}
+
+/**
+ * Fetch the user's Quran.com preferences (reciter, translations, language).
+ * Returns null when the user is not authenticated with QF or the request fails.
+ */
+export async function getQfPreferences(): Promise<QfPreferences | null> {
+  if (!isQfSessionValid()) return null;
+  try {
+    const res: any = await callQfUserApi('/auth/v1/preferences');
+    const upstream = res?.data?.data;
+    const prefs = upstream?.data ?? upstream;
+    if (!prefs) return null;
+    const reciterId = prefs?.audio?.reciter;
+    const translationsList = prefs?.translations?.selectedTranslations;
+    const translationId = Array.isArray(translationsList) && translationsList.length > 0
+      ? Number(translationsList[0])
+      : undefined;
+    const language = prefs?.language?.language;
+    return {
+      reciterId: typeof reciterId === 'number' ? reciterId : undefined,
+      translationId: typeof translationId === 'number' && !isNaN(translationId) ? translationId : undefined,
+      language: typeof language === 'string' ? language : undefined,
+    };
+  } catch (err) {
+    console.error('[QF] Failed to fetch preferences:', err);
+    return null;
+  }
+}

@@ -11,6 +11,7 @@ import { MemorizationSessionConfig } from '@/types/memorization';
 import { useSurahList } from '@/hooks/useQuranData';
 import { Skeleton } from '@/components/ui/skeleton';
 import { HifdhCollectionPicker } from './HifdhCollectionPicker';
+import { useQfPreferences } from '@/hooks/useQfPreferences';
 import { Separator } from '@/components/ui/separator';
 import {
   Command,
@@ -36,6 +37,7 @@ interface Props {
 
 export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, initialSurahId, initialAyahStart }: Props) => {
   const { data: chapters, isLoading: chaptersLoading } = useSurahList();
+  const qfPrefs = useQfPreferences();
   const [surahId, setSurahId] = useState(initialSurahId || 1);
   const [chunkSize, setChunkSize] = useState(3);
   const [customChunk, setCustomChunk] = useState('');
@@ -66,6 +68,14 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
     setCustomAyahStart('');
   };
 
+  const prefsPayload = {
+    reciterId: qfPrefs.reciterId,
+    reciterName: qfPrefs.reciterName,
+    translationId: qfPrefs.translationId,
+    translationName: qfPrefs.translationName,
+    language: qfPrefs.language,
+  };
+
   const handleStart = () => {
     const remainingAyahs = maxAyahs - ayahStart + 1;
     const blockSize = Math.min(effectiveChunkSize, remainingAyahs);
@@ -78,6 +88,7 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
       chunkSize: blockSize,
       showTranslation: false,
       showTransliteration: false,
+      ...prefsPayload,
     });
   };
 
@@ -95,6 +106,7 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
       chunkSize: surahVerses.length,
       showTranslation: false,
       showTransliteration: false,
+      ...prefsPayload,
     });
   };
 

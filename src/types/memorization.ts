@@ -19,6 +19,12 @@ export interface MemorizationSessionConfig {
   chunkSize: number;
   showTranslation: boolean;
   showTransliteration: boolean;
+  /** Optional QF preferences applied to this session */
+  reciterId?: number;
+  reciterName?: string;
+  translationId?: number;
+  translationName?: string;
+  language?: string;
 }
 
 export interface AyahPerformance {
