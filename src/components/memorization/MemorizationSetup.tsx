@@ -37,6 +37,7 @@ interface Props {
 
 export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, initialSurahId, initialAyahStart }: Props) => {
   const { data: chapters, isLoading: chaptersLoading } = useSurahList();
+  const qfPrefs = useQfPreferences();
   const [surahId, setSurahId] = useState(initialSurahId || 1);
   const [chunkSize, setChunkSize] = useState(3);
   const [customChunk, setCustomChunk] = useState('');
