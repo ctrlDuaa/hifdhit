@@ -255,6 +255,16 @@ class QuranApiService {
     });
   }
 
+  // ── Resource lists ───────────────────────────────────────
+
+  async getReciters(): Promise<{ recitations?: Array<{ id: number; reciter_name?: string; name?: string; style?: string; translated_name?: { name: string } }> }> {
+    return this.invoke({ action: "reciters" });
+  }
+
+  async getTranslations(): Promise<{ translations?: Array<{ id: number; name: string; author_name?: string; language_name?: string }> }> {
+    return this.invoke({ action: "translations" });
+  }
+
   // ── Test ─────────────────────────────────────────────────
 
   async testVerse(): Promise<any> {
