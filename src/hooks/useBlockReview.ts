@@ -32,6 +32,9 @@ export interface ReviewWord {
   mistake: MistakeType | null;
 }
 
+const toOverviewMistakeCategory = (type: MistakeType) =>
+  type === 'forgot' ? 'harakah' : type;
+
 export function useBlockReview() {
   const { user } = useAuth();
   const [block, setBlock] = useState<BlockInfo | null>(null);
@@ -161,7 +164,7 @@ export function useBlockReview() {
     );
 
     // Save review to DB
-    const { data: review } = await supabase
+    const { data: review, error: reviewError } = await supabase
       .from('block_reviews')
       .insert({
         user_id: user.id,
@@ -187,8 +190,11 @@ export function useBlockReview() {
       .select('id')
       .single();
 
+    if (reviewError) throw reviewError;
+    if (!review) throw new Error('Review was not saved.');
+
     // Save individual mistakes
-    if (review && mistakeList.length > 0) {
+    if (mistakeList.length > 0) {
       const mistakeRows = mistakeList.map(m => ({
         user_id: user.id,
         block_id: block.id,
@@ -199,7 +205,20 @@ export function useBlockReview() {
         word_text: m.wordText,
         mistake_type: m.mistakeType,
       }));
-      await supabase.from('block_review_mistakes').insert(mistakeRows);
+      const { error: reviewMistakesError } = await supabase.from('block_review_mistakes').insert(mistakeRows);
+      if (reviewMistakesError) throw reviewMistakesError;
+
+      // Mirror review mistakes into the canonical mistakes table so Quran Overview
+      // displays them immediately in the same path as live revision mistakes.
+      const overviewMistakeRows = mistakeList.map(m => ({
+        reciter_id: user.id,
+        surah_number: block.surahId,
+        ayah_number: m.ayahNumber,
+        word_index: m.wordIndex + 1,
+        mistake_category: toOverviewMistakeCategory(m.mistakeType),
+      }));
+      const { error: overviewMistakesError } = await supabase.from('mistakes').insert(overviewMistakeRows);
+      if (overviewMistakesError) throw overviewMistakesError;
     }
 
     // Update block state
