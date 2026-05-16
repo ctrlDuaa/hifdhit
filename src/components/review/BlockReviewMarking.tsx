@@ -201,7 +201,7 @@ export const BlockReviewMarking = ({
                   onClick={() => handleSelectCategory(cat.type)}
                   className={`px-2 py-2 rounded-md text-xs font-medium transition-all border
                     ${isActive ? 'border-foreground/50 ring-1 ring-foreground/20' : 'border-transparent hover:border-muted-foreground/30'}`}
-                  style={{ backgroundColor: cat.color, opacity: isActive ? 1 : 0.6, color: 'hsl(var(--foreground))' }}
+                  style={{ backgroundColor: cat.color, opacity: isActive ? 1 : 0.6, color: '#000' }}
                 >
                   {cat.label}
                 </button>
