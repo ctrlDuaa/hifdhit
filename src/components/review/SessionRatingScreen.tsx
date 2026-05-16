@@ -59,7 +59,7 @@ export const SessionRatingScreen = ({ surahName, mistakes, verses, onRate, onBac
                 { type: 'tajweed' as MistakeType, label: 'Tajweed', color: 'hsl(var(--mistake-tajweed))' },
                 { type: 'forgot' as MistakeType, label: 'Harakah', color: 'hsl(var(--mistake-harakah))' },
               ].map(item => (
-                <div key={item.type} className="rounded-lg p-2" style={{ backgroundColor: item.color, color: 'hsl(var(--foreground))' }}>
+                <div key={item.type} className="rounded-lg p-2 text-black" style={{ backgroundColor: item.color }}>
                   <p className="text-lg font-bold">{countByType(item.type)}</p>
                   <p className="text-[10px] opacity-80">{item.label}</p>
                 </div>
