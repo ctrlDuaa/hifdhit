@@ -99,49 +99,58 @@ const BlockReviewPage = () => {
   // ── Review phase rendering ──
   if (review.phase === 'reviewing' && review.block) {
     return (
-      <BlockReviewMarking
-        verses={review.verses}
-        getMistakeForWord={review.getMistakeForWord}
-        onToggleMistake={review.toggleMistake}
-        onRemoveMistake={review.removeMistake}
-        onFinishMarking={review.goToRating}
-        surahName={review.block.surahName}
-        surahId={review.block.surahId}
-        startAyah={review.block.startAyah}
-        endAyah={review.block.endAyah}
-      />
+      <>
+        <AppHeader />
+        <BlockReviewMarking
+          verses={review.verses}
+          getMistakeForWord={review.getMistakeForWord}
+          onToggleMistake={review.toggleMistake}
+          onRemoveMistake={review.removeMistake}
+          onFinishMarking={review.goToRating}
+          surahName={review.block.surahName}
+          surahId={review.block.surahId}
+          startAyah={review.block.startAyah}
+          endAyah={review.block.endAyah}
+        />
+      </>
     );
   }
 
   if (review.phase === 'rating' && review.block) {
     return (
-      <SessionRatingScreen
-        surahName={review.block.surahName}
-        mistakes={review.mistakes}
-        verses={review.verses}
-        onRate={handleRate}
-        onBack={() => review.goBackToMarking()}
-        submitting={submittingRating}
-      />
+      <>
+        <AppHeader />
+        <SessionRatingScreen
+          surahName={review.block.surahName}
+          mistakes={review.mistakes}
+          verses={review.verses}
+          onRate={handleRate}
+          onBack={() => review.goBackToMarking()}
+          submitting={submittingRating}
+        />
+      </>
     );
   }
 
   if (review.phase === 'summary' && review.block && review.schedulingResult) {
     return (
-      <ReviewSummary
-        surahName={review.block.surahName}
-        startAyah={review.block.startAyah}
-        endAyah={review.block.endAyah}
-        blockId={review.block.id}
-        result={review.schedulingResult}
-        mistakes={review.mistakes}
-        onDone={() => { review.resetReview(); navigate('/dashboard'); }}
-        onReviewAgain={() => {
-          const b = review.block!;
-          review.resetReview();
-          handleStartReview(b);
-        }}
-      />
+      <>
+        <AppHeader />
+        <ReviewSummary
+          surahName={review.block.surahName}
+          startAyah={review.block.startAyah}
+          endAyah={review.block.endAyah}
+          blockId={review.block.id}
+          result={review.schedulingResult}
+          mistakes={review.mistakes}
+          onDone={() => { review.resetReview(); navigate('/dashboard'); }}
+          onReviewAgain={() => {
+            const b = review.block!;
+            review.resetReview();
+            handleStartReview(b);
+          }}
+        />
+      </>
     );
   }
 
