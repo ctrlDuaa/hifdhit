@@ -802,13 +802,17 @@ const Dashboard = () => {
       })
       .subscribe();
 
+    // NOTE: No `filter` on these subscriptions — Postgres realtime DELETE
+    // payloads don't include non-PK columns unless REPLICA IDENTITY FULL is
+    // set, so a `reciter_id=eq.X` filter silently drops DELETE events and the
+    // badge count stops updating when mistakes are removed. The refetch below
+    // is RLS-protected, so listening broadly here is safe.
     const mistakesChannel = supabase
       .channel(`dashboard-mistakes-${user.id}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'mistakes',
-        filter: `reciter_id=eq.${user.id}`,
       }, () => {
         console.log('📊 Mistakes change detected — refreshing dashboard');
         loadUserMistakes();
@@ -817,7 +821,6 @@ const Dashboard = () => {
         event: '*',
         schema: 'public',
         table: 'block_review_mistakes',
-        filter: `user_id=eq.${user.id}`,
       }, () => {
         console.log('📊 Block review mistakes change detected — refreshing dashboard');
         loadUserMistakes();
