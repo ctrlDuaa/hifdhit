@@ -143,7 +143,7 @@ const BlockReviewPage = () => {
           blockId={review.block.id}
           result={review.schedulingResult}
           mistakes={review.mistakes}
-          onDone={() => { review.resetReview(); navigate('/dashboard'); }}
+          onDone={() => { review.resetReview(); navigate('/dashboard', { state: { refreshStats: true } }); }}
           onReviewAgain={() => {
             const b = review.block!;
             review.resetReview();
