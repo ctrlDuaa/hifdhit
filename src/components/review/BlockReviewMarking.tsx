@@ -216,7 +216,7 @@ export const BlockReviewMarking = ({
                 onClick={handleRemove}
                 className="text-[11px] text-destructive hover:text-destructive/80"
               >
-                Delete
+                Remove
               </button>
             )}
           </div>
