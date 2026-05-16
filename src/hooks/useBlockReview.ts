@@ -432,12 +432,13 @@ export function useBlockReview() {
 
     setSchedulingResult(result);
     setPhase('summary');
-  }, [block, user, mistakes, verses]);
+  }, [block, user, mistakes, verses, preexistingMistakes]);
 
   const resetReview = useCallback(() => {
     setBlock(null);
     setVerses([]);
     setMistakes(new Map());
+    setPreexistingMistakes(new Map());
     setPhase('idle');
     setSchedulingResult(null);
   }, []);
