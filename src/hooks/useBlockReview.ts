@@ -240,7 +240,7 @@ export function useBlockReview() {
     if (reviewError) throw reviewError;
     if (!review) throw new Error('Review was not saved.');
 
-    // Save individual mistakes
+    // Save individual mistakes for this review session
     if (mistakeList.length > 0) {
       const mistakeRows = mistakeList.map(m => ({
         user_id: user.id,
@@ -254,18 +254,51 @@ export function useBlockReview() {
       }));
       const { error: reviewMistakesError } = await supabase.from('block_review_mistakes').insert(mistakeRows);
       if (reviewMistakesError) throw reviewMistakesError;
+    }
 
-      // Mirror review mistakes into the canonical mistakes table so Quran Overview
-      // displays them immediately in the same path as live revision mistakes.
-      const overviewMistakeRows = mistakeList.map(m => ({
-        reciter_id: user.id,
-        surah_number: block.surahId,
-        ayah_number: m.ayahNumber,
-        word_index: m.wordIndex + 1,
-        mistake_category: toOverviewMistakeCategory(m.mistakeType),
-      }));
-      const { error: overviewMistakesError } = await supabase.from('mistakes').insert(overviewMistakeRows);
+    // Sync the canonical `mistakes` table (used by Quran Overview):
+    //  - Insert mistakes that are brand new (not preexisting)
+    //  - Update preexisting rows whose category changed
+    //  - Delete preexisting rows the user removed during review
+    const currentKeys = new Set(mistakeList.map(m => `${m.ayahNumber}:${m.wordIndex}`));
+    const overviewRowsToInsert: Array<{
+      reciter_id: string; surah_number: number; ayah_number: number;
+      word_index: number; mistake_category: string;
+    }> = [];
+    const overviewIdsToDelete: string[] = [];
+    const overviewUpdates: Array<{ id: string; mistake_category: string }> = [];
+
+    for (const m of mistakeList) {
+      const key = `${m.ayahNumber}:${m.wordIndex}`;
+      const pre = preexistingMistakes.get(key);
+      if (!pre) {
+        overviewRowsToInsert.push({
+          reciter_id: user.id,
+          surah_number: block.surahId,
+          ayah_number: m.ayahNumber,
+          word_index: m.wordIndex + 1,
+          mistake_category: toOverviewMistakeCategory(m.mistakeType),
+        });
+      } else if (pre.mistakeType !== m.mistakeType) {
+        overviewUpdates.push({
+          id: pre.id,
+          mistake_category: toOverviewMistakeCategory(m.mistakeType),
+        });
+      }
+    }
+    for (const [key, pre] of preexistingMistakes.entries()) {
+      if (!currentKeys.has(key)) overviewIdsToDelete.push(pre.id);
+    }
+
+    if (overviewRowsToInsert.length > 0) {
+      const { error: overviewMistakesError } = await supabase.from('mistakes').insert(overviewRowsToInsert);
       if (overviewMistakesError) throw overviewMistakesError;
+    }
+    for (const upd of overviewUpdates) {
+      await supabase.from('mistakes').update({ mistake_category: upd.mistake_category }).eq('id', upd.id);
+    }
+    if (overviewIdsToDelete.length > 0) {
+      await supabase.from('mistakes').delete().in('id', overviewIdsToDelete);
     }
 
     // Update block state
