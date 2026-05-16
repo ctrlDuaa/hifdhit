@@ -35,6 +35,21 @@ export interface ReviewWord {
 const toOverviewMistakeCategory = (type: MistakeType) =>
   type === 'forgot' ? 'harakah' : type;
 
+const fromOverviewMistakeCategory = (cat: string | null | undefined): MistakeType | null => {
+  switch (cat) {
+    case 'harakah': return 'forgot';
+    case 'tajweed': return 'tajweed';
+    case 'missed':  return 'missed';
+    case 'incorrect': return 'incorrect';
+    default: return null;
+  }
+};
+
+interface PreexistingMistake {
+  id: string;
+  mistakeType: MistakeType;
+}
+
 export function useBlockReview() {
   const { user } = useAuth();
   const [block, setBlock] = useState<BlockInfo | null>(null);
