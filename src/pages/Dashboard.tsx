@@ -993,25 +993,33 @@ const Dashboard = () => {
       // Load from mistakes table
       const { data: mistakesData, error: err1 } = await supabase
         .from('mistakes')
-        .select('surah_number')
+        .select('surah_number, ayah_number, word_index')
         .eq('reciter_id', user.id);
       
       // Load from block_review_mistakes table
       const { data: blockData, error: err2 } = await supabase
         .from('block_review_mistakes')
-        .select('surah_id')
+        .select('surah_id, ayah_number, word_index')
         .eq('user_id', user.id);
 
       if (err1) throw err1;
       
-      // Count mistakes per surah from both sources
+      // Count current mistake words per surah from both sources. Review mistakes
+      // are also mirrored into `mistakes`, so use word keys to avoid double counts.
       const mistakeCount: { [key: number]: number } = {};
+      const seenMistakeKeys = new Set<string>();
+      const countMistake = (surahNumber: number, ayahNumber: number, wordIndex: number) => {
+        const key = `${surahNumber}:${ayahNumber}:${wordIndex}`;
+        if (seenMistakeKeys.has(key)) return;
+        seenMistakeKeys.add(key);
+        mistakeCount[surahNumber] = (mistakeCount[surahNumber] || 0) + 1;
+      };
       mistakesData?.forEach(mistake => {
-        mistakeCount[mistake.surah_number] = (mistakeCount[mistake.surah_number] || 0) + 1;
+        countMistake(mistake.surah_number, mistake.ayah_number, mistake.word_index);
       });
       if (!err2 && blockData) {
         blockData.forEach(bm => {
-          mistakeCount[bm.surah_id] = (mistakeCount[bm.surah_id] || 0) + 1;
+          countMistake(bm.surah_id, bm.ayah_number, bm.word_index);
         });
       }
       

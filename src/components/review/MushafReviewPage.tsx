@@ -233,9 +233,14 @@ export const MushafReviewPage = ({
 
                       let wordIdxInAyah = -1;
                       if (ayah != null && !isEnd) {
-                        const cur = ayahWordCounters.get(ayah) ?? 0;
-                        wordIdxInAyah = cur;
-                        ayahWordCounters.set(ayah, cur + 1);
+                        if (typeof word.position === 'number' && word.position > 0) {
+                          wordIdxInAyah = word.position - 1;
+                          ayahWordCounters.set(ayah, Math.max(ayahWordCounters.get(ayah) ?? 0, word.position));
+                        } else {
+                          const cur = ayahWordCounters.get(ayah) ?? 0;
+                          wordIdxInAyah = cur;
+                          ayahWordCounters.set(ayah, cur + 1);
+                        }
                       }
 
                       const mistake = inRange && !isEnd && ayah != null
