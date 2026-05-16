@@ -235,6 +235,7 @@ export const MushafReviewPage = ({
                       if (ayah != null && !isEnd) {
                         if (typeof word.position === 'number' && word.position > 0) {
                           wordIdxInAyah = word.position - 1;
+                          ayahWordCounters.set(ayah, Math.max(ayahWordCounters.get(ayah) ?? 0, word.position));
                         } else {
                           const cur = ayahWordCounters.get(ayah) ?? 0;
                           wordIdxInAyah = cur;
