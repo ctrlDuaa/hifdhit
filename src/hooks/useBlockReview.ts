@@ -35,11 +35,27 @@ export interface ReviewWord {
 const toOverviewMistakeCategory = (type: MistakeType) =>
   type === 'forgot' ? 'harakah' : type;
 
+const fromOverviewMistakeCategory = (cat: string | null | undefined): MistakeType | null => {
+  switch (cat) {
+    case 'harakah': return 'forgot';
+    case 'tajweed': return 'tajweed';
+    case 'missed':  return 'missed';
+    case 'incorrect': return 'incorrect';
+    default: return null;
+  }
+};
+
+interface PreexistingMistake {
+  id: string;
+  mistakeType: MistakeType;
+}
+
 export function useBlockReview() {
   const { user } = useAuth();
   const [block, setBlock] = useState<BlockInfo | null>(null);
   const [verses, setVerses] = useState<QuranVerse[]>([]);
   const [mistakes, setMistakes] = useState<Map<string, WordMistake>>(new Map());
+  const [preexistingMistakes, setPreexistingMistakes] = useState<Map<string, PreexistingMistake>>(new Map());
   const [loading, setLoading] = useState(false);
   const [phase, setPhase] = useState<'idle' | 'reviewing' | 'rating' | 'summary'>('idle');
   const [schedulingResult, setSchedulingResult] = useState<SchedulingResult | null>(null);
@@ -54,7 +70,38 @@ export function useBlockReview() {
       );
       setVerses(result.verses);
       setBlock(blockInfo);
-      setMistakes(new Map());
+
+      // Preload mistakes the user previously marked under Quran Overview for
+      // these ayat so they appear as highlights inside the review session.
+      const initialMistakes = new Map<string, WordMistake>();
+      const initialPreexisting = new Map<string, PreexistingMistake>();
+      if (user) {
+        const { data: existing } = await supabase
+          .from('mistakes')
+          .select('id, ayah_number, word_index, mistake_category')
+          .eq('reciter_id', user.id)
+          .eq('surah_number', blockInfo.surahId)
+          .gte('ayah_number', blockInfo.startAyah)
+          .lte('ayah_number', blockInfo.endAyah);
+
+        for (const row of existing ?? []) {
+          const type = fromOverviewMistakeCategory(row.mistake_category);
+          if (!type) continue;
+          // DB stores 1-based word_index; in-memory uses 0-based.
+          const wordIdx = Math.max(0, (row.word_index ?? 1) - 1);
+          const key = `${row.ayah_number}:${wordIdx}`;
+          if (initialMistakes.has(key)) continue;
+          initialMistakes.set(key, {
+            ayahNumber: row.ayah_number,
+            wordIndex: wordIdx,
+            wordText: '',
+            mistakeType: type,
+          });
+          initialPreexisting.set(key, { id: row.id, mistakeType: type });
+        }
+      }
+      setMistakes(initialMistakes);
+      setPreexistingMistakes(initialPreexisting);
       setPhase('reviewing');
     } catch (err) {
       console.error('Failed to load verses for review:', err);
@@ -62,7 +109,7 @@ export function useBlockReview() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   const toggleMistake = useCallback((ayahNumber: number, wordIndex: number, wordText: string, type: MistakeType) => {
     setMistakes(prev => {
@@ -193,7 +240,7 @@ export function useBlockReview() {
     if (reviewError) throw reviewError;
     if (!review) throw new Error('Review was not saved.');
 
-    // Save individual mistakes
+    // Save individual mistakes for this review session
     if (mistakeList.length > 0) {
       const mistakeRows = mistakeList.map(m => ({
         user_id: user.id,
@@ -207,18 +254,51 @@ export function useBlockReview() {
       }));
       const { error: reviewMistakesError } = await supabase.from('block_review_mistakes').insert(mistakeRows);
       if (reviewMistakesError) throw reviewMistakesError;
+    }
 
-      // Mirror review mistakes into the canonical mistakes table so Quran Overview
-      // displays them immediately in the same path as live revision mistakes.
-      const overviewMistakeRows = mistakeList.map(m => ({
-        reciter_id: user.id,
-        surah_number: block.surahId,
-        ayah_number: m.ayahNumber,
-        word_index: m.wordIndex + 1,
-        mistake_category: toOverviewMistakeCategory(m.mistakeType),
-      }));
-      const { error: overviewMistakesError } = await supabase.from('mistakes').insert(overviewMistakeRows);
+    // Sync the canonical `mistakes` table (used by Quran Overview):
+    //  - Insert mistakes that are brand new (not preexisting)
+    //  - Update preexisting rows whose category changed
+    //  - Delete preexisting rows the user removed during review
+    const currentKeys = new Set(mistakeList.map(m => `${m.ayahNumber}:${m.wordIndex}`));
+    const overviewRowsToInsert: Array<{
+      reciter_id: string; surah_number: number; ayah_number: number;
+      word_index: number; mistake_category: string;
+    }> = [];
+    const overviewIdsToDelete: string[] = [];
+    const overviewUpdates: Array<{ id: string; mistake_category: string }> = [];
+
+    for (const m of mistakeList) {
+      const key = `${m.ayahNumber}:${m.wordIndex}`;
+      const pre = preexistingMistakes.get(key);
+      if (!pre) {
+        overviewRowsToInsert.push({
+          reciter_id: user.id,
+          surah_number: block.surahId,
+          ayah_number: m.ayahNumber,
+          word_index: m.wordIndex + 1,
+          mistake_category: toOverviewMistakeCategory(m.mistakeType),
+        });
+      } else if (pre.mistakeType !== m.mistakeType) {
+        overviewUpdates.push({
+          id: pre.id,
+          mistake_category: toOverviewMistakeCategory(m.mistakeType),
+        });
+      }
+    }
+    for (const [key, pre] of preexistingMistakes.entries()) {
+      if (!currentKeys.has(key)) overviewIdsToDelete.push(pre.id);
+    }
+
+    if (overviewRowsToInsert.length > 0) {
+      const { error: overviewMistakesError } = await supabase.from('mistakes').insert(overviewRowsToInsert);
       if (overviewMistakesError) throw overviewMistakesError;
+    }
+    for (const upd of overviewUpdates) {
+      await supabase.from('mistakes').update({ mistake_category: upd.mistake_category }).eq('id', upd.id);
+    }
+    if (overviewIdsToDelete.length > 0) {
+      await supabase.from('mistakes').delete().in('id', overviewIdsToDelete);
     }
 
     // Update block state
@@ -352,12 +432,13 @@ export function useBlockReview() {
 
     setSchedulingResult(result);
     setPhase('summary');
-  }, [block, user, mistakes, verses]);
+  }, [block, user, mistakes, verses, preexistingMistakes]);
 
   const resetReview = useCallback(() => {
     setBlock(null);
     setVerses([]);
     setMistakes(new Map());
+    setPreexistingMistakes(new Map());
     setPhase('idle');
     setSchedulingResult(null);
   }, []);

@@ -87,13 +87,8 @@ export const BlockReviewMarking = ({
   }, [popoverOpen]);
 
   const handleWordClick = (ayahNumber: number, wordIndex: number, wordText: string, event: React.MouseEvent) => {
-    // If the word is already marked, tapping again clears it and restores the blur.
-    if (getMistakeForWord(ayahNumber, wordIndex)) {
-      onRemoveMistake(ayahNumber, wordIndex);
-      setPopoverOpen(false);
-      setSelectedWord(null);
-      return;
-    }
+    // Always open the popup — tapping a marked word reveals the mistake options
+    // (including a Remove button) instead of auto-clearing it.
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     setPopoverPosition({ x: rect.left + rect.width / 2, y: rect.top });
     setSelectedWord({ ayahNumber, wordIndex, wordText });
@@ -221,7 +216,7 @@ export const BlockReviewMarking = ({
                 onClick={handleRemove}
                 className="text-[11px] text-destructive hover:text-destructive/80"
               >
-                Delete
+                Remove
               </button>
             )}
           </div>
