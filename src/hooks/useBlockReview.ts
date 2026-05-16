@@ -55,6 +55,7 @@ export function useBlockReview() {
   const [block, setBlock] = useState<BlockInfo | null>(null);
   const [verses, setVerses] = useState<QuranVerse[]>([]);
   const [mistakes, setMistakes] = useState<Map<string, WordMistake>>(new Map());
+  const [preexistingMistakes, setPreexistingMistakes] = useState<Map<string, PreexistingMistake>>(new Map());
   const [loading, setLoading] = useState(false);
   const [phase, setPhase] = useState<'idle' | 'reviewing' | 'rating' | 'summary'>('idle');
   const [schedulingResult, setSchedulingResult] = useState<SchedulingResult | null>(null);
@@ -69,7 +70,38 @@ export function useBlockReview() {
       );
       setVerses(result.verses);
       setBlock(blockInfo);
-      setMistakes(new Map());
+
+      // Preload mistakes the user previously marked under Quran Overview for
+      // these ayat so they appear as highlights inside the review session.
+      const initialMistakes = new Map<string, WordMistake>();
+      const initialPreexisting = new Map<string, PreexistingMistake>();
+      if (user) {
+        const { data: existing } = await supabase
+          .from('mistakes')
+          .select('id, ayah_number, word_index, mistake_category')
+          .eq('reciter_id', user.id)
+          .eq('surah_number', blockInfo.surahId)
+          .gte('ayah_number', blockInfo.startAyah)
+          .lte('ayah_number', blockInfo.endAyah);
+
+        for (const row of existing ?? []) {
+          const type = fromOverviewMistakeCategory(row.mistake_category);
+          if (!type) continue;
+          // DB stores 1-based word_index; in-memory uses 0-based.
+          const wordIdx = Math.max(0, (row.word_index ?? 1) - 1);
+          const key = `${row.ayah_number}:${wordIdx}`;
+          if (initialMistakes.has(key)) continue;
+          initialMistakes.set(key, {
+            ayahNumber: row.ayah_number,
+            wordIndex: wordIdx,
+            wordText: '',
+            mistakeType: type,
+          });
+          initialPreexisting.set(key, { id: row.id, mistakeType: type });
+        }
+      }
+      setMistakes(initialMistakes);
+      setPreexistingMistakes(initialPreexisting);
       setPhase('reviewing');
     } catch (err) {
       console.error('Failed to load verses for review:', err);
@@ -77,7 +109,7 @@ export function useBlockReview() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   const toggleMistake = useCallback((ayahNumber: number, wordIndex: number, wordText: string, type: MistakeType) => {
     setMistakes(prev => {
