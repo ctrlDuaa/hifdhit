@@ -149,11 +149,20 @@ const MushafViewer = () => {
     }
   };
 
-  // Add real-time subscription for canonical mistake updates.
+  // Real-time + safety re-sync for canonical mistake updates.
   useEffect(() => {
     if (!user || !currentPage) return;
 
     console.log('📡 Setting up real-time mistake subscriptions for page:', currentPage);
+
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefresh = (reason: string) => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        console.log('🛰️ MushafViewer mistake refresh:', reason);
+        loadMistakesForPage(currentPage);
+      }, 150);
+    };
 
     const mistakesChannel = supabase
       .channel(`mistakes-page-${currentPage}`)
@@ -161,13 +170,18 @@ const MushafViewer = () => {
         event: '*',
         schema: 'public',
         table: 'mistakes',
-      }, () => {
-        // Reload regardless of page_number — covers session, memorization, and any source
-        loadMistakesForPage(currentPage);
+      }, (payload) => {
+        scheduleRefresh(`realtime:${payload.eventType}`);
       })
       .subscribe();
 
+    const safetyInterval = setInterval(() => {
+      scheduleRefresh('safety-resync');
+    }, 15000);
+
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      clearInterval(safetyInterval);
       supabase.removeChannel(mistakesChannel);
     };
   }, [user?.id, currentPage]);
@@ -201,8 +215,19 @@ const MushafViewer = () => {
           });
         }
       });
-      
-      setHighlightedWords(mistakes);
+
+      setHighlightedWords((prev) => {
+        const diff = diffMistakeMaps(prev, mistakes);
+        const sig = computeMistakeMapSignature(mistakes);
+        if (sig === highlightedSigRef.current && !mistakeDiffHasChanges(diff)) {
+          return prev;
+        }
+        highlightedSigRef.current = sig;
+        if (mistakeDiffHasChanges(diff)) {
+          console.log('🩺 MushafViewer mistake diff:', diff);
+        }
+        return mistakes;
+      });
     } catch (err) {
       console.error('Error loading mistakes:', err);
     }
