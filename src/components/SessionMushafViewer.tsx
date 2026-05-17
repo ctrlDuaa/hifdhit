@@ -140,20 +140,68 @@ export const SessionMushafViewer = ({
     loadPageData(currentPage);
   }, [currentPage]);
 
-  // Load existing mistakes for this session and past mistakes
+  // Load existing mistakes for this session and past mistakes.
+  // Capture reciterId locally so a fast role-flip can't be overwritten by a
+  // stale response that started before the new reciterId arrived.
   useEffect(() => {
-    if (sessionId && pageData && reciterId) {
-      console.log('Reloading mistakes - reciterId changed to:', reciterId);
+    if (!sessionId || !pageData || !reciterId) return;
 
-      // Clear existing mistakes first to avoid stale data
-      setHighlightedWords(new Map());
-      setPastMistakes(new Map());
+    const activeReciterId = reciterId;
+    const activePage = pageData.page_number;
+    let cancelled = false;
 
-      // Then load fresh data for the current reciter
-      loadSessionMistakes();
-      loadPastMistakes();
-    }
+    console.log('🔁 Reloading mistakes for reciterId:', activeReciterId, 'page:', activePage);
+
+    // Clear stale marks immediately so the previous reciter's highlights
+    // never visually persist while the new fetch is in flight.
+    setHighlightedWords(new Map());
+    setPastMistakes(new Map());
+
+    (async () => {
+      try {
+        const [sessionRes, pastRes] = await Promise.all([
+          supabase
+            .from('mistakes')
+            .select('*')
+            .eq('session_id', sessionId)
+            .eq('reciter_id', activeReciterId)
+            .eq('page_number', activePage),
+          supabase
+            .from('mistakes')
+            .select('*')
+            .eq('reciter_id', activeReciterId)
+            .eq('page_number', activePage)
+            .neq('session_id', sessionId),
+        ]);
+
+        if (cancelled) return;
+
+        const toMap = (rows: any[] | null | undefined) => {
+          const m = new Map<string, MistakeData>();
+          rows?.forEach((mistake) => {
+            const wordKey = `${mistake.surah_number}-${mistake.ayah_number}-${mistake.word_index}`;
+            m.set(wordKey, {
+              category: (mistake.mistake_category as MistakeCategory) || 'tajweed',
+              date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : '',
+              mistakeId: mistake.id,
+              sessionId: mistake.session_id,
+            });
+          });
+          return m;
+        };
+
+        setHighlightedWords(toMap(sessionRes.data));
+        setPastMistakes(toMap(pastRes.data));
+      } catch (err) {
+        if (!cancelled) console.error('Error loading mistakes for reciter:', err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [sessionId, pageData?.page_number, reciterId]);
+
 
   // Unified real-time subscription for all mistakes (current and past sessions)
   useEffect(() => {
