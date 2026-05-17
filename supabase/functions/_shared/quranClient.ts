@@ -118,7 +118,7 @@ export async function getVerseByKey(
   { translationId = DEFAULT_TRANSLATION_ID } = {}
 ) {
   return quranFetch(
-    `/verses/by_key/${verseKey}?language=en&words=true&word_fields=text_uthmani&fields=text_uthmani&translations=${translationId}`
+    `/verses/by_key/${verseKey}?language=en&words=true&word_fields=text_uthmani,page_number&fields=text_uthmani,page_number&translations=${translationId}`
   );
 }
 
