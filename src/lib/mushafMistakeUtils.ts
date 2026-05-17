@@ -75,6 +75,35 @@ export const fetchCanonicalMistakesForPage = async (
   return [...(pageMistakes ?? []), ...(noPageMistakes ?? [])];
 };
 
+export const fetchCanonicalMistakeIdsForPageWord = async (
+  reciterId: string,
+  surahNumber: number,
+  ayahNumber: number,
+  pageNumber: number,
+  page: PageLike | null | undefined,
+  pageWordKey: string
+): Promise<string[]> => {
+  const pageWordKeys = buildPageWordKeySet(page);
+  const { data, error } = await supabase
+    .from('mistakes')
+    .select('id, surah_number, ayah_number, word_index, page_number')
+    .eq('reciter_id', reciterId)
+    .eq('surah_number', surahNumber)
+    .eq('ayah_number', ayahNumber);
+
+  if (error) throw error;
+
+  return (data ?? [])
+    .filter((mistake) => mistake.page_number === pageNumber || mistake.page_number === null)
+    .filter((mistake) => getNormalizedMistakeWordKey(
+      mistake.surah_number,
+      mistake.ayah_number,
+      mistake.word_index,
+      pageWordKeys
+    ) === pageWordKey)
+    .map((mistake) => mistake.id);
+};
+
 export const getNormalizedMistakeWordKey = (
   surahNumber: number | null | undefined,
   ayahNumber: number | null | undefined,
