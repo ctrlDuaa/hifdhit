@@ -46,7 +46,7 @@ const fromOverviewMistakeCategory = (cat: string | null | undefined): MistakeTyp
 };
 
 interface PreexistingMistake {
-  id: string;
+  ids: string[];
   mistakeType: MistakeType;
 }
 
@@ -90,14 +90,18 @@ export function useBlockReview() {
           // DB stores 1-based word_index; in-memory uses 0-based.
           const wordIdx = Math.max(0, (row.word_index ?? 1) - 1);
           const key = `${row.ayah_number}:${wordIdx}`;
-          if (initialMistakes.has(key)) continue;
+          const existingPre = initialPreexisting.get(key);
+          if (existingPre) {
+            existingPre.ids.push(row.id);
+            continue;
+          }
           initialMistakes.set(key, {
             ayahNumber: row.ayah_number,
             wordIndex: wordIdx,
             wordText: '',
             mistakeType: type,
           });
-          initialPreexisting.set(key, { id: row.id, mistakeType: type });
+          initialPreexisting.set(key, { ids: [row.id], mistakeType: type });
         }
       }
       setMistakes(initialMistakes);
