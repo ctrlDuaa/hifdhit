@@ -53,6 +53,7 @@ const SurahViewer = () => {
     category: string;
     date?: string;
   }>>(new Map());
+  const highlightedSigRef = useRef<string>('');
   const [jumpToPage, setJumpToPage] = useState('');
   const [jumpToAyah, setJumpToAyah] = useState('');
   const [surahPageRange, setSurahPageRange] = useState<{
