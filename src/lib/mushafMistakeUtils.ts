@@ -134,6 +134,71 @@ export const getNormalizedMistakeWordKey = (
   return null;
 };
 
+// ---------------------------------------------------------------------------
+// Realtime consistency helpers
+// ---------------------------------------------------------------------------
+
+type MistakeMapValueLike = {
+  category?: string;
+  mistakeId?: string;
+  note?: string;
+  sessionId?: string;
+};
+
+/**
+ * Stable signature of a highlighted-mistake map. Used to detect whether a
+ * realtime refetch actually changed anything before triggering a re-render.
+ */
+export const computeMistakeMapSignature = (
+  map: Map<string, MistakeMapValueLike> | null | undefined
+): string => {
+  if (!map || map.size === 0) return '';
+  return [...map.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(
+      ([k, v]) =>
+        `${k}:${v.category ?? ''}:${v.mistakeId ?? ''}:${v.note ?? ''}:${v.sessionId ?? ''}`
+    )
+    .join('|');
+};
+
+export type MistakeMapDiff = {
+  added: string[];
+  removed: string[];
+  changed: string[];
+};
+
+export const diffMistakeMaps = (
+  prev: Map<string, MistakeMapValueLike> | null | undefined,
+  next: Map<string, MistakeMapValueLike> | null | undefined
+): MistakeMapDiff => {
+  const added: string[] = [];
+  const removed: string[] = [];
+  const changed: string[] = [];
+  const prevMap = prev ?? new Map();
+  const nextMap = next ?? new Map();
+
+  nextMap.forEach((value, key) => {
+    const prior = prevMap.get(key);
+    if (!prior) added.push(key);
+    else if (
+      prior.category !== value.category ||
+      prior.mistakeId !== value.mistakeId ||
+      (prior.note ?? '') !== (value.note ?? '') ||
+      (prior.sessionId ?? '') !== (value.sessionId ?? '')
+    ) {
+      changed.push(key);
+    }
+  });
+  prevMap.forEach((_v, key) => {
+    if (!nextMap.has(key)) removed.push(key);
+  });
+  return { added, removed, changed };
+};
+
+export const mistakeDiffHasChanges = (diff: MistakeMapDiff): boolean =>
+  diff.added.length > 0 || diff.removed.length > 0 || diff.changed.length > 0;
+
 export const getPageWordIndexCandidates = (
   wordIndex: number | null | undefined,
   options?: { preferOneBased?: boolean }
