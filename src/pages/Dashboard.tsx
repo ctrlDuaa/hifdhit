@@ -832,6 +832,28 @@ const Dashboard = () => {
       supabase.removeChannel(mistakesChannel);
     };
   }, [user, surahs]);
+
+  // Refetch mistake / progress counts whenever the tab regains focus or the
+  // page becomes visible again. This catches missed realtime events (e.g. a
+  // checker deleting a mistake while Dashboard was unmounted, or back/forward
+  // cache restores) so the Quran Overview badges always reflect reality.
+  useEffect(() => {
+    if (!user || surahs.length === 0) return;
+    const refresh = () => {
+      if (document.visibilityState !== 'hidden') {
+        loadUserMistakes();
+        loadUserProgress();
+      }
+    };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    window.addEventListener('pageshow', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+      window.removeEventListener('pageshow', refresh);
+    };
+  }, [user, surahs]);
   const loadUserProfile = async () => {
     if (!user) return;
     try {
