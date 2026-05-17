@@ -17,6 +17,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter, DrawerC
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetClose } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { buildPageWordKeySet, fetchCanonicalMistakeIdsForPageWord, fetchCanonicalMistakesForPage, getNormalizedMistakeWordKey } from '@/lib/mushafMistakeUtils';
 type MistakeCategory = 'tajweed' | 'missed' | 'harakah' | 'incorrect';
 interface MistakeData {
   category: MistakeCategory;
@@ -54,6 +55,7 @@ export const SessionMushafViewer = ({
   const [totalPages, setTotalPages] = useState(0);
   const [highlightedWords, setHighlightedWords] = useState<Map<string, MistakeData>>(new Map());
   const [pastMistakes, setPastMistakes] = useState<Map<string, MistakeData>>(new Map());
+  const [mistakeRefreshNonce, setMistakeRefreshNonce] = useState(0);
   const [selectedWord, setSelectedWord] = useState<SupabaseWord | null>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
