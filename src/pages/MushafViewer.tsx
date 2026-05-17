@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,7 +14,7 @@ import { QcfVerseText, QcfWord } from '@/components/quran/QcfVerseText';
 import { quranApi } from '@/services/quranApi';
 import { AppHeader } from '@/components/AppHeader';
 import { format } from 'date-fns';
-import { buildPageWordKeySet, fetchCanonicalMistakesForPage, getNormalizedMistakeWordKey } from '@/lib/mushafMistakeUtils';
+import { buildPageWordKeySet, computeMistakeMapSignature, diffMistakeMaps, fetchCanonicalMistakesForPage, getNormalizedMistakeWordKey, mistakeDiffHasChanges } from '@/lib/mushafMistakeUtils';
 
 type MistakeCategory = 'tajweed' | 'missed' | 'harakah' | 'incorrect';
 
@@ -34,7 +34,8 @@ const MushafViewer = () => {
   const [pageData, setPageData] = useState<SupabasePage | null>(null);
   const [totalPages, setTotalPages] = useState(0);
   const [highlightedWords, setHighlightedWords] = useState<Map<string, MistakeData>>(new Map());
-  
+  const highlightedSigRef = useRef<string>('');
+
 
   // ── QCF V2 (Quran Foundation glyph rendering) ──
   const [qcfWords, setQcfWords] = useState<QcfWord[] | null>(null);
@@ -148,11 +149,20 @@ const MushafViewer = () => {
     }
   };
 
-  // Add real-time subscription for canonical mistake updates.
+  // Real-time + safety re-sync for canonical mistake updates.
   useEffect(() => {
     if (!user || !currentPage) return;
 
     console.log('📡 Setting up real-time mistake subscriptions for page:', currentPage);
+
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefresh = (reason: string) => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        console.log('🛰️ MushafViewer mistake refresh:', reason);
+        loadMistakesForPage(currentPage);
+      }, 150);
+    };
 
     const mistakesChannel = supabase
       .channel(`mistakes-page-${currentPage}`)
@@ -160,13 +170,18 @@ const MushafViewer = () => {
         event: '*',
         schema: 'public',
         table: 'mistakes',
-      }, () => {
-        // Reload regardless of page_number — covers session, memorization, and any source
-        loadMistakesForPage(currentPage);
+      }, (payload) => {
+        scheduleRefresh(`realtime:${payload.eventType}`);
       })
       .subscribe();
 
+    const safetyInterval = setInterval(() => {
+      scheduleRefresh('safety-resync');
+    }, 15000);
+
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      clearInterval(safetyInterval);
       supabase.removeChannel(mistakesChannel);
     };
   }, [user?.id, currentPage]);
@@ -200,8 +215,19 @@ const MushafViewer = () => {
           });
         }
       });
-      
-      setHighlightedWords(mistakes);
+
+      setHighlightedWords((prev) => {
+        const diff = diffMistakeMaps(prev, mistakes);
+        const sig = computeMistakeMapSignature(mistakes);
+        if (sig === highlightedSigRef.current && !mistakeDiffHasChanges(diff)) {
+          return prev;
+        }
+        highlightedSigRef.current = sig;
+        if (mistakeDiffHasChanges(diff)) {
+          console.log('🩺 MushafViewer mistake diff:', diff);
+        }
+        return mistakes;
+      });
     } catch (err) {
       console.error('Error loading mistakes:', err);
     }
