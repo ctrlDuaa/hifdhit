@@ -70,21 +70,24 @@ export const MushafReviewPage = ({
 
     (async () => {
       try {
-        const [firstRes, lastRes] = await Promise.all([
-          fetch(`https://api.quran.com/api/v4/verses/by_key/${firstKey}?fields=page_number`, { headers: { Accept: 'application/json' } }),
-          fetch(`https://api.quran.com/api/v4/verses/by_key/${lastKey}?fields=page_number`, { headers: { Accept: 'application/json' } }),
+        const resolvePage = async (key: string): Promise<number | null> => {
+          try {
+            const res: any = await quranApi.getVerse(key);
+            const v = res?.verse ?? res?.data?.verse;
+            if (typeof v?.page_number === 'number') return v.page_number;
+            const wordPage = v?.words?.find((w: any) => typeof w?.page_number === 'number')?.page_number;
+            if (typeof wordPage === 'number') return wordPage;
+          } catch (e) {
+            console.warn('Failed to resolve page for', key, e);
+          }
+          return null;
+        };
+
+        const [firstPage, lastPage] = await Promise.all([
+          resolvePage(firstKey),
+          resolvePage(lastKey),
         ]);
 
-        let firstPage: number | null = null;
-        let lastPage: number | null = null;
-        if (firstRes.ok) {
-          const j = await firstRes.json();
-          if (typeof j?.verse?.page_number === 'number') firstPage = j.verse.page_number;
-        }
-        if (lastRes.ok) {
-          const j = await lastRes.json();
-          if (typeof j?.verse?.page_number === 'number') lastPage = j.verse.page_number;
-        }
         if (!firstPage || !lastPage || cancelled) {
           if (!cancelled) setLoading(false);
           return;
@@ -108,7 +111,8 @@ export const MushafReviewPage = ({
         }
 
         if (!cancelled) setPageWords(allWords);
-      } catch {
+      } catch (e) {
+        console.error('MushafReviewPage load failed:', e);
         if (!cancelled) setPageWords([]);
       } finally {
         if (!cancelled) setLoading(false);
