@@ -200,146 +200,23 @@ export const SessionMushafViewer = ({
   }, [sessionId, pageData, reciterId, mistakeRefreshNonce]);
 
 
-  // Unified real-time subscription for all mistakes (current and past sessions)
+  // Refresh the canonical mistake set when any mistake changes. Keep this
+  // unfiltered because DELETE payloads may not include reciter/page columns.
   useEffect(() => {
     if (!sessionId || !pageData || !reciterId) return;
-    
-    console.log('📡 Setting up unified subscription for reciter:', reciterId, 'page:', pageData.page_number, 'role:', userRole);
-    
+
     const channel = supabase
       .channel(`all-mistakes-${reciterId}-${pageData.page_number}-${Date.now()}`)
       .on('postgres_changes', {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'mistakes',
-        filter: `reciter_id=eq.${reciterId}`
-      }, payload => {
-        console.log('🔴 Real-time INSERT received (role:', userRole, '):', payload);
-        const mistake = payload.new;
-        
-        // Only process if it's for the current page
-        if (mistake.page_number !== pageData.page_number) {
-          console.log('⏭️ Skipping INSERT - different page:', mistake.page_number, 'vs', pageData.page_number);
-          return;
-        }
-        
-        const wordKey = `${mistake.surah_number}-${mistake.ayah_number}-${mistake.word_index}`;
-        const mistakeData: MistakeData = {
-          category: mistake.mistake_category || 'tajweed',
-          date: format(new Date(mistake.created_at), 'MMM dd, yyyy'),
-          mistakeId: mistake.id,
-          sessionId: mistake.session_id
-        };
-        
-        console.log('✅ Processing INSERT for word:', wordKey, 'session:', mistake.session_id);
-        
-        // Route to correct state based on session
-        if (mistake.session_id === sessionId) {
-          setHighlightedWords(prev => {
-            const updated = new Map(prev);
-            updated.set(wordKey, mistakeData);
-            console.log('📝 Updated highlightedWords, size:', updated.size);
-            return updated;
-          });
-        } else {
-          setPastMistakes(prev => {
-            const updated = new Map(prev);
-            updated.set(wordKey, mistakeData);
-            console.log('📝 Updated pastMistakes, size:', updated.size);
-            return updated;
-          });
-        }
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'mistakes',
-        filter: `reciter_id=eq.${reciterId}`
-      }, payload => {
-        console.log('🟡 Real-time UPDATE (role:', userRole, '):', payload);
-        const mistake = payload.new;
-        
-        // Only process if it's for the current page
-        if (mistake.page_number !== pageData.page_number) {
-          console.log('⏭️ Skipping UPDATE - different page');
-          return;
-        }
-        
-        const wordKey = `${mistake.surah_number}-${mistake.ayah_number}-${mistake.word_index}`;
-        const mistakeData: MistakeData = {
-          category: mistake.mistake_category || 'tajweed',
-          date: format(new Date(mistake.created_at), 'MMM dd, yyyy'),
-          mistakeId: mistake.id,
-          sessionId: mistake.session_id
-        };
-        
-        // Route to correct state based on session
-        if (mistake.session_id === sessionId) {
-          setHighlightedWords(prev => {
-            const updated = new Map(prev);
-            updated.set(wordKey, mistakeData);
-            return updated;
-          });
-        } else {
-          setPastMistakes(prev => {
-            const updated = new Map(prev);
-            updated.set(wordKey, mistakeData);
-            return updated;
-          });
-        }
-      })
-      .on('postgres_changes', {
-        event: 'DELETE',
-        schema: 'public',
-        table: 'mistakes',
-        filter: `reciter_id=eq.${reciterId}`
-      }, payload => {
-        console.log('🔵 Real-time DELETE (role:', userRole, '):', payload);
-        
-        const mistakeId = payload.old?.id;
-        
-        if (!mistakeId) {
-          console.error('❌ DELETE: No mistake ID found in payload');
-          return;
-        }
-        
-        console.log('🗑️ Deleting mistake with ID:', mistakeId);
-        
-        // Search in highlightedWords (current session)
-        let foundInHighlighted = false;
-        setHighlightedWords(prev => { 
-          const updated = new Map(prev);
-          for (const [key, value] of prev.entries()) {
-            if (value.mistakeId === mistakeId) {
-              updated.delete(key);
-              foundInHighlighted = true;
-              console.log('🗑️ Deleted from highlightedWords, key:', key, 'new size:', updated.size);
-              break;
-            }
-          }
-          return updated;
-        });
-        
-        // If not found in current session, search in pastMistakes
-        if (!foundInHighlighted) {
-          setPastMistakes(prev => { 
-            const updated = new Map(prev);
-            for (const [key, value] of prev.entries()) {
-              if (value.mistakeId === mistakeId) {
-                updated.delete(key);
-                console.log('🗑️ Deleted from pastMistakes, key:', key, 'new size:', updated.size);
-                break;
-              }
-            }
-            return updated;
-          });
-        }
+      }, () => {
+        setMistakeRefreshNonce((value) => value + 1);
       })
       .subscribe((status, err) => {
         if (err) {
-          console.error('❌ Subscription error:', userRole, err);
-        } else {
-          console.log('📡 Subscription status:', userRole, status);
+          console.error('❌ Mistake subscription error:', userRole, err);
         }
       });
     
