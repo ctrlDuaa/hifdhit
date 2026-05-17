@@ -14,7 +14,7 @@ import { QcfVerseText, QcfWord } from '@/components/quran/QcfVerseText';
 import { quranApi } from '@/services/quranApi';
 import { AppHeader } from '@/components/AppHeader';
 import { format } from 'date-fns';
-import { buildPageWordKeySet, getNormalizedMistakeWordKey } from '@/lib/mushafMistakeUtils';
+import { buildPageWordKeySet, fetchCanonicalMistakesForPage, getNormalizedMistakeWordKey } from '@/lib/mushafMistakeUtils';
 
 type MistakeCategory = 'tajweed' | 'missed' | 'harakah' | 'incorrect';
 
@@ -148,7 +148,7 @@ const MushafViewer = () => {
     }
   };
 
-  // Add real-time subscription for mistake updates (mistakes table + block review mistakes)
+  // Add real-time subscription for canonical mistake updates.
   useEffect(() => {
     if (!user || !currentPage) return;
 
@@ -167,21 +167,8 @@ const MushafViewer = () => {
       })
       .subscribe();
 
-    const blockChannel = supabase
-      .channel(`block-mistakes-page-${currentPage}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'block_review_mistakes',
-        filter: `user_id=eq.${user.id}`
-      }, () => {
-        loadMistakesForPage(currentPage);
-      })
-      .subscribe();
-
     return () => {
       supabase.removeChannel(mistakesChannel);
-      supabase.removeChannel(blockChannel);
     };
   }, [user?.id, currentPage]);
 
@@ -191,52 +178,12 @@ const MushafViewer = () => {
     try {
       const activePageData = pageOverride ?? pageData;
       const pageWordKeys = buildPageWordKeySet(activePageData);
-      // 1. Mistakes with page_number set (session mistakes)
-      const { data: pageMistakes, error: err1 } = await supabase
-        .from('mistakes')
-        .select('*')
-        .eq('reciter_id', user.id)
-        .eq('page_number', page);
-
-      if (err1) throw err1;
-
-      // 2. Find which surahs are on this page to also load memorization mistakes (no page_number)
-      const surahsOnPage = new Set<number>();
-      if (activePageData?.lines) {
-        for (const line of activePageData.lines) {
-          if (line.words) {
-            for (const w of line.words) {
-              if (w.surah) surahsOnPage.add(w.surah);
-            }
-          }
-        }
-      }
-
-      let noPageMistakes: any[] = [];
-      let blockMistakes: any[] = [];
-
-      for (const surahId of surahsOnPage) {
-        const { data: d1 } = await supabase
-          .from('mistakes')
-          .select('*')
-          .eq('reciter_id', user.id)
-          .is('page_number', null)
-          .eq('surah_number', surahId);
-        if (d1) noPageMistakes.push(...d1);
-
-        const { data: d2 } = await supabase
-          .from('block_review_mistakes')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('surah_id', surahId);
-        if (d2) blockMistakes.push(...d2);
-      }
+      const canonicalMistakes = await fetchCanonicalMistakesForPage(user.id, page, activePageData);
 
       const mistakes = new Map<string, MistakeData>();
       const seenKeys = new Set<string>();
 
-      // Merge all sources
-      [...(pageMistakes || []), ...noPageMistakes].forEach(mistake => {
+      canonicalMistakes.forEach(mistake => {
         const wordKey = getNormalizedMistakeWordKey(
           mistake.surah_number,
           mistake.ayah_number,
@@ -251,23 +198,6 @@ const MushafViewer = () => {
             date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : '',
             mistakeId: mistake.id,
             note: mistake.note || undefined
-          });
-        }
-      });
-
-      blockMistakes.forEach(bm => {
-        const wordKey = getNormalizedMistakeWordKey(
-          bm.surah_id,
-          bm.ayah_number,
-          bm.word_index,
-          pageWordKeys
-        );
-        if (!wordKey) return;
-        if (!seenKeys.has(wordKey)) {
-          seenKeys.add(wordKey);
-          mistakes.set(wordKey, {
-            category: (bm.mistake_type as MistakeCategory) || 'incorrect',
-            date: bm.created_at ? format(new Date(bm.created_at), 'MMM dd, yyyy') : '',
           });
         }
       });
