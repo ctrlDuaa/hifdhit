@@ -103,15 +103,21 @@ export const MushafContextLines = ({
 
     (async () => {
       try {
-        // 1) Find the page number for this verse via the public API.
-        const res = await fetch(
-          `https://api.quran.com/api/v4/verses/by_key/${verseKey}?fields=page_number`,
-          { headers: { Accept: 'application/json' } },
-        );
+        // 1) Resolve the page that contains this verse via the proxied edge
+        //    function (api.quran.com is CORS-blocked from the browser, so a
+        //    direct fetch leaves the page in a permanent skeleton state).
         let page: number | null = null;
-        if (res.ok) {
-          const json = await res.json();
-          if (typeof json?.verse?.page_number === 'number') page = json.verse.page_number;
+        try {
+          const res: any = await quranApi.getVerse(verseKey);
+          const verse = res?.verse ?? res?.data?.verse ?? null;
+          if (typeof verse?.page_number === 'number') {
+            page = verse.page_number;
+          } else if (Array.isArray(verse?.words)) {
+            const w = verse.words.find((w: any) => typeof w?.page_number === 'number');
+            if (w) page = w.page_number;
+          }
+        } catch (err) {
+          console.warn('MushafContextLines: getVerse failed', err);
         }
         if (!page || cancelled) {
           if (!cancelled) setLoading(false);
