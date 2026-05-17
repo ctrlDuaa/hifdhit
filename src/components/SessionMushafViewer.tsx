@@ -142,14 +142,14 @@ export const SessionMushafViewer = ({
     loadPageData(currentPage);
   }, [currentPage]);
 
-  // Load existing mistakes for this session and past mistakes.
-  // Capture reciterId locally so a fast role-flip can't be overwritten by a
-  // stale response that started before the new reciterId arrived.
+  // Load the canonical mistake set for this reciter/page, regardless of whether
+  // a mistake was created in Quran Overview, independent review, or a joint session.
   useEffect(() => {
     if (!sessionId || !pageData || !reciterId) return;
 
     const activeReciterId = reciterId;
     const activePage = pageData.page_number;
+    const pageWordKeys = buildPageWordKeySet(pageData);
     let cancelled = false;
 
     console.log('🔁 Reloading mistakes for reciterId:', activeReciterId, 'page:', activePage);
@@ -161,27 +161,22 @@ export const SessionMushafViewer = ({
 
     (async () => {
       try {
-        const [sessionRes, pastRes] = await Promise.all([
-          supabase
-            .from('mistakes')
-            .select('*')
-            .eq('session_id', sessionId)
-            .eq('reciter_id', activeReciterId)
-            .eq('page_number', activePage),
-          supabase
-            .from('mistakes')
-            .select('*')
-            .eq('reciter_id', activeReciterId)
-            .eq('page_number', activePage)
-            .neq('session_id', sessionId),
-        ]);
+        const rows = await fetchCanonicalMistakesForPage(activeReciterId, activePage, pageData);
 
         if (cancelled) return;
 
-        const toMap = (rows: any[] | null | undefined) => {
+        const toMap = (rows: any[] | null | undefined, currentSessionOnly: boolean) => {
           const m = new Map<string, MistakeData>();
           rows?.forEach((mistake) => {
-            const wordKey = `${mistake.surah_number}-${mistake.ayah_number}-${mistake.word_index}`;
+            const belongsToCurrentSession = mistake.session_id === sessionId;
+            if (currentSessionOnly !== belongsToCurrentSession) return;
+            const wordKey = getNormalizedMistakeWordKey(
+              mistake.surah_number,
+              mistake.ayah_number,
+              mistake.word_index,
+              pageWordKeys
+            );
+            if (!wordKey) return;
             m.set(wordKey, {
               category: (mistake.mistake_category as MistakeCategory) || 'tajweed',
               date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : '',
@@ -192,8 +187,8 @@ export const SessionMushafViewer = ({
           return m;
         };
 
-        setHighlightedWords(toMap(sessionRes.data));
-        setPastMistakes(toMap(pastRes.data));
+        setHighlightedWords(toMap(rows, true));
+        setPastMistakes(toMap(rows, false));
       } catch (err) {
         if (!cancelled) console.error('Error loading mistakes for reciter:', err);
       }
@@ -202,7 +197,7 @@ export const SessionMushafViewer = ({
     return () => {
       cancelled = true;
     };
-  }, [sessionId, pageData?.page_number, reciterId]);
+  }, [sessionId, pageData, reciterId, mistakeRefreshNonce]);
 
 
   // Unified real-time subscription for all mistakes (current and past sessions)
