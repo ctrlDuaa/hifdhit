@@ -393,10 +393,19 @@ export const SessionMushafViewer = ({
           });
         }
         
+        const matchingMistakeIds = await fetchCanonicalMistakeIdsForPageWord(
+          reciterId,
+          selectedWord.surah,
+          selectedWord.ayah,
+          currentPage,
+          pageData,
+          wordKey
+        );
+
         const { error } = await supabase
           .from('mistakes')
           .update({ mistake_category: category })
-          .eq('id', existingMistake.mistakeId);
+          .in('id', matchingMistakeIds.length > 0 ? matchingMistakeIds : [existingMistake.mistakeId]);
         
         if (error) throw error;
         
@@ -595,9 +604,18 @@ export const SessionMushafViewer = ({
     }
     
     try {
-      const {
-        error
-      } = await supabase.from('mistakes').delete().eq('id', existingMistake.mistakeId);
+      const matchingMistakeIds = await fetchCanonicalMistakeIdsForPageWord(
+        reciterId,
+        selectedWord.surah,
+        selectedWord.ayah,
+        currentPage,
+        pageData,
+        wordKey
+      );
+      const { error } = await supabase
+        .from('mistakes')
+        .delete()
+        .in('id', matchingMistakeIds.length > 0 ? matchingMistakeIds : [existingMistake.mistakeId]);
       if (error) throw error;
 
       console.log('Mistake deleted');
