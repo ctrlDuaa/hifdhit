@@ -725,9 +725,9 @@ export const SessionMushafViewer = ({
         error
       } = await supabase.from('mistakes').delete().eq('id', existingMistake.mistakeId);
       if (error) throw error;
-      
+
       console.log('Mistake deleted');
-      
+
       toast({
         title: "Mistake Removed",
         description: "Word unmarked successfully"

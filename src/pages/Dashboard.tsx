@@ -990,39 +990,27 @@ const Dashboard = () => {
   const loadUserMistakes = async () => {
     if (!user) return;
     try {
-      // Load from mistakes table
+      // Source of truth for badge counts is the canonical `mistakes` table.
+      // Review-session mistakes are mirrored into this table on save, so
+      // counting it alone keeps the badge in sync when checkers remove a
+      // mistake during a live session (they can delete from `mistakes` but
+      // not from `block_review_mistakes` due to RLS).
       const { data: mistakesData, error: err1 } = await supabase
         .from('mistakes')
         .select('surah_number, ayah_number, word_index')
         .eq('reciter_id', user.id);
-      
-      // Load from block_review_mistakes table
-      const { data: blockData, error: err2 } = await supabase
-        .from('block_review_mistakes')
-        .select('surah_id, ayah_number, word_index')
-        .eq('user_id', user.id);
 
       if (err1) throw err1;
-      
-      // Count current mistake words per surah from both sources. Review mistakes
-      // are also mirrored into `mistakes`, so use word keys to avoid double counts.
+
       const mistakeCount: { [key: number]: number } = {};
       const seenMistakeKeys = new Set<string>();
-      const countMistake = (surahNumber: number, ayahNumber: number, wordIndex: number) => {
-        const key = `${surahNumber}:${ayahNumber}:${wordIndex}`;
+      mistakesData?.forEach(mistake => {
+        const key = `${mistake.surah_number}:${mistake.ayah_number}:${mistake.word_index}`;
         if (seenMistakeKeys.has(key)) return;
         seenMistakeKeys.add(key);
-        mistakeCount[surahNumber] = (mistakeCount[surahNumber] || 0) + 1;
-      };
-      mistakesData?.forEach(mistake => {
-        countMistake(mistake.surah_number, mistake.ayah_number, mistake.word_index);
+        mistakeCount[mistake.surah_number] = (mistakeCount[mistake.surah_number] || 0) + 1;
       });
-      if (!err2 && blockData) {
-        blockData.forEach(bm => {
-          countMistake(bm.surah_id, bm.ayah_number, bm.word_index);
-        });
-      }
-      
+
       setSurahMistakes(mistakeCount);
     } catch (error) {
       console.error('Error loading mistakes:', error);
