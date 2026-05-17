@@ -1,3 +1,5 @@
+import { supabase } from '@/integrations/supabase/client';
+
 type PageWordLike = {
   surah?: number | null;
   ayah?: number | null;
@@ -28,6 +30,49 @@ export const buildPageWordKeySet = (page: PageLike | null | undefined): Set<stri
   });
 
   return keys;
+};
+
+export const getSurahsOnPage = (page: PageLike | null | undefined): number[] => {
+  const surahs = new Set<number>();
+
+  page?.lines?.forEach((line) => {
+    line.words?.forEach((word) => {
+      if (typeof word.surah === 'number') surahs.add(word.surah);
+    });
+  });
+
+  return [...surahs];
+};
+
+export const fetchCanonicalMistakesForPage = async (
+  reciterId: string,
+  pageNumber: number,
+  page: PageLike | null | undefined
+) => {
+  const surahsOnPage = getSurahsOnPage(page);
+
+  const { data: pageMistakes, error: pageError } = await supabase
+    .from('mistakes')
+    .select('*')
+    .eq('reciter_id', reciterId)
+    .eq('page_number', pageNumber);
+
+  if (pageError) throw pageError;
+
+  if (surahsOnPage.length === 0) {
+    return pageMistakes ?? [];
+  }
+
+  const { data: noPageMistakes, error: noPageError } = await supabase
+    .from('mistakes')
+    .select('*')
+    .eq('reciter_id', reciterId)
+    .is('page_number', null)
+    .in('surah_number', surahsOnPage);
+
+  if (noPageError) throw noPageError;
+
+  return [...(pageMistakes ?? []), ...(noPageMistakes ?? [])];
 };
 
 export const getNormalizedMistakeWordKey = (
