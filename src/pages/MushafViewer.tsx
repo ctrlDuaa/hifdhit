@@ -335,7 +335,7 @@ const MushafViewer = () => {
       <div className="min-h-screen bg-background p-4">
         <div className="max-w-4xl mx-auto">
           <div className="mb-4">
-            <Button variant="ghost" onClick={() => navigate('/dashboard')}>
+            <Button variant="ghost" onClick={() => navigate('/dashboard', { state: { refreshStats: true } })}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Dashboard
             </Button>
