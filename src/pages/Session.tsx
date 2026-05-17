@@ -663,7 +663,7 @@ const Session = () => {
                     </div>
                   )}
                   <SessionMushafViewer
-                    key={`${sessionId}-${reciterId}-${forceRefresh}-${currentPage}`}
+                    key={`${sessionId}-${reciterId}-${userRole}-${forceRefresh}-${currentPage}`}
                     sessionId={sessionId!}
                     initialPage={currentPage}
                     userRole={userRole!}
