@@ -356,7 +356,7 @@ const MushafViewer = () => {
       {/* Navigation Header */}
       <div className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b p-4 z-10">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <Button variant="ghost" onClick={() => navigate('/dashboard')}>
+          <Button variant="ghost" onClick={() => navigate('/dashboard', { state: { refreshStats: true } })}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Dashboard
           </Button>
