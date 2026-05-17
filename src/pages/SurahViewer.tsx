@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { AppHeader } from '@/components/AppHeader';
-import { buildPageWordKeySet, fetchCanonicalMistakesForPage, getNormalizedMistakeWordKey } from '@/lib/mushafMistakeUtils';
+import { buildPageWordKeySet, computeMistakeMapSignature, diffMistakeMaps, fetchCanonicalMistakesForPage, getNormalizedMistakeWordKey, mistakeDiffHasChanges } from '@/lib/mushafMistakeUtils';
 import { quranApi } from '@/services/quranApi';
 import { useQcfFontLoader } from '@/hooks/useQcfFontLoader';
 
