@@ -46,7 +46,7 @@ const fromOverviewMistakeCategory = (cat: string | null | undefined): MistakeTyp
 };
 
 interface PreexistingMistake {
-  id: string;
+  ids: string[];
   mistakeType: MistakeType;
 }
 
@@ -90,14 +90,18 @@ export function useBlockReview() {
           // DB stores 1-based word_index; in-memory uses 0-based.
           const wordIdx = Math.max(0, (row.word_index ?? 1) - 1);
           const key = `${row.ayah_number}:${wordIdx}`;
-          if (initialMistakes.has(key)) continue;
+          const existingPre = initialPreexisting.get(key);
+          if (existingPre) {
+            existingPre.ids.push(row.id);
+            continue;
+          }
           initialMistakes.set(key, {
             ayahNumber: row.ayah_number,
             wordIndex: wordIdx,
             wordText: '',
             mistakeType: type,
           });
-          initialPreexisting.set(key, { id: row.id, mistakeType: type });
+          initialPreexisting.set(key, { ids: [row.id], mistakeType: type });
         }
       }
       setMistakes(initialMistakes);
@@ -266,7 +270,7 @@ export function useBlockReview() {
       word_index: number; mistake_category: string;
     }> = [];
     const overviewIdsToDelete: string[] = [];
-    const overviewUpdates: Array<{ id: string; mistake_category: string }> = [];
+    const overviewUpdates: Array<{ ids: string[]; mistake_category: string }> = [];
 
     for (const m of mistakeList) {
       const key = `${m.ayahNumber}:${m.wordIndex}`;
@@ -281,13 +285,13 @@ export function useBlockReview() {
         });
       } else if (pre.mistakeType !== m.mistakeType) {
         overviewUpdates.push({
-          id: pre.id,
+          ids: pre.ids,
           mistake_category: toOverviewMistakeCategory(m.mistakeType),
         });
       }
     }
     for (const [key, pre] of preexistingMistakes.entries()) {
-      if (!currentKeys.has(key)) overviewIdsToDelete.push(pre.id);
+      if (!currentKeys.has(key)) overviewIdsToDelete.push(...pre.ids);
     }
 
     if (overviewRowsToInsert.length > 0) {
@@ -295,7 +299,7 @@ export function useBlockReview() {
       if (overviewMistakesError) throw overviewMistakesError;
     }
     for (const upd of overviewUpdates) {
-      await supabase.from('mistakes').update({ mistake_category: upd.mistake_category }).eq('id', upd.id);
+      await supabase.from('mistakes').update({ mistake_category: upd.mistake_category }).in('id', upd.ids);
     }
     if (overviewIdsToDelete.length > 0) {
       await supabase.from('mistakes').delete().in('id', overviewIdsToDelete);
