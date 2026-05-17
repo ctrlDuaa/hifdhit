@@ -369,6 +369,7 @@ export const MushafContextLines = ({
               );
             })}
           </div>
+          </div>
         );
       })}
     </div>
