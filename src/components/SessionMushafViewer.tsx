@@ -142,6 +142,11 @@ export const SessionMushafViewer = ({
     loadPageData(currentPage);
   }, [currentPage]);
 
+  // Refs hold the last applied signature so we can skip no-op renders
+  // and log meaningful diffs when realtime events arrive.
+  const highlightedSigRef = useRef<string>('');
+  const pastSigRef = useRef<string>('');
+
   // Load the canonical mistake set for this reciter/page, regardless of whether
   // a mistake was created in Quran Overview, independent review, or a joint session.
   useEffect(() => {
@@ -154,8 +159,9 @@ export const SessionMushafViewer = ({
 
     console.log('🔁 Reloading mistakes for reciterId:', activeReciterId, 'page:', activePage);
 
-    // Clear stale marks immediately so the previous reciter's highlights
-    // never visually persist while the new fetch is in flight.
+    // On reciter/page change, reset signatures so the first fetch always applies.
+    highlightedSigRef.current = '';
+    pastSigRef.current = '';
     setHighlightedWords(new Map());
     setPastMistakes(new Map());
 
@@ -187,8 +193,34 @@ export const SessionMushafViewer = ({
           return m;
         };
 
-        setHighlightedWords(toMap(rows, true));
-        setPastMistakes(toMap(rows, false));
+        const nextHighlighted = toMap(rows, true);
+        const nextPast = toMap(rows, false);
+
+        setHighlightedWords((prev) => {
+          const diff = diffMistakeMaps(prev, nextHighlighted);
+          const sig = computeMistakeMapSignature(nextHighlighted);
+          if (sig === highlightedSigRef.current && !mistakeDiffHasChanges(diff)) {
+            return prev;
+          }
+          highlightedSigRef.current = sig;
+          if (mistakeDiffHasChanges(diff)) {
+            console.log('🩺 Mistake consistency diff (current session):', diff);
+          }
+          return nextHighlighted;
+        });
+
+        setPastMistakes((prev) => {
+          const diff = diffMistakeMaps(prev, nextPast);
+          const sig = computeMistakeMapSignature(nextPast);
+          if (sig === pastSigRef.current && !mistakeDiffHasChanges(diff)) {
+            return prev;
+          }
+          pastSigRef.current = sig;
+          if (mistakeDiffHasChanges(diff)) {
+            console.log('🩺 Mistake consistency diff (past):', diff);
+          }
+          return nextPast;
+        });
       } catch (err) {
         if (!cancelled) console.error('Error loading mistakes for reciter:', err);
       }
@@ -200,10 +232,20 @@ export const SessionMushafViewer = ({
   }, [sessionId, pageData, reciterId, mistakeRefreshNonce]);
 
 
-  // Refresh the canonical mistake set when any mistake changes. Keep this
-  // unfiltered because DELETE payloads may not include reciter/page columns.
+  // Realtime + safety re-sync: refresh the canonical mistake set when any
+  // mistake changes, debounced to coalesce bursts, plus a 15s consistency
+  // check that catches dropped realtime events.
   useEffect(() => {
     if (!sessionId || !pageData || !reciterId) return;
+
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefresh = (reason: string) => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        console.log('🛰️ Mistake refresh triggered by:', reason);
+        setMistakeRefreshNonce((value) => value + 1);
+      }, 150);
+    };
 
     const channel = supabase
       .channel(`all-mistakes-${reciterId}-${pageData.page_number}-${Date.now()}`)
@@ -211,20 +253,27 @@ export const SessionMushafViewer = ({
         event: '*',
         schema: 'public',
         table: 'mistakes',
-      }, () => {
-        setMistakeRefreshNonce((value) => value + 1);
+      }, (payload) => {
+        scheduleRefresh(`realtime:${payload.eventType}`);
       })
       .subscribe((status, err) => {
         if (err) {
           console.error('❌ Mistake subscription error:', userRole, err);
         }
       });
-    
+
+    const safetyInterval = setInterval(() => {
+      scheduleRefresh('safety-resync');
+    }, 15000);
+
     return () => {
       console.log('🔌 Cleaning up subscription for role:', userRole);
+      if (debounceTimer) clearTimeout(debounceTimer);
+      clearInterval(safetyInterval);
       supabase.removeChannel(channel);
     };
   }, [sessionId, pageData?.page_number, reciterId, userRole]);
+
   
   // Handle click outside to close popover
   useEffect(() => {
