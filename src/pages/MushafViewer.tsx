@@ -160,7 +160,6 @@ const MushafViewer = () => {
         event: '*',
         schema: 'public',
         table: 'mistakes',
-        filter: `reciter_id=eq.${user.id}`
       }, () => {
         // Reload regardless of page_number — covers session, memorization, and any source
         loadMistakesForPage(currentPage);
