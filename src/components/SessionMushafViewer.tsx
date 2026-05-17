@@ -872,12 +872,20 @@ export const SessionMushafViewer = ({
         </div>
       </div>;
   }
-  if (error || !pageData) {
-    return <Alert variant="destructive">
-        <AlertDescription>
-          {error || `Page ${currentPage} not found. Please import the required Mushaf data first.`}
-        </AlertDescription>
-      </Alert>;
+  if (!pageData) {
+    return <div className="space-y-4">
+        <div className="flex items-center justify-center gap-4">
+          <Skeleton className="h-10 w-24" />
+          <Skeleton className="h-6 w-32" />
+          <Skeleton className="h-10 w-24" />
+        </div>
+        <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+          Loading page {currentPage}…
+        </div>
+        <div className="space-y-3">
+          {Array.from({ length: 15 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
+        </div>
+      </div>;
   }
   return <div className="space-y-4">
       {/* Navigation Header */}
