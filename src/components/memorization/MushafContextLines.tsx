@@ -191,13 +191,73 @@ export const MushafContextLines = ({
   // numbering (which previously caused two words to share the same mistake key).
   let targetAyahWordIdx = -1;
 
+  // Track surah transitions so we can render the surah-name + bismillah header
+  // when a new surah starts on the page (only meaningful in full-page mode).
+  let prevSurahOnPage: number | null = null;
+
   return (
     <div className={cn('space-y-1.5', className)}>
-      {linesToRender.map((ln) => {
+      {linesToRender.map((ln, lnIdx) => {
         const words = lineMap.get(ln) ?? [];
         const isAyahLine = ayahLines.includes(ln);
 
+        // Determine the surah & first-ayah this line belongs to (from first
+        // word that has a verse_key). Used for new-surah header detection.
+        let lineSurah: number | null = null;
+        let lineFirstAyah: number | null = null;
+        for (const w of words) {
+          if (!w.verse_key) continue;
+          const [sStr, aStr] = w.verse_key.split(':');
+          const s = Number(sStr);
+          const a = Number(aStr);
+          if (Number.isFinite(s) && Number.isFinite(a)) {
+            lineSurah = s;
+            lineFirstAyah = a;
+            break;
+          }
+        }
+
+        // Show a surah-name + bismillah header above this line when the page
+        // transitions into a new surah mid-page. Always show on the first line
+        // when it starts at ayah 1 of a surah (i.e. a new surah opens the page).
+        const isNewSurahStart =
+          showFullPage &&
+          lineSurah !== null &&
+          lineFirstAyah === 1 &&
+          (prevSurahOnPage === null ? lnIdx === 0 : lineSurah !== prevSurahOnPage);
+
+        if (lineSurah !== null) prevSurahOnPage = lineSurah;
+
+        const surahHeader = isNewSurahStart && lineSurah !== null ? (
+          <div className="my-4 flex flex-col items-center gap-3">
+            <div className="w-full max-w-3xl mx-auto">
+              <div className="h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+              <div className="flex items-center justify-center gap-2 -mt-3">
+                <div className="w-2 h-2 rotate-45 bg-primary/40" />
+                <div className="w-3 h-3 rotate-45 bg-primary/60" />
+                <div className="w-2 h-2 rotate-45 bg-primary/40" />
+              </div>
+            </div>
+            <div
+              className="text-center text-2xl md:text-3xl text-primary font-bold py-1"
+              style={{ fontFamily: 'DigitalKhattV2' }}
+            >
+              {getSurahNameAr(lineSurah)}
+            </div>
+            {lineSurah !== 1 && lineSurah !== 9 && (
+              <div
+                className="text-center text-xl md:text-2xl text-muted-foreground"
+                style={{ fontFamily: 'DigitalKhattV2', direction: 'rtl' }}
+              >
+                بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+              </div>
+            )}
+          </div>
+        ) : null;
+
         return (
+          <div key={`ctx-line-wrap-${ln}`}>
+            {surahHeader}
           <div
             key={`ctx-line-${ln}`}
             className={cn(
