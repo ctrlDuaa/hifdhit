@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { AppHeader } from '@/components/AppHeader';
-import { buildPageWordKeySet, getNormalizedMistakeWordKey } from '@/lib/mushafMistakeUtils';
+import { buildPageWordKeySet, fetchCanonicalMistakesForPage, getNormalizedMistakeWordKey } from '@/lib/mushafMistakeUtils';
 import { quranApi } from '@/services/quranApi';
 import { useQcfFontLoader } from '@/hooks/useQcfFontLoader';
 
@@ -393,7 +393,7 @@ const SurahViewer = () => {
     }
   }, [loadPage, user, preloadAdjacentPages]);
 
-  // Real-time subscription: refresh mistakes whenever any mistake (session, memorization, or block review) changes
+  // Real-time subscription: refresh whenever the canonical mistake set changes.
   useEffect(() => {
     if (!user || !currentPage) return;
 
@@ -409,21 +409,8 @@ const SurahViewer = () => {
       })
       .subscribe();
 
-    const blockChannel = supabase
-      .channel(`surahviewer-block-mistakes-${currentPage}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'block_review_mistakes',
-        filter: `user_id=eq.${user.id}`,
-      }, () => {
-        loadMistakesForPage(currentPage);
-      })
-      .subscribe();
-
     return () => {
       supabase.removeChannel(mistakesChannel);
-      supabase.removeChannel(blockChannel);
     };
   }, [user?.id, currentPage]);
 
@@ -431,33 +418,8 @@ const SurahViewer = () => {
     if (!user) return;
     try {
       const activePageData = pageOverride ?? pageData;
-      const activeSurahNumber = currentSurahNumber || parseInt(surahNumber || '1');
       const pageWordKeys = buildPageWordKeySet(activePageData);
-      // Query mistakes by page_number OR by surah where page_number is null (memorization mistakes)
-      const { data: pageData1, error: err1 } = await supabase
-        .from('mistakes')
-        .select('*')
-        .eq('reciter_id', user.id)
-        .eq('page_number', page);
-
-      const { data: noPageData, error: err2 } = await supabase
-        .from('mistakes')
-        .select('*')
-        .eq('reciter_id', user.id)
-        .is('page_number', null)
-        .eq('surah_number', activeSurahNumber);
-
-      if (err1) throw err1;
-      if (err2) throw err2;
-
-      // Also load block review mistakes for this surah
-      const { data: blockMistakes, error: err3 } = await supabase
-        .from('block_review_mistakes')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('surah_id', activeSurahNumber);
-
-      const allMistakes = [...(pageData1 || []), ...(noPageData || [])];
+      const allMistakes = await fetchCanonicalMistakesForPage(user.id, page, activePageData);
       // Deduplicate by word key (prefer the one with page_number set)
       const mistakeMap = new Map<string, { category: string; date?: string }>();
       const notesWithData: MistakeNote[] = [];
@@ -488,25 +450,6 @@ const SurahViewer = () => {
           }
         }
       });
-
-      if (!err3 && blockMistakes) {
-        blockMistakes.forEach(bm => {
-          const wordKey = getNormalizedMistakeWordKey(
-            bm.surah_id,
-            bm.ayah_number,
-            bm.word_index,
-            pageWordKeys
-          );
-          if (!wordKey) return;
-          if (!seenKeys.has(wordKey)) {
-            seenKeys.add(wordKey);
-            mistakeMap.set(wordKey, {
-              category: bm.mistake_type || 'incorrect',
-              date: bm.created_at ? format(new Date(bm.created_at), 'MMM dd, yyyy') : undefined
-            });
-          }
-        });
-      }
 
       setHighlightedWords(mistakeMap);
       setMistakeNotes(notesWithData);
