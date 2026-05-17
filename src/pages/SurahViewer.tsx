@@ -403,7 +403,6 @@ const SurahViewer = () => {
         event: '*',
         schema: 'public',
         table: 'mistakes',
-        filter: `reciter_id=eq.${user.id}`,
       }, () => {
         loadMistakesForPage(currentPage);
       })
