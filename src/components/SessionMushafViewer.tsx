@@ -906,7 +906,10 @@ export const SessionMushafViewer = ({
     };
     return surahNames[surahNumber] || `سورة ${surahNumber}`;
   };
-  if (loading) {
+  // Only show the skeleton on the very first load when we have nothing to display yet.
+  // If we already have pageData from a previous page, keep rendering it while the next
+  // page loads to prevent flicker when switching surah/ayah.
+  if (loading && !pageData) {
     return <div className="space-y-4">
         <div className="flex items-center justify-center gap-4">
           <Skeleton className="h-10 w-24" />
