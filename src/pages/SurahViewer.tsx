@@ -508,7 +508,7 @@ const SurahViewer = () => {
   const findFirstMistakePageForSurah = useCallback(async (surahNum: number) => {
     if (!user) return null;
 
-    const [pageMistakeResult, memorizationMistakeResult, reviewMistakeResult] = await Promise.all([
+    const [pageMistakeResult, memorizationMistakeResult] = await Promise.all([
       supabase
         .from('mistakes')
         .select('page_number, ayah_number, word_index')
@@ -529,21 +529,11 @@ const SurahViewer = () => {
         .order('ayah_number', { ascending: true })
         .order('word_index', { ascending: true })
         .limit(1)
-        .maybeSingle(),
-      supabase
-        .from('block_review_mistakes')
-        .select('surah_id, ayah_number, word_index')
-        .eq('user_id', user.id)
-        .eq('surah_id', surahNum)
-        .order('ayah_number', { ascending: true })
-        .order('word_index', { ascending: true })
-        .limit(1)
         .maybeSingle()
     ]);
 
     if (pageMistakeResult.error) throw pageMistakeResult.error;
     if (memorizationMistakeResult.error) throw memorizationMistakeResult.error;
-    if (reviewMistakeResult.error) throw reviewMistakeResult.error;
 
     const candidatePages = new Set<number>();
 
@@ -557,13 +547,6 @@ const SurahViewer = () => {
             memorizationMistakeResult.data.surah_number,
             memorizationMistakeResult.data.ayah_number,
             memorizationMistakeResult.data.word_index
-          )
-        : Promise.resolve(null),
-      reviewMistakeResult.data
-        ? resolveMistakeToPage(
-            reviewMistakeResult.data.surah_id,
-            reviewMistakeResult.data.ayah_number,
-            reviewMistakeResult.data.word_index
           )
         : Promise.resolve(null)
     ]);
