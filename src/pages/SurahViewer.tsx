@@ -398,18 +398,33 @@ const SurahViewer = () => {
   useEffect(() => {
     if (!user || !currentPage) return;
 
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefresh = (reason: string) => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        console.log('🛰️ SurahViewer mistake refresh:', reason);
+        loadMistakesForPage(currentPage);
+      }, 150);
+    };
+
     const mistakesChannel = supabase
       .channel(`surahviewer-mistakes-${currentPage}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'mistakes',
-      }, () => {
-        loadMistakesForPage(currentPage);
+      }, (payload) => {
+        scheduleRefresh(`realtime:${payload.eventType}`);
       })
       .subscribe();
 
+    const safetyInterval = setInterval(() => {
+      scheduleRefresh('safety-resync');
+    }, 15000);
+
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      clearInterval(safetyInterval);
       supabase.removeChannel(mistakesChannel);
     };
   }, [user?.id, currentPage]);
@@ -451,7 +466,18 @@ const SurahViewer = () => {
         }
       });
 
-      setHighlightedWords(mistakeMap);
+      setHighlightedWords((prev) => {
+        const diff = diffMistakeMaps(prev, mistakeMap);
+        const sig = computeMistakeMapSignature(mistakeMap);
+        if (sig === highlightedSigRef.current && !mistakeDiffHasChanges(diff)) {
+          return prev;
+        }
+        highlightedSigRef.current = sig;
+        if (mistakeDiffHasChanges(diff)) {
+          console.log('🩺 SurahViewer mistake diff:', diff);
+        }
+        return mistakeMap;
+      });
       setMistakeNotes(notesWithData);
     } catch (err) {
       console.error('Error loading mistakes:', err);
