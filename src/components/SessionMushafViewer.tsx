@@ -725,9 +725,20 @@ export const SessionMushafViewer = ({
         error
       } = await supabase.from('mistakes').delete().eq('id', existingMistake.mistakeId);
       if (error) throw error;
-      
+
+      // Also remove any mirrored row in `block_review_mistakes` for the same
+      // word so the Quran Overview badge count drops accordingly.
+      const { error: brmError } = await supabase
+        .from('block_review_mistakes')
+        .delete()
+        .eq('user_id', reciterId)
+        .eq('surah_id', selectedWord.surah)
+        .eq('ayah_number', selectedWord.ayah)
+        .eq('word_index', selectedWord.word);
+      if (brmError) console.error('Error removing mirrored block_review_mistakes:', brmError);
+
       console.log('Mistake deleted');
-      
+
       toast({
         title: "Mistake Removed",
         description: "Word unmarked successfully"
