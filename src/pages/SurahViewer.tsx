@@ -838,7 +838,7 @@ const SurahViewer = () => {
               <div className="text-center">
                 <p className="text-muted-foreground mb-4">Failed to load Mushaf page</p>
                 <p className="text-sm text-red-500 mb-4">{error}</p>
-                <Button onClick={() => navigate('/dashboard')} variant="outline">
+                <Button onClick={() => navigate('/dashboard', { state: { refreshStats: true } })} variant="outline">
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Dashboard
                 </Button>
@@ -911,7 +911,7 @@ const SurahViewer = () => {
       <div className="container mx-auto px-4 py-8">
         {/* Navigation Header */}
         <div className="mb-6">
-          <Button onClick={() => navigate('/dashboard')} variant="ghost" className="mb-4">
+          <Button onClick={() => navigate('/dashboard', { state: { refreshStats: true } })} variant="ghost" className="mb-4">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboard
           </Button>

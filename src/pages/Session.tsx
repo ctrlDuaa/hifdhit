@@ -106,7 +106,7 @@ const Session = () => {
       setShowExitDialog(true);
     } else {
       await leaveSession();
-      navigate('/dashboard');
+      navigate('/dashboard', { state: { refreshStats: true } });
     }
   };
 

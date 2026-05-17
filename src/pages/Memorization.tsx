@@ -223,12 +223,12 @@ const Memorization = () => {
       await saveSessionStats(state);
     }
     endSession();
-    navigate('/dashboard');
+    navigate('/dashboard', { state: { refreshStats: true } });
   };
 
   const handleExit = () => {
     pauseSession(); // keep data in localStorage for resume
-    navigate('/dashboard');
+    navigate('/dashboard', { state: { refreshStats: true } });
   };
 
   // Resume dialog — shown when no active React state but localStorage has data
