@@ -612,6 +612,37 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
                   </Button>
                 </div>
 
+                {/* Recitation counter — mobile inline, desktop hidden (desktop has fixed widget) */}
+                <div className="flex md:hidden items-center justify-center gap-2 border-t pt-4">
+                  <span className="text-xs text-muted-foreground mr-1">Recitations</span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 rounded-full"
+                    onClick={() => setRecitationCount(c => Math.max(0, c - 1))}
+                    disabled={recitationCount <= 0}
+                  >
+                    <Minus className="w-3 h-3" />
+                  </Button>
+                  <span className="min-w-[2.5rem] text-center font-semibold text-lg tabular-nums">{recitationCount}</span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 rounded-full border-[#C6A477] text-[#C6A477] hover:bg-[#C6A477]/10"
+                    onClick={() => setRecitationCount(c => c + 1)}
+                  >
+                    <Plus className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => setRecitationCount(0)}
+                  >
+                    <RotateCcw className="w-3 h-3 mr-1" /> Reset
+                  </Button>
+                </div>
+
                 {/* Continue + Back buttons */}
                 <div className="flex justify-center gap-3 pt-4 border-t">
                   {onGoBack && stageIndex > 0 && (
