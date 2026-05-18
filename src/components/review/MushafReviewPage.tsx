@@ -265,8 +265,8 @@ export const MushafReviewPage = ({
                           className={cn(
                             'relative inline-block transition-all',
                             interactive && 'cursor-pointer',
-                            !inRange && 'opacity-40',
                             blurred && 'blur-sm hover:blur-none',
+                            isEnd && 'text-[#C6A477]/80 mx-0.5',
                           )}
                           style={{ margin: '0 0.5px' }}
                           onClick={interactive
