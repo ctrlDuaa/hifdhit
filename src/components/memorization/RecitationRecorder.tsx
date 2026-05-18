@@ -43,6 +43,8 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
   const [peaks, setPeaks] = useState<number[]>([]);
   const [duration, setDuration] = useState(0);
   const [position, setPosition] = useState(0);
+  const [playbackRate, setPlaybackRate] = useState(1.0);
+
 
   // Cleanup helpers
   const stopStream = () => {
@@ -118,6 +120,7 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
     peaksRef.current = [];
     setDuration(0);
     setPosition(0);
+    setPlaybackRate(1.0);
     revokeUrl(audioUrl);
     setAudioUrl(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -238,8 +241,12 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
 
   const ensureAudio = useCallback(() => {
     if (!audioUrl) return null;
-    if (audioRef.current) return audioRef.current;
+    if (audioRef.current) {
+      audioRef.current.playbackRate = playbackRate;
+      return audioRef.current;
+    }
     const a = new Audio(audioUrl);
+    a.playbackRate = playbackRate;
     a.preload = 'metadata';
     const trackPosition = () => {
       setPosition(a.currentTime || 0);
@@ -282,7 +289,7 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
     a.addEventListener('loadedmetadata', settleDuration);
     audioRef.current = a;
     return a;
-  }, [audioUrl]);
+  }, [audioUrl, playbackRate]);
 
   const togglePlayback = useCallback(() => {
     const a = ensureAudio();
@@ -477,6 +484,31 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
                 : formatTime(duration || elapsed)}
             </span>
           </div>
+        </div>
+      )}
+
+      {/* Playback speed toggles */}
+      {!recording && audioUrl && (
+        <div className="flex items-center gap-1">
+          {([0.75, 1, 1.25] as const).map((rate) => (
+            <button
+              key={rate}
+              onClick={() => {
+                setPlaybackRate(rate);
+                if (audioRef.current) {
+                  audioRef.current.playbackRate = rate;
+                }
+              }}
+              className={cn(
+                'text-[10px] px-1.5 py-0.5 rounded-md border transition-colors',
+                playbackRate === rate
+                  ? 'border-[#C6A477] text-[#C6A477] bg-[#C6A477]/10'
+                  : 'border-border text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {rate}x
+            </button>
+          ))}
         </div>
       )}
 
