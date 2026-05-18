@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Play, Pause, RotateCcw, ChevronRight, ChevronLeft, LogOut, FileText,
+  Plus, Minus,
 } from 'lucide-react';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetClose,
