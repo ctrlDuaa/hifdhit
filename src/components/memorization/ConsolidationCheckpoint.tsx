@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MemorizationSessionState } from '@/types/memorization';
 import { MemorizationAyah } from '@/hooks/useMemorizationSession';
+import { RecitationRecorder } from '@/components/memorization/RecitationRecorder';
 
 interface Props {
   state: MemorizationSessionState;
