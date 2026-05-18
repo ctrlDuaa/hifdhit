@@ -62,6 +62,7 @@ export const MushafReviewPage = ({
   const [pages, setPages] = useState<number[]>([]);
   const [pageWords, setPageWords] = useState<QcfWord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activePageIdx, setActivePageIdx] = useState(0);
 
   // Resolve the page range covering the ayat, then load each page.
   useEffect(() => {
