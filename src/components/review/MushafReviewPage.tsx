@@ -70,6 +70,7 @@ export const MushafReviewPage = ({
     setLoading(true);
     setPageWords([]);
     setPages([]);
+    setActivePageIdx(0);
 
     (async () => {
       try {
