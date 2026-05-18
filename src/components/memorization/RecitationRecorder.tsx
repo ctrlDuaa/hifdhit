@@ -45,6 +45,8 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
   const [position, setPosition] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1.0);
 
+  // Ref to always hold the latest audioUrl for unmount cleanup
+  const latestAudioUrlRef = useRef<string | null>(null);
 
   // Cleanup helpers
   const stopStream = () => {
