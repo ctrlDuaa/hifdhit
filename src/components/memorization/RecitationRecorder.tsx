@@ -77,6 +77,7 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
     }
     setPlaying(false);
     setElapsed(0);
+    setMicError(null);
     revokeUrl(audioUrl);
     setAudioUrl(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
