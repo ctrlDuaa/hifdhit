@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Play, Pause, RotateCcw, ChevronRight, ChevronLeft, LogOut, FileText,
+  Plus, Minus,
 } from 'lucide-react';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetClose,
@@ -100,6 +101,9 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   const [noteDrawerOpen, setNoteDrawerOpen] = useState(false);
   const [currentNote, setCurrentNote] = useState('');
 
+  // Recitation counter for current verse
+  const [recitationCount, setRecitationCount] = useState(0);
+
   const chunk = state.chunks[state.currentChunkIndex];
   const currentAyahNum = chunk ? chunk.ayahStart + state.currentAyahInChunk : 0;
   const surahId = state.config.surahId;
@@ -144,6 +148,11 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
     };
     loadMistakes();
   }, [user, surahId, state.config.ayahStart, state.config.ayahEnd]);
+
+  // Reset recitation counter whenever the current ayah changes
+  useEffect(() => {
+    setRecitationCount(0);
+  }, [currentAyahNum]);
 
   // ── Audio management ─────────────────────────────────────
   // Reset playing state and tear down any prior Audio when the verse changes.
@@ -603,6 +612,37 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
                   </Button>
                 </div>
 
+                {/* Recitation counter — mobile inline, desktop hidden (desktop has fixed widget) */}
+                <div className="flex md:hidden items-center justify-center gap-2 border-t pt-4">
+                  <span className="text-xs text-muted-foreground mr-1">Recitations</span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 rounded-full"
+                    onClick={() => setRecitationCount(c => Math.max(0, c - 1))}
+                    disabled={recitationCount <= 0}
+                  >
+                    <Minus className="w-3 h-3" />
+                  </Button>
+                  <span className="min-w-[2.5rem] text-center font-semibold text-lg tabular-nums">{recitationCount}</span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 rounded-full border-[#C6A477] text-[#C6A477] hover:bg-[#C6A477]/10"
+                    onClick={() => setRecitationCount(c => c + 1)}
+                  >
+                    <Plus className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => setRecitationCount(0)}
+                  >
+                    <RotateCcw className="w-3 h-3 mr-1" /> Reset
+                  </Button>
+                </div>
+
                 {/* Continue + Back buttons */}
                 <div className="flex justify-center gap-3 pt-4 border-t">
                   {onGoBack && stageIndex > 0 && (
@@ -647,6 +687,43 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
             />
           </>
         )}
+      </div>
+
+      {/* ── Desktop recitation counter (fixed right side) ── */}
+      <div className="hidden md:flex fixed right-6 top-1/2 -translate-y-1/2 z-30 flex-col items-center gap-3">
+        <Card className="shadow-lg border-border/50 w-[110px]">
+          <CardContent className="p-3 flex flex-col items-center gap-2">
+            <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Recitations</span>
+            <span className="text-3xl font-bold tabular-nums text-foreground">{recitationCount}</span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-full"
+                onClick={() => setRecitationCount(c => Math.max(0, c - 1))}
+                disabled={recitationCount <= 0}
+              >
+                <Minus className="w-3 h-3" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-full border-[#C6A477] text-[#C6A477] hover:bg-[#C6A477]/10"
+                onClick={() => setRecitationCount(c => c + 1)}
+              >
+                <Plus className="w-3 h-3" />
+              </Button>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs text-muted-foreground hover:text-foreground h-7 px-2"
+              onClick={() => setRecitationCount(0)}
+            >
+              <RotateCcw className="w-3 h-3 mr-1" /> Reset
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       {/* ── Mistake category popover (same layout as SessionMushafViewer) ── */}
