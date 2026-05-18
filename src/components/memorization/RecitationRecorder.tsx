@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Mic, Square, Play, Pause, Trash2 } from 'lucide-react';
+import { Mic, Square, Play, Pause, Trash2, MicOff, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
@@ -29,6 +29,7 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
   const [elapsed, setElapsed] = useState(0); // seconds
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [micError, setMicError] = useState<'denied' | 'unavailable' | null>(null);
 
   // Cleanup helpers
   const stopStream = () => {
@@ -76,6 +77,7 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
     }
     setPlaying(false);
     setElapsed(0);
+    setMicError(null);
     revokeUrl(audioUrl);
     setAudioUrl(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -83,6 +85,7 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
 
   const startRecording = useCallback(async () => {
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      setMicError('unavailable');
       toast({ title: 'Recording not supported in this browser', variant: 'destructive' });
       return;
     }
@@ -95,6 +98,7 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
     revokeUrl(audioUrl);
     setAudioUrl(null);
     setElapsed(0);
+    setMicError(null);
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -126,10 +130,14 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
         setElapsed(Math.floor((Date.now() - startedAt) / 1000));
       }, 250);
     } catch (err) {
+      const isDenied = err instanceof DOMException && (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError');
+      setMicError(isDenied ? 'denied' : 'unavailable');
       console.error('[recitation-recorder] mic permission denied or unavailable', err);
       toast({
-        title: 'Microphone unavailable',
-        description: 'Please allow microphone access to record your recitation.',
+        title: isDenied ? 'Microphone access denied' : 'Microphone unavailable',
+        description: isDenied
+          ? 'Please allow microphone access in your browser settings to record your recitation.'
+          : 'Your microphone could not be accessed. Please check your device.',
         variant: 'destructive',
       });
     }
@@ -176,7 +184,30 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
     return `${m}:${sec.toString().padStart(2, '0')}`;
   };
 
-  const body = (
+  const permissionBody = micError ? (
+    <>
+      <MicOff className="w-5 h-5 text-destructive" />
+      <span className="text-xs font-medium text-center leading-snug">
+        {micError === 'denied'
+          ? 'Microphone access was denied'
+          : 'Microphone is not available'}
+      </span>
+      <span className="text-[11px] text-muted-foreground text-center leading-snug">
+        {micError === 'denied'
+          ? 'Allow microphone access in your browser settings, then try again.'
+          : 'Please check your device or try a different browser.'}
+      </span>
+      <Button
+        variant="outline"
+        size="sm"
+        className="rounded-full border-[#C6A477] text-[#C6A477] hover:bg-[#C6A477]/10 gap-1.5"
+        onClick={startRecording}
+      >
+        <RotateCcw className="w-3.5 h-3.5" />
+        Retry
+      </Button>
+    </>
+  ) : (
     <>
       <span className="text-[11px] text-muted-foreground uppercase tracking-wide">My Recitation</span>
 
@@ -252,7 +283,7 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
   if (variant === 'inline') {
     return (
       <div className={cn('flex items-center justify-center gap-2 flex-wrap', className)}>
-        {body}
+        {permissionBody}
       </div>
     );
   }
@@ -261,10 +292,11 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
     <div
       className={cn(
         'rounded-xl border border-border/50 bg-card shadow-sm p-3 flex flex-col items-center gap-2',
+        micError && 'border-destructive/30',
         className,
       )}
     >
-      {body}
+      {permissionBody}
     </div>
   );
 };
