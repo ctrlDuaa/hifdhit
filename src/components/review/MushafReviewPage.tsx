@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { quranApi } from '@/services/quranApi';
 import { useQcfFontLoader } from '@/hooks/useQcfFontLoader';
 import { cn } from '@/lib/utils';
@@ -60,6 +62,7 @@ export const MushafReviewPage = ({
   const [pages, setPages] = useState<number[]>([]);
   const [pageWords, setPageWords] = useState<QcfWord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activePageIdx, setActivePageIdx] = useState(0);
 
   // Resolve the page range covering the ayat, then load each page.
   useEffect(() => {
@@ -67,6 +70,7 @@ export const MushafReviewPage = ({
     setLoading(true);
     setPageWords([]);
     setPages([]);
+    setActivePageIdx(0);
 
     (async () => {
       try {
@@ -160,156 +164,184 @@ export const MushafReviewPage = ({
     );
   }
 
+  const pageNum = pages[activePageIdx];
+  const lineMap = pageNum != null ? pageLineMap.get(pageNum) : undefined;
+  const lines = lineMap ? Array.from(lineMap.keys()).sort((a, b) => a - b) : [];
+
+  // Track per-ayah word index across the page (resets per ayah).
+  const ayahWordCounters = new Map<number, number>();
+
+  // Detect surah boundaries on this page.
+  const lineSurahStart = new Map<number, number>();
+  {
+    let prevSurah: number | null = null;
+    for (const ln of lines) {
+      const ws = lineMap!.get(ln) ?? [];
+      const firstWord = ws.find(w => w.char_type_name !== 'end' && !!w.verse_key);
+      if (!firstWord?.verse_key) continue;
+      const [sStr, aStr] = firstWord.verse_key.split(':');
+      const s = Number(sStr);
+      const a = Number(aStr);
+      if (!Number.isFinite(s)) continue;
+      if (a === 1 && s !== prevSurah) lineSurahStart.set(ln, s);
+      prevSurah = s;
+    }
+  }
+
   return (
-    <div className={cn('space-y-6', className)}>
-      {pages.map((pageNum) => {
-        const lineMap = pageLineMap.get(pageNum);
-        if (!lineMap) return null;
-        const lines = Array.from(lineMap.keys()).sort((a, b) => a - b);
-
-        // Track per-ayah word index across the whole page (resets per ayah).
-        const ayahWordCounters = new Map<number, number>();
-
-        // Detect surah boundaries on this page: any line whose first non-end
-        // word is the start (ayah 1) of a surah different from the previous
-        // line's surah marks a new-surah header.
-        const lineSurahStart = new Map<number, number>();
-        let prevSurah: number | null = null;
-        for (const ln of lines) {
-          const ws = lineMap.get(ln) ?? [];
-          const firstWord = ws.find(w => w.char_type_name !== 'end' && !!w.verse_key);
-          if (!firstWord?.verse_key) continue;
-          const [sStr, aStr] = firstWord.verse_key.split(':');
-          const s = Number(sStr);
-          const a = Number(aStr);
-          if (!Number.isFinite(s)) continue;
-          if (a === 1 && s !== prevSurah) lineSurahStart.set(ln, s);
-          prevSurah = s;
-        }
-
-        return (
-          <div key={`page-${pageNum}`} className="space-y-1.5">
-            {lines.map((ln) => {
-              const words = lineMap.get(ln) ?? [];
-              const newSurah = lineSurahStart.get(ln);
-              return (
-                <div key={`p${pageNum}-line-${ln}-wrap`}>
-                  {newSurah && (
-                    <div className="my-6 flex flex-col items-center gap-3">
-                      <div className="w-full max-w-3xl mx-auto">
-                        <div className="h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
-                        <div className="flex items-center justify-center gap-2 -mt-3">
-                          <div className="w-2 h-2 rotate-45 bg-primary/40" />
-                          <div className="w-3 h-3 rotate-45 bg-primary/60" />
-                          <div className="w-2 h-2 rotate-45 bg-primary/40" />
-                        </div>
-                      </div>
-                      <div
-                        className="text-center text-2xl md:text-3xl text-primary font-bold"
-                        style={{ fontFamily: 'DigitalKhattV2' }}
-                        dir="rtl"
-                      >
-                        {getSurahArabicName(newSurah)}
-                      </div>
-                      {newSurah !== 1 && newSurah !== 9 && (
-                        <div
-                          className="text-center text-xl md:text-2xl text-muted-foreground"
-                          style={{ fontFamily: 'DigitalKhattV2' }}
-                          dir="rtl"
-                        >
-                          بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
-                        </div>
-                      )}
+    <div className={cn('space-y-4', className)}>
+      <div className="space-y-1.5">
+        {lines.map((ln) => {
+          const words = lineMap!.get(ln) ?? [];
+          const newSurah = lineSurahStart.get(ln);
+          return (
+            <div key={`p${pageNum}-line-${ln}-wrap`}>
+              {newSurah && (
+                <div className="my-6 flex flex-col items-center gap-3">
+                  <div className="w-full max-w-3xl mx-auto">
+                    <div className="h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+                    <div className="flex items-center justify-center gap-2 -mt-3">
+                      <div className="w-2 h-2 rotate-45 bg-primary/40" />
+                      <div className="w-3 h-3 rotate-45 bg-primary/60" />
+                      <div className="w-2 h-2 rotate-45 bg-primary/40" />
+                    </div>
+                  </div>
+                  <div
+                    className="text-center text-2xl md:text-3xl text-primary font-bold"
+                    style={{ fontFamily: 'DigitalKhattV2' }}
+                    dir="rtl"
+                  >
+                    {getSurahArabicName(newSurah)}
+                  </div>
+                  {newSurah !== 1 && newSurah !== 9 && (
+                    <div
+                      className="text-center text-xl md:text-2xl text-muted-foreground"
+                      style={{ fontFamily: 'DigitalKhattV2' }}
+                      dir="rtl"
+                    >
+                      بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
                     </div>
                   )}
-                  <div
-                    className="text-xl md:text-2xl lg:text-3xl leading-tight w-full mx-auto px-2"
-                    style={{
-                      lineHeight: '1.7',
-                      textAlign: 'center',
-                      direction: 'rtl',
-                      wordSpacing: '-0.02em',
-                    }}
-                  >
-                    {words.map((word, wi) => {
-                      const isEnd = word.char_type_name === 'end';
-                      const { inRange, ayah } = isInRange(word.verse_key);
-
-                      let wordIdxInAyah = -1;
-                      if (ayah != null && !isEnd) {
-                        if (typeof word.position === 'number' && word.position > 0) {
-                          wordIdxInAyah = word.position - 1;
-                          ayahWordCounters.set(ayah, Math.max(ayahWordCounters.get(ayah) ?? 0, word.position));
-                        } else {
-                          const cur = ayahWordCounters.get(ayah) ?? 0;
-                          wordIdxInAyah = cur;
-                          ayahWordCounters.set(ayah, cur + 1);
-                        }
-                      }
-
-                      const mistake = inRange && !isEnd && ayah != null
-                        ? getMistakeForWord(ayah, wordIdxInAyah)
-                        : null;
-                      const hasMistake = !!mistake;
-
-                      const fontReady = qcfLoadedPages.has(pageNum);
-                      const useGlyph = !isEnd && fontReady && !!word.code_v2;
-                      const family = useGlyph ? `'p${pageNum}-v2'` : "'UthmanicHafs', serif";
-
-                      const interactive = inRange && !isEnd && ayah != null;
-                      const blurred = interactive && !hasMistake;
-
-                      return (
-                        <span
-                          key={`p${pageNum}-${ln}-${wi}`}
-                          className={cn(
-                            'relative inline-block transition-all',
-                            interactive && 'cursor-pointer',
-                            blurred && 'blur-sm hover:blur-none',
-                            isEnd && 'text-[#C6A477]/80 mx-0.5',
-                          )}
-                          style={{ margin: '0 0.5px' }}
-                          onClick={interactive
-                            ? (e) => onWordClick(ayah!, wordIdxInAyah, word.text_qpc_hafs ?? '', e)
-                            : undefined}
-                        >
-                          {hasMistake && mistake && (
-                            <span
-                              className="absolute rounded-sm pointer-events-none"
-                              style={{
-                                backgroundColor: getCategoryColor(mistake),
-                                top: '1px',
-                                left: '-2px',
-                                right: '-2px',
-                                bottom: '1px',
-                                zIndex: 0,
-                              }}
-                            />
-                          )}
-                          {useGlyph ? (
-                            <span
-                              className={cn('relative', hasMistake && 'dark:text-black')}
-                              style={{ zIndex: 1, fontFamily: family }}
-                              dangerouslySetInnerHTML={{ __html: word.code_v2! }}
-                            />
-                          ) : (
-                            <span
-                              className={cn('relative', hasMistake && 'dark:text-black')}
-                              style={{ zIndex: 1, fontFamily: family }}
-                            >
-                              {word.text_qpc_hafs ?? ''}
-                            </span>
-                          )}
-                        </span>
-                      );
-                    })}
-                  </div>
                 </div>
-              );
-            })}
-          </div>
-        );
-      })}
+              )}
+              <div
+                className="text-xl md:text-2xl lg:text-3xl leading-tight w-full mx-auto px-2"
+                style={{
+                  lineHeight: '1.7',
+                  textAlign: 'center',
+                  direction: 'rtl',
+                  wordSpacing: '-0.02em',
+                }}
+              >
+                {words.map((word, wi) => {
+                  const isEnd = word.char_type_name === 'end';
+                  const { inRange, ayah } = isInRange(word.verse_key);
+
+                  let wordIdxInAyah = -1;
+                  if (ayah != null && !isEnd) {
+                    if (typeof word.position === 'number' && word.position > 0) {
+                      wordIdxInAyah = word.position - 1;
+                      ayahWordCounters.set(ayah, Math.max(ayahWordCounters.get(ayah) ?? 0, word.position));
+                    } else {
+                      const cur = ayahWordCounters.get(ayah) ?? 0;
+                      wordIdxInAyah = cur;
+                      ayahWordCounters.set(ayah, cur + 1);
+                    }
+                  }
+
+                  const mistake = inRange && !isEnd && ayah != null
+                    ? getMistakeForWord(ayah, wordIdxInAyah)
+                    : null;
+                  const hasMistake = !!mistake;
+
+                  const fontReady = qcfLoadedPages.has(pageNum);
+                  const useGlyph = !isEnd && fontReady && !!word.code_v2;
+                  const family = useGlyph ? `'p${pageNum}-v2'` : "'UthmanicHafs', serif";
+
+                  const interactive = inRange && !isEnd && ayah != null;
+                  const blurred = interactive && !hasMistake;
+
+                  return (
+                    <span
+                      key={`p${pageNum}-${ln}-${wi}`}
+                      className={cn(
+                        'relative inline-block transition-all',
+                        interactive && 'cursor-pointer',
+                        blurred && 'blur-sm hover:blur-none',
+                        isEnd && 'text-[#C6A477]/80 mx-0.5',
+                      )}
+                      style={{ margin: '0 0.5px' }}
+                      onClick={interactive
+                        ? (e) => onWordClick(ayah!, wordIdxInAyah, word.text_qpc_hafs ?? '', e)
+                        : undefined}
+                    >
+                      {hasMistake && mistake && (
+                        <span
+                          className="absolute rounded-sm pointer-events-none"
+                          style={{
+                            backgroundColor: getCategoryColor(mistake),
+                            top: '1px',
+                            left: '-2px',
+                            right: '-2px',
+                            bottom: '1px',
+                            zIndex: 0,
+                          }}
+                        />
+                      )}
+                      {useGlyph ? (
+                        <span
+                          className={cn('relative', hasMistake && 'dark:text-black')}
+                          style={{ zIndex: 1, fontFamily: family }}
+                          dangerouslySetInnerHTML={{ __html: word.code_v2! }}
+                        />
+                      ) : (
+                        <span
+                          className={cn('relative', hasMistake && 'dark:text-black')}
+                          style={{ zIndex: 1, fontFamily: family }}
+                        >
+                          {word.text_qpc_hafs ?? ''}
+                        </span>
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {pages.length > 1 ? (
+        <div className="flex items-center justify-between gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setActivePageIdx(i => Math.max(0, i - 1))}
+            disabled={activePageIdx === 0}
+            className="gap-1"
+          >
+            <ChevronRight className="w-4 h-4" />
+            Previous Page
+          </Button>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            Page {pageNum} · {activePageIdx + 1} / {pages.length}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setActivePageIdx(i => Math.min(pages.length - 1, i + 1))}
+            disabled={activePageIdx >= pages.length - 1}
+            className="gap-1"
+          >
+            Next Page
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+        </div>
+      ) : (
+        <p className="text-center text-xs text-muted-foreground tabular-nums">
+          Page {pageNum}
+        </p>
+      )}
     </div>
   );
 };
