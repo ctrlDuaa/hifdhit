@@ -217,8 +217,8 @@ export const CheckpointMushafView = ({ surahId, startAyah, endAyah, className }:
                         key={`p${pageNum}-${ln}-${wi}`}
                         className={cn(
                           'relative inline-block transition-all',
-                          !inRange && 'opacity-40',
                           blurred && 'blur-sm hover:blur-none cursor-pointer',
+                          isEnd && 'text-[#C6A477]/80 mx-0.5',
                         )}
                         style={{ margin: '0 0.5px' }}
                       >
