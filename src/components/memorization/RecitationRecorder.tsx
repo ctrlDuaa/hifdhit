@@ -43,6 +43,8 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
   const [peaks, setPeaks] = useState<number[]>([]);
   const [duration, setDuration] = useState(0);
   const [position, setPosition] = useState(0);
+  const [playbackRate, setPlaybackRate] = useState(1.0);
+
 
   // Cleanup helpers
   const stopStream = () => {
