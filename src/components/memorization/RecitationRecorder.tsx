@@ -85,6 +85,7 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
 
   const startRecording = useCallback(async () => {
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      setMicError('unavailable');
       toast({ title: 'Recording not supported in this browser', variant: 'destructive' });
       return;
     }
@@ -97,6 +98,7 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
     revokeUrl(audioUrl);
     setAudioUrl(null);
     setElapsed(0);
+    setMicError(null);
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -128,10 +130,14 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
         setElapsed(Math.floor((Date.now() - startedAt) / 1000));
       }, 250);
     } catch (err) {
+      const isDenied = err instanceof DOMException && (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError');
+      setMicError(isDenied ? 'denied' : 'unavailable');
       console.error('[recitation-recorder] mic permission denied or unavailable', err);
       toast({
-        title: 'Microphone unavailable',
-        description: 'Please allow microphone access to record your recitation.',
+        title: isDenied ? 'Microphone access denied' : 'Microphone unavailable',
+        description: isDenied
+          ? 'Please allow microphone access in your browser settings to record your recitation.'
+          : 'Your microphone could not be accessed. Please check your device.',
         variant: 'destructive',
       });
     }
