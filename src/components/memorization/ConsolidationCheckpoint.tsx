@@ -41,6 +41,13 @@ export const ConsolidationCheckpoint = ({ state, chunkAyahs, onResult }: Props) 
             <p className="text-xs text-foreground italic mt-2">Hover to reveal text for checking</p>
           </div>
 
+          <div className="pt-2">
+            <RecitationRecorder
+              resetKey={`checkpoint-${chunk.chunkIndex}-${chunk.ayahStart}-${chunk.ayahEnd}`}
+              variant="inline"
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-3 pt-2">
             <Button onClick={() => onResult(true)} size="lg" className="w-full bg-[#C6A477] hover:bg-[#b8956a] text-white">
               I Got It
