@@ -487,6 +487,31 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
         </div>
       )}
 
+      {/* Playback speed toggles */}
+      {!recording && audioUrl && (
+        <div className="flex items-center gap-1">
+          {([0.75, 1, 1.25] as const).map((rate) => (
+            <button
+              key={rate}
+              onClick={() => {
+                setPlaybackRate(rate);
+                if (audioRef.current) {
+                  audioRef.current.playbackRate = rate;
+                }
+              }}
+              className={cn(
+                'text-[10px] px-1.5 py-0.5 rounded-md border transition-colors',
+                playbackRate === rate
+                  ? 'border-[#C6A477] text-[#C6A477] bg-[#C6A477]/10'
+                  : 'border-border text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {rate}x
+            </button>
+          ))}
+        </div>
+      )}
+
       {!recording && !audioUrl && (
         <span className="text-xs text-muted-foreground">Tap to record</span>
       )}
