@@ -184,7 +184,30 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
     return `${m}:${sec.toString().padStart(2, '0')}`;
   };
 
-  const body = (
+  const permissionBody = micError ? (
+    <>
+      <MicOff className="w-5 h-5 text-destructive" />
+      <span className="text-xs font-medium text-center leading-snug">
+        {micError === 'denied'
+          ? 'Microphone access was denied'
+          : 'Microphone is not available'}
+      </span>
+      <span className="text-[11px] text-muted-foreground text-center leading-snug">
+        {micError === 'denied'
+          ? 'Allow microphone access in your browser settings, then try again.'
+          : 'Please check your device or try a different browser.'}
+      </span>
+      <Button
+        variant="outline"
+        size="sm"
+        className="rounded-full border-[#C6A477] text-[#C6A477] hover:bg-[#C6A477]/10 gap-1.5"
+        onClick={startRecording}
+      >
+        <RotateCcw className="w-3.5 h-3.5" />
+        Retry
+      </Button>
+    </>
+  ) : (
     <>
       <span className="text-[11px] text-muted-foreground uppercase tracking-wide">My Recitation</span>
 
@@ -260,7 +283,7 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
   if (variant === 'inline') {
     return (
       <div className={cn('flex items-center justify-center gap-2 flex-wrap', className)}>
-        {body}
+        {permissionBody}
       </div>
     );
   }
@@ -269,10 +292,11 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
     <div
       className={cn(
         'rounded-xl border border-border/50 bg-card shadow-sm p-3 flex flex-col items-center gap-2',
+        micError && 'border-destructive/30',
         className,
       )}
     >
-      {body}
+      {permissionBody}
     </div>
   );
 };
