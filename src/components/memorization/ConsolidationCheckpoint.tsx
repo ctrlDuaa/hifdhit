@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MemorizationSessionState } from '@/types/memorization';
 import { MemorizationAyah } from '@/hooks/useMemorizationSession';
+import { RecitationRecorder } from '@/components/memorization/RecitationRecorder';
 
 interface Props {
   state: MemorizationSessionState;
@@ -38,6 +39,13 @@ export const ConsolidationCheckpoint = ({ state, chunkAyahs, onResult }: Props) 
               </div>
             ))}
             <p className="text-xs text-foreground italic mt-2">Hover to reveal text for checking</p>
+          </div>
+
+          <div className="pt-2">
+            <RecitationRecorder
+              resetKey={`checkpoint-${chunk.chunkIndex}-${chunk.ayahStart}-${chunk.ayahEnd}`}
+              variant="inline"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3 pt-2">
