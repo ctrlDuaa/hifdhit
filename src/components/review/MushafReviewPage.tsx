@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { quranApi } from '@/services/quranApi';
 import { useQcfFontLoader } from '@/hooks/useQcfFontLoader';
 import { cn } from '@/lib/utils';
