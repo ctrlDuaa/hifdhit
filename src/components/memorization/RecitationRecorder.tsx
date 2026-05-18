@@ -29,6 +29,7 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
   const [elapsed, setElapsed] = useState(0); // seconds
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [micError, setMicError] = useState<'denied' | 'unavailable' | null>(null);
 
   // Cleanup helpers
   const stopStream = () => {
