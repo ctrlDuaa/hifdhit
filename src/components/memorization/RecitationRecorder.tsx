@@ -120,6 +120,7 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
     peaksRef.current = [];
     setDuration(0);
     setPosition(0);
+    setPlaybackRate(1.0);
     revokeUrl(audioUrl);
     setAudioUrl(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
