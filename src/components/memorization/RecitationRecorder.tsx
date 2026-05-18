@@ -241,8 +241,12 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
 
   const ensureAudio = useCallback(() => {
     if (!audioUrl) return null;
-    if (audioRef.current) return audioRef.current;
+    if (audioRef.current) {
+      audioRef.current.playbackRate = playbackRate;
+      return audioRef.current;
+    }
     const a = new Audio(audioUrl);
+    a.playbackRate = playbackRate;
     a.preload = 'metadata';
     const trackPosition = () => {
       setPosition(a.currentTime || 0);
@@ -285,7 +289,7 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
     a.addEventListener('loadedmetadata', settleDuration);
     audioRef.current = a;
     return a;
-  }, [audioUrl]);
+  }, [audioUrl, playbackRate]);
 
   const togglePlayback = useCallback(() => {
     const a = ensureAudio();
