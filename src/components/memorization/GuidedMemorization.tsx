@@ -101,6 +101,9 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   const [noteDrawerOpen, setNoteDrawerOpen] = useState(false);
   const [currentNote, setCurrentNote] = useState('');
 
+  // Recitation counter for current verse
+  const [recitationCount, setRecitationCount] = useState(0);
+
   const chunk = state.chunks[state.currentChunkIndex];
   const currentAyahNum = chunk ? chunk.ayahStart + state.currentAyahInChunk : 0;
   const surahId = state.config.surahId;
