@@ -646,7 +646,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
 
                 {/* Recitation recorder — mobile inline */}
                 <div className="md:hidden border-t pt-4">
-                  <RecitationRecorder resetKey={currentAyahNum} variant="inline" />
+                  <RecitationRecorder resetKey={`${currentAyahNum}-${state.currentStage}`} variant="inline" />
                 </div>
 
                 {/* Continue + Back buttons */}
