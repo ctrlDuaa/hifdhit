@@ -730,6 +730,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
             </Button>
           </CardContent>
         </Card>
+        <RecitationRecorder resetKey={currentAyahNum} variant="card" className="w-[170px]" />
       </div>
 
       {/* ── Mistake category popover (same layout as SessionMushafViewer) ── */}
