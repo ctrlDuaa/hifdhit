@@ -45,8 +45,14 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
   const [position, setPosition] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1.0);
 
+  // Ref to always hold the latest audioUrl for unmount cleanup
+  const latestAudioUrlRef = useRef<string | null>(null);
 
-  // Cleanup helpers
+  // Keep ref synced with latest audioUrl so unmount cleanup can revoke it
+  useEffect(() => {
+    latestAudioUrlRef.current = audioUrl;
+  }, [audioUrl]);
+
   const stopStream = () => {
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
@@ -94,7 +100,7 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
       stopPlaybackRaf();
       audioRef.current?.pause();
       audioRef.current = null;
-      revokeUrl(audioUrl);
+      revokeUrl(latestAudioUrlRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

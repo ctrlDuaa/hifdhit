@@ -646,7 +646,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
 
                 {/* Recitation recorder — mobile inline */}
                 <div className="md:hidden border-t pt-4">
-                  <RecitationRecorder resetKey={currentAyahNum} variant="inline" />
+                  <RecitationRecorder resetKey={`${currentAyahNum}-${state.currentStage}`} variant="inline" />
                 </div>
 
                 {/* Continue + Back buttons */}
@@ -730,7 +730,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
             </Button>
           </CardContent>
         </Card>
-        <RecitationRecorder resetKey={currentAyahNum} variant="card" className="w-[170px]" />
+        <RecitationRecorder resetKey={`${currentAyahNum}-${state.currentStage}`} variant="card" className="w-[170px]" />
       </div>
 
       {/* ── Mistake category popover (same layout as SessionMushafViewer) ── */}
