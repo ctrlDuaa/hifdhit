@@ -100,7 +100,7 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
       stopPlaybackRaf();
       audioRef.current?.pause();
       audioRef.current = null;
-      revokeUrl(audioUrl);
+      revokeUrl(latestAudioUrlRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
