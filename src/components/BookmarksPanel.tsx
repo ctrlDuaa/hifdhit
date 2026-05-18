@@ -2,9 +2,9 @@
  * Side panel (Sheet) showing all Quran.com collections and their bookmarks.
  * Supports deleting entire collections or individual verses within them.
  *
- * Source-of-truth model:
- *  - Signed-in QF users → Quran Foundation PRE-LIVE API
- *  - Signed-out users   → local/Supabase (not yet implemented)
+ * Fetching mirrors HifdhCollectionPicker exactly (which works reliably):
+ *   - Collections list: GET /auth/v1/collections?first=50&type=ayah
+ *   - Per-collection items: GET /auth/v1/collections/{id}?first=50
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -39,59 +39,8 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
-type DebugEntry = {
-  ts: string;
-  label: string;
-  status: 'ok' | 'error' | 'info';
-  detail?: any;
-};
-
-/**
- * Try every known field name the QF API might use for collection membership.
- * Returns an array of collection IDs the resource belongs to.
- */
-function getCollectionIdsForItem(item: any): string[] {
-  const ids = new Set<string>();
-
-  if (item.collectionId != null) ids.add(String(item.collectionId));
-  if (item.collection_id != null) ids.add(String(item.collection_id));
-  if (item.collectionID != null) ids.add(String(item.collectionID));
-  if (item.collection?.id != null) ids.add(String(item.collection.id));
-  if (item.collection?.url != null) ids.add(String(item.collection.url));
-  if (item.bookmark?.collectionId != null) ids.add(String(item.bookmark.collectionId));
-  if (item.bookmark?.collection_id != null) ids.add(String(item.bookmark.collection_id));
-  if (item.resource?.collectionId != null) ids.add(String(item.resource.collectionId));
-  if (item.resource?.collection_id != null) ids.add(String(item.resource.collection_id));
-
-  if (Array.isArray(item.collections)) {
-    item.collections.forEach((c: any) => {
-      if (typeof c === 'string') ids.add(c);
-      else {
-        if (c?.id != null) ids.add(String(c.id));
-        if (c?.url != null) ids.add(String(c.url));
-      }
-    });
-  }
-  if (Array.isArray(item.collectionIds)) {
-    item.collectionIds.forEach((id: any) => ids.add(String(id)));
-  }
-  if (Array.isArray(item.collection_ids)) {
-    item.collection_ids.forEach((id: any) => ids.add(String(id)));
-  }
-
-  // Handle default/favorites detection
-  if (item.collection?.isDefault === true || item.isDefault === true) {
-    ids.add('**default**');
-  }
-  if (item.url === '**default**' || item.collection?.url === '**default**') {
-    ids.add('**default**');
-  }
-
-  return [...ids].filter(Boolean);
-}
-
 function normalizeBookmark(raw: any): Bookmark | null {
-  const id = raw.id ?? raw.verseKey ?? `${raw.key ?? raw.chapterId}:${raw.verseNumber ?? raw.ayah}`;
+  const id = raw.id ?? raw.verseKey ?? `${raw.key ?? raw.chapterId ?? raw.surahId}:${raw.verseNumber ?? raw.ayah ?? raw.verse_number}`;
   const key = raw.key ?? raw.chapterId ?? raw.chapter_id ?? raw.surahId
     ?? (typeof raw.verseKey === 'string' ? parseInt(raw.verseKey.split(':')[0]) : null);
   const verseNumber = raw.verseNumber ?? raw.verse_number ?? raw.ayah
@@ -114,12 +63,6 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
   const [deletingCollection, setDeletingCollection] = useState<Collection | null>(null);
   const [deletingBookmark, setDeletingBookmark] = useState<{ collectionId: string; bookmark: Bookmark } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [debugOpen, setDebugOpen] = useState(false);
-  const [debugLog, setDebugLog] = useState<DebugEntry[]>([]);
-
-  const pushDebug = useCallback((entry: Omit<DebugEntry, 'ts'>) => {
-    setDebugLog(prev => [{ ts: new Date().toISOString().split('T')[1].replace('Z', ''), ...entry }, ...prev].slice(0, 80));
-  }, []);
 
   const { data: chapters } = useSurahList();
   const surahNameMap = useMemo(() => {
@@ -128,318 +71,93 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     return map;
   }, [chapters]);
 
-  // Store all raw resources fetched via /collections/all (keep raw for field inspection)
-  const [allRawResources, setAllRawResources] = useState<any[]>([]);
-
-  const normalizeCollections = (res: any): Collection[] => {
-    const upstreamStatus = res?.upstreamStatus;
-    if (upstreamStatus && upstreamStatus >= 400) {
-      throw new Error(`HTTP ${upstreamStatus}`);
-    }
-    const innerData = res?.data?.data ?? res?.data;
-    const items = Array.isArray(innerData?.data)
-      ? innerData.data
-      : Array.isArray(innerData?.collections)
-        ? innerData.collections
-        : Array.isArray(innerData)
-          ? innerData
-          : [];
-    return items
-      .filter((c: any) => !!c?.id)
-      .map((c: any) => ({ id: String(c.id), name: c.name ?? c.title ?? 'Untitled Collection' }));
-  };
-
   const fetchCollections = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
-    const collectionsUrl = '/auth/v1/collections?type=ayah&first=20';
-    pushDebug({ label: `GET ${collectionsUrl}`, status: 'info' });
     try {
       if (!isQfSessionValid()) {
         throw new Error('Not connected to Quran.com. Please reconnect from the header.');
       }
 
-      const res: any = await callQfUserApi(collectionsUrl);
-      const parsed = normalizeCollections(res);
-      pushDebug({
-        label: 'collections response',
-        status: 'ok',
-        detail: {
-          collectionIds: parsed.map(c => c.id),
-          collectionNames: parsed.map(c => c.name),
-          itemCount: parsed.length,
-        },
-      });
-      setCollections(parsed);
+      const res = await callQfUserApi('/auth/v1/collections?first=50&type=ayah') as any;
 
-      // Fetch all resources for mapping to collections
-      const resourcesUrl = '/auth/v1/collections/all?type=ayah&first=20&sortBy=recentlyAdded';
-      pushDebug({ label: `GET ${resourcesUrl}`, status: 'info' });
-      try {
-        let allResources: any[] = [];
-        let cursor: string | undefined;
-        let page = 0;
-        do {
-          const paginatedUrl = cursor
-            ? `${resourcesUrl}&after=${cursor}`
-            : resourcesUrl;
-          const rRes: any = await callQfUserApi(paginatedUrl);
-          const rData = rRes?.data?.data ?? rRes?.data;
-
-          let items: any[] = [];
-          if (Array.isArray(rData?.data)) items = rData.data;
-          else if (Array.isArray(rData?.resources)) items = rData.resources;
-          else if (Array.isArray(rData?.items)) items = rData.items;
-          else if (Array.isArray(rData?.bookmarks)) items = rData.bookmarks;
-          else if (Array.isArray(rData)) items = rData;
-
-          const nextCursor = rData?.pagination?.endCursor
-            ?? rData?.meta?.nextCursor
-            ?? rData?.nextCursor
-            ?? rData?.pagination?.next_cursor;
-
-          pushDebug({
-            label: `resources page ${page}`,
-            status: 'ok',
-            detail: {
-              upstreamUrl: paginatedUrl,
-              itemCount: items.length,
-              paginationCursor: nextCursor ?? null,
-              sampleKeys: items.slice(0, 3).map((it: any) => Object.keys(it)),
-              sampleItems: items.slice(0, 2),
-            },
-          });
-
-          allResources = allResources.concat(items);
-          cursor = nextCursor;
-          page++;
-        } while (cursor && page < 10);
-
-        setAllRawResources(allResources);
-        pushDebug({ label: 'all resources loaded', status: 'ok', detail: { totalItems: allResources.length } });
-      } catch (resErr) {
-        pushDebug({ label: 'resources fetch failed', status: 'error', detail: String((resErr as Error)?.message ?? resErr) });
+      const upstreamStatus = res?.upstreamStatus;
+      if (upstreamStatus && upstreamStatus >= 400) {
+        throw new Error(`HTTP ${upstreamStatus}`);
       }
+
+      const innerData = res?.data;
+      const pageItems: any[] = Array.isArray(innerData?.data)
+        ? innerData.data
+        : Array.isArray(innerData)
+          ? innerData
+          : [];
+
+      const parsed: Collection[] = pageItems
+        .filter((c: any) => !!c?.id)
+        .map((c: any) => ({ id: String(c.id), name: c.name ?? c.title ?? 'Untitled Collection' }));
+
+      setCollections(parsed);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load collections';
       setLoadError(message);
-      pushDebug({ label: 'fetchCollections failed', status: 'error', detail: message });
       toast({ title: 'Failed to load collections', description: message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  }, [pushDebug]);
+  }, []);
 
   useEffect(() => {
     if (open && isQfSessionValid()) {
       fetchCollections();
       setExpandedId(null);
       setBookmarksMap({});
+      setBookmarksErrorMap({});
     }
   }, [open, fetchCollections]);
 
-  /**
-   * Show bookmarks for a collection.
-   * - Favorites (**default**): filter allRawResources by isInDefaultCollection === true
-   * - Custom collections: fetch per-collection items from /auth/v1/collections/{id}/resources
-   * NEVER falls back to local/Supabase data or shows all resources.
-   */
-  const fetchBookmarks = useCallback(async (collectionId: string, collectionName: string, force = false) => {
+  const fetchBookmarks = useCallback(async (collectionId: string, force = false) => {
     if (!force && bookmarksMap[collectionId]) return;
     setLoadingBookmarks(collectionId);
     setBookmarksErrorMap(prev => { const n = { ...prev }; delete n[collectionId]; return n; });
 
-    pushDebug({
-      label: `expand collection`,
-      status: 'info',
-      detail: {
-        selectedCollectionId: collectionId,
-        selectedCollectionName: collectionName,
-        source: 'quran_foundation',
-        totalRawResources: allRawResources.length,
-      },
-    });
-
     try {
-      const qfResources = allRawResources;
+      const itemsRes = await callQfUserApi(`/auth/v1/collections/${collectionId}?first=50`) as any;
 
-      if (collectionId === "default") {
-        console.log("Favorites branch selected inside ACTIVE expand handler");
-
-        const favoriteItems = qfResources.filter(
-          (item: any) => item.type === 'ayah' && item.isInDefaultCollection === true
-        );
-
-        console.log("Favorites filtered result", {
-          totalRawResources: qfResources.length,
-          favoriteCount: favoriteItems.length,
-          favoriteKeys: favoriteItems.map((item: any) => item.key),
-        });
-
-        pushDebug({
-          label: 'favorites branch selected inside ACTIVE expand handler',
-          status: 'ok',
-          detail: {
-            selectedCollectionId: collectionId,
-            selectedCollectionName: collectionName,
-            totalRawResources: qfResources.length,
-            favoriteCount: favoriteItems.length,
-            favoriteKeys: favoriteItems.map((item: any) => item.key),
-          },
-        });
-
-        const normalizedFavorites: Bookmark[] = [];
-        for (const raw of favoriteItems) {
-          const bm = normalizeBookmark(raw);
-          if (bm) normalizedFavorites.push(bm);
-        }
-
-        setBookmarksMap(prev => ({ ...prev, [collectionId]: normalizedFavorites }));
-        return;
+      if (itemsRes?.success === false || itemsRes?.type === 'not_found') {
+        throw new Error('Collection not found');
       }
 
-      // Always log raw sample for debugging
-      console.log("RAW QF ITEMS SAMPLE", JSON.stringify(allRawResources.slice(0, 3), null, 2));
-      console.log("selectedCollectionId", collectionId);
-
-      let matching: any[] = [];
-
-      const normalizedId = String(collectionId ?? '').trim();
-      const isFavorites =
-        normalizedId === 'default' ||
-        normalizedId === '**default**' ||
-        normalizedId.toLowerCase() === 'favorites';
-
-      console.log("selectedCollectionId", collectionId, "normalized:", normalizedId, "isFavorites:", isFavorites);
-
-      if (isFavorites) {
-        console.log("Favorites branch selected — using isInDefaultCollection");
-        const favoriteItems = allRawResources.filter(
-          (item: any) => item.type === 'ayah' && item.isInDefaultCollection === true
-        );
-        console.log("Favorites filtered result", {
-          totalRawResources: allRawResources.length,
-          favoriteCount: favoriteItems.length,
-          favoriteKeys: favoriteItems.map((item: any) => item.key),
-        });
-        matching = favoriteItems;
-        pushDebug({
-          label: `favorites branch (isInDefaultCollection)`,
-          status: 'ok',
-          detail: {
-            selectedCollectionId: collectionId,
-            normalizedId,
-            totalRawResources: allRawResources.length,
-            favoriteCount: favoriteItems.length,
-            favoriteKeys: favoriteItems.map((item: any) => item.key),
-          },
-        });
-      } else {
-        console.log("Custom Quran Foundation collection branch", {
-          selectedCollectionId: collectionId,
-          selectedCollectionName: collectionName,
-        });
-        // Custom collections: /collections/all does NOT expose collectionId on items.
-        // Fetch per-collection resources from the dedicated endpoint.
-        pushDebug({
-          label: `custom collection — fetching per-collection items`,
-          status: 'info',
-          detail: { note: '/collections/all does not expose collectionId on items, using per-collection endpoint' },
-        });
-
-        let cursor: string | undefined;
-        let page = 0;
-        do {
-          if (collectionId === 'default') {
-            throw new Error('BUG: Favorites reached custom collection fetch path');
-          }
-
-          const url = cursor
-            ? `/auth/v1/collections/${collectionId}/resources?type=ayah&first=20&after=${cursor}`
-            : `/auth/v1/collections/${collectionId}/resources?type=ayah&first=20`;
-
-          // Hard guard: Favorites must NEVER hit per-collection resources endpoint
-          if (
-            (normalizedId === 'default' || normalizedId === '**default**') &&
-            url.includes('/collections/default/resources')
-          ) {
-            throw new Error("BUG: Favorites must not use per-collection resources endpoint");
-          }
-
-          console.log(`Fetching custom collection items: ${url}`);
-          pushDebug({ label: `GET ${url}`, status: 'info' });
-
-          const res: any = await callQfUserApi(url);
-          const rData = res?.data?.data ?? res?.data;
-
-          let items: any[] = [];
-          if (Array.isArray(rData?.data)) items = rData.data;
-          else if (Array.isArray(rData?.resources)) items = rData.resources;
-          else if (Array.isArray(rData?.items)) items = rData.items;
-          else if (Array.isArray(rData?.bookmarks)) items = rData.bookmarks;
-          else if (Array.isArray(rData)) items = rData;
-
-          const nextCursor = rData?.pagination?.endCursor
-            ?? rData?.meta?.nextCursor
-            ?? rData?.nextCursor
-            ?? rData?.pagination?.next_cursor;
-
-          pushDebug({
-            label: `collection ${collectionId} resources page ${page}`,
-            status: 'ok',
-            detail: {
-              upstreamUrl: url,
-              statusCode: res?.upstreamStatus ?? 'n/a',
-              itemCount: items.length,
-              paginationCursor: nextCursor ?? null,
-              sampleItem: items[0] ?? null,
-            },
-          });
-
-          matching = matching.concat(items);
-          cursor = nextCursor;
-          page++;
-        } while (cursor && page < 10);
-
-        console.log(`Custom collection ${collectionId}: fetched ${matching.length} items via per-collection endpoint`);
-      }
+      const resData = itemsRes?.data?.data ?? itemsRes?.data;
+      const rawItems: any[] = Array.isArray(resData?.items)
+        ? resData.items
+        : Array.isArray(resData?.bookmarks)
+          ? resData.bookmarks
+          : Array.isArray(resData)
+            ? resData
+            : [];
 
       const normalized: Bookmark[] = [];
-      for (const raw of matching) {
+      for (const raw of rawItems) {
         const bm = normalizeBookmark(raw);
         if (bm) normalized.push(bm);
       }
-
-      console.log("filteredItems", matching);
-
-      pushDebug({
-        label: `collection ${collectionId} result`,
-        status: 'ok',
-        detail: {
-          selectedCollectionId: collectionId,
-          selectedCollectionName: collectionName,
-          source: 'quran_foundation',
-          qfItemsFetched: matching.length,
-          filteredItemCount: normalized.length,
-        },
-      });
 
       setBookmarksMap(prev => ({ ...prev, [collectionId]: normalized }));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load bookmarks';
       setBookmarksErrorMap(prev => ({ ...prev, [collectionId]: message }));
-      pushDebug({ label: `fetchBookmarks ${collectionId} failed`, status: 'error', detail: message });
     } finally {
       setLoadingBookmarks(null);
     }
-  }, [allRawResources, bookmarksMap, pushDebug]);
+  }, [bookmarksMap]);
 
   const toggleExpand = (collection: Collection) => {
     if (expandedId === collection.id) {
       setExpandedId(null);
     } else {
       setExpandedId(collection.id);
-      fetchBookmarks(collection.id, collection.name);
+      fetchBookmarks(collection.id);
     }
   };
 
@@ -567,7 +285,7 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
                             <div className="text-center py-4 space-y-2">
                               <p className="text-xs text-destructive">Failed to load verses</p>
                               <p className="text-[11px] text-muted-foreground px-3 break-words">{bookmarksErrorMap[collection.id]}</p>
-                              <Button variant="outline" size="sm" onClick={() => fetchBookmarks(collection.id, collection.name, true)}>
+                              <Button variant="outline" size="sm" onClick={() => fetchBookmarks(collection.id, true)}>
                                 Try Again
                               </Button>
                             </div>
@@ -610,94 +328,6 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
               </div>
             )}
           </ScrollArea>
-
-          {/* Debug panel */}
-          <div className="border-t border-border/50 bg-muted/20 text-[11px] shrink-0 max-h-64 flex flex-col">
-            <button
-              type="button"
-              onClick={() => setDebugOpen(o => !o)}
-              className="flex items-center justify-between px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground"
-            >
-              <span className="flex items-center gap-1.5">
-                {debugOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                Debug ({debugLog.length})
-              </span>
-              {debugOpen && debugLog.length > 0 && (
-                <span className="flex items-center gap-3">
-                  <span
-                    role="button"
-                    className="text-[10px] underline"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const text = debugLog
-                        .slice()
-                        .reverse()
-                        .map(en => {
-                          const detail = en.detail === undefined
-                            ? ''
-                            : '\n' + (typeof en.detail === 'string' ? en.detail : JSON.stringify(en.detail, null, 2));
-                          return `[${en.ts}] (${en.status}) ${en.label}${detail}`;
-                        })
-                        .join('\n\n');
-                      const done = () => toast({ title: 'Debug logs copied' });
-                      if (navigator.clipboard?.writeText) {
-                        navigator.clipboard.writeText(text).then(done).catch(() => {
-                          const ta = document.createElement('textarea');
-                          ta.value = text; document.body.appendChild(ta); ta.select();
-                          document.execCommand('copy'); document.body.removeChild(ta); done();
-                        });
-                      } else {
-                        const ta = document.createElement('textarea');
-                        ta.value = text; document.body.appendChild(ta); ta.select();
-                        document.execCommand('copy'); document.body.removeChild(ta); done();
-                      }
-                    }}
-                  >
-                    copy
-                  </span>
-                  <span
-                    role="button"
-                    className="text-[10px] underline"
-                    onClick={(e) => { e.stopPropagation(); setDebugLog([]); }}
-                  >
-                    clear
-                  </span>
-                </span>
-              )}
-            </button>
-            {debugOpen && (
-              <ScrollArea className="flex-1 px-3 pb-3">
-                {debugLog.length === 0 ? (
-                  <p className="text-muted-foreground py-2">No events yet.</p>
-                ) : (
-                  <div className="space-y-2 font-mono">
-                    {debugLog.map((entry, i) => (
-                      <div
-                        key={i}
-                        className={`rounded border px-2 py-1.5 ${
-                          entry.status === 'error'
-                            ? 'border-destructive/40 bg-destructive/5 text-destructive'
-                            : entry.status === 'ok'
-                              ? 'border-border/40 bg-background/50 text-foreground'
-                              : 'border-border/40 bg-background/30 text-muted-foreground'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-semibold truncate">{entry.label}</span>
-                          <span className="text-[10px] opacity-60 shrink-0">{entry.ts}</span>
-                        </div>
-                        {entry.detail !== undefined && (
-                          <pre className="mt-1 whitespace-pre-wrap break-words text-[10px] opacity-80 max-h-32 overflow-auto">
-                            {typeof entry.detail === 'string' ? entry.detail : JSON.stringify(entry.detail, null, 2)}
-                          </pre>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-            )}
-          </div>
         </SheetContent>
       </Sheet>
 
