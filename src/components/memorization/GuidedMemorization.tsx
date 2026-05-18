@@ -161,9 +161,19 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
     setIsPlaying(false);
     return () => {
       if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
+        const a = audioRef.current;
         audioRef.current = null;
+        a.pause();
+        // Detach handlers BEFORE clearing src — assigning '' triggers the
+        // 'error' event on some browsers and would otherwise show a false
+        // "Audio unavailable" toast every time the verse changes.
+        a.onerror = null;
+        a.oncanplay = null;
+        a.onended = null;
+        a.onpause = null;
+        a.onplay = null;
+        a.removeAttribute('src');
+        a.load();
       }
     };
   }, [currentAyah?.audioUrl]);
@@ -182,7 +192,9 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
       a.addEventListener('pause', () => setIsPlaying(false));
       a.addEventListener('play', () => setIsPlaying(true));
       a.addEventListener('error', () => {
-        console.error('[memorization] audio failed to load', url);
+        // Ignore errors fired after we detached the source during cleanup.
+        if (!a.src || a.src === window.location.href) return;
+        console.error('[memorization] audio failed to load', a.src);
         setIsPlaying(false);
         toast({ title: 'Audio unavailable for this verse', variant: 'destructive' });
       });
