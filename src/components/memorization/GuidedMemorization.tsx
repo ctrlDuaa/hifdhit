@@ -644,6 +644,11 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
                   </Button>
                 </div>
 
+                {/* Recitation recorder — mobile inline */}
+                <div className="md:hidden border-t pt-4">
+                  <RecitationRecorder resetKey={currentAyahNum} variant="inline" />
+                </div>
+
                 {/* Continue + Back buttons */}
                 <div className="flex justify-center gap-3 pt-4 border-t">
                   {onGoBack && stageIndex > 0 && (
