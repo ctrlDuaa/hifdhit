@@ -48,7 +48,11 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
   // Ref to always hold the latest audioUrl for unmount cleanup
   const latestAudioUrlRef = useRef<string | null>(null);
 
-  // Cleanup helpers
+  // Keep ref synced with latest audioUrl so unmount cleanup can revoke it
+  useEffect(() => {
+    latestAudioUrlRef.current = audioUrl;
+  }, [audioUrl]);
+
   const stopStream = () => {
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
