@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { LogOut, Link2, Bookmark } from 'lucide-react';
+import { LogOut, Link2, Bookmark, BookMarked, Library, SlidersHorizontal } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Link } from 'react-router-dom';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -7,6 +7,13 @@ import { startQfLogin, isQfSessionValid, logoutQf } from '@/services/qfAuth';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { BookmarksPanel } from '@/components/BookmarksPanel';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 export const AppHeader = () => {
   const { signOut } = useAuth();
