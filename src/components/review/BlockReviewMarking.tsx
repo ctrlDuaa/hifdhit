@@ -20,6 +20,7 @@ import { MistakeType, getMistakeTypeLabel } from '@/lib/reviewScheduler';
 import { X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MushafReviewPage } from './MushafReviewPage';
+import { RecitationRecorder } from '@/components/memorization/RecitationRecorder';
 
 interface Props {
   verses: QuranVerse[];
