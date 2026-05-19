@@ -74,7 +74,7 @@ export const AppHeader = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleQfConnect}
+                onClick={() => setBenefitsOpen(true)}
                 disabled={qfLoading}
                 className="text-xs bg-[#c6a477]"
               >
