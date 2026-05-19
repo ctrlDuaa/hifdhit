@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { handleQfCallback, QfOAuthSession, callQfUserApi } from '@/services/qfAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, XCircle } from 'lucide-react';
 import { AppHeader } from '@/components/AppHeader';
 
 interface DebugResult {
