@@ -73,7 +73,7 @@ const Auth = () => {
       {/* About Section */}
       <section id="about-section" className="px-4 bg-white py-[60px]">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6">From your first verse to lifelong hifdh</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-6 text-black">From your first verse to lifelong hifdh</h2>
           <p className="text-lg text-muted-foreground leading-relaxed text-stone-500">Hifdh It is built for anyone who wants to build a lasting connection with the Qur'an. Whether you're working through lifelong hifdh or simply holding onto a few verses that mean something to you, Hifdh It can help. Memorize at your own pace, choose the verses that matter to you, and revisit them in a way that helps them stay with you. With the option to review on your own or recite alongside a friend, Hifdh It creates a flexible and supportive path that turns memorization into something consistent, personal, and lasting.</p>
         </div>
       </section>
@@ -81,7 +81,7 @@ const Auth = () => {
       {/* Features Section */}
       <section className="px-4 bg-white py-[60px]">
         <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 text-black">
             Everything you need for a successful Hifdh, inshaAllah.
           </h2>
           
