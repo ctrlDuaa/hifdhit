@@ -134,7 +134,8 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
 
         const loaded = new Map<string, MistakeData>();
         data?.forEach(m => {
-          const key = `${m.surah_number}-${m.ayah_number}-${m.word_index}`;
+          // DB stores 1-based word_index (Mushaf convention); local map keys use 0-based render index.
+          const key = `${m.surah_number}-${m.ayah_number}-${m.word_index - 1}`;
           loaded.set(key, {
             category: (m.mistake_category as MistakeCategory) || 'tajweed',
             note: m.note || '',
