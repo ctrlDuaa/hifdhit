@@ -162,6 +162,14 @@ export const BlockReviewMarking = ({
         </div>
       </div>
 
+      {/* Self-check audio recorder — record your own recitation and play back. Not saved. */}
+      <div className="max-w-2xl mx-auto px-4 pt-4">
+        <RecitationRecorder
+          resetKey={`review-${surahId}-${startAyah}-${endAyah}`}
+          variant="card"
+        />
+      </div>
+
       {/* Full Mushaf page with QCF rendering — review range is blurred until tapped */}
       <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
         <Card className="overflow-hidden">
@@ -175,12 +183,6 @@ export const BlockReviewMarking = ({
             />
           </CardContent>
         </Card>
-
-        {/* Self-check audio recorder — record your own recitation and play back. Not saved. */}
-        <RecitationRecorder
-          resetKey={`review-${surahId}-${startAyah}-${endAyah}`}
-          variant="card"
-        />
       </div>
 
       {/* Mistake popup — positioned near the word (matches memorization style) */}

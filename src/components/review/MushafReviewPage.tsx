@@ -320,7 +320,7 @@ export const MushafReviewPage = ({
             disabled={activePageIdx === 0}
             className="gap-1"
           >
-            <ChevronRight className="w-4 h-4" />
+            <ChevronLeft className="w-4 h-4" />
             Previous Page
           </Button>
           <span className="text-xs text-muted-foreground tabular-nums">
@@ -334,7 +334,7 @@ export const MushafReviewPage = ({
             className="gap-1"
           >
             Next Page
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
       ) : (
