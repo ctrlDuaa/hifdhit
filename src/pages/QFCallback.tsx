@@ -16,11 +16,8 @@ interface DebugResult {
 const QFCallback = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
-  const [session, setSession] = useState<QfOAuthSession | null>(null);
+  const [status, setStatus] = useState<'processing' | 'error'>('processing');
   const [error, setError] = useState<string | null>(null);
-  const [debugResults, setDebugResults] = useState<DebugResult[]>([]);
-  const [debugLoading, setDebugLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
