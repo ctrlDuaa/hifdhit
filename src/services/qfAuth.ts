@@ -345,25 +345,65 @@ export interface QfPreferences {
 /**
  * Fetch the user's Quran.com preferences (reciter, translations, language).
  * Returns null when the user is not authenticated with QF or the request fails.
+ *
+ * The QF response shape is:
+ *   { success: true, data: { audio: { reciter }, translations: { selectedTranslations: [..] },
+ *     reading: { selectedReadingTranslation }, language: { language }, ... } }
+ *
+ * Our edge-function proxy wraps it once more as:
+ *   { success: true, data: <upstreamJSON>, upstreamStatus }
+ *
+ * We defensively unwrap any of these shapes so a stray layer doesn't drop prefs.
  */
 export async function getQfPreferences(): Promise<QfPreferences | null> {
   if (!isQfSessionValid()) return null;
   try {
     const res: any = await callQfUserApi('/auth/v1/preferences');
-    const upstream = res?.data?.data;
-    const prefs = upstream?.data ?? upstream;
-    if (!prefs) return null;
-    const reciterId = prefs?.audio?.reciter;
-    const translationsList = prefs?.translations?.selectedTranslations;
-    const translationId = Array.isArray(translationsList) && translationsList.length > 0
-      ? Number(translationsList[0])
-      : undefined;
-    const language = prefs?.language?.language;
-    return {
-      reciterId: typeof reciterId === 'number' ? reciterId : undefined,
-      translationId: typeof translationId === 'number' && !isNaN(translationId) ? translationId : undefined,
-      language: typeof language === 'string' ? language : undefined,
+
+    // Walk down through up to 3 layers of `.data` wrapping until we find the prefs object.
+    let prefs: any = res;
+    for (let i = 0; i < 4; i++) {
+      if (!prefs || typeof prefs !== 'object') break;
+      // Stop when we see the recognizable prefs shape.
+      if (prefs.audio || prefs.translations || prefs.language || prefs.reading) break;
+      if ('data' in prefs) {
+        prefs = prefs.data;
+      } else {
+        break;
+      }
+    }
+
+    console.log('[QF] Raw preferences payload:', JSON.stringify(prefs)?.slice(0, 800));
+
+    if (!prefs || typeof prefs !== 'object') {
+      console.warn('[QF] Preferences payload missing or unrecognised.');
+      return null;
+    }
+
+    const toNumber = (v: unknown): number | undefined => {
+      if (typeof v === 'number' && !isNaN(v)) return v;
+      if (typeof v === 'string' && v.trim() !== '' && !isNaN(Number(v))) return Number(v);
+      return undefined;
     };
+
+    const reciterId = toNumber(prefs?.audio?.reciter);
+
+    const translationsList = prefs?.translations?.selectedTranslations;
+    let translationId =
+      Array.isArray(translationsList) && translationsList.length > 0
+        ? toNumber(translationsList[0])
+        : undefined;
+    // Fallback: some users only have `reading.selectedReadingTranslation` populated.
+    if (translationId === undefined) {
+      translationId = toNumber(prefs?.reading?.selectedReadingTranslation);
+    }
+
+    const language =
+      typeof prefs?.language?.language === 'string' ? prefs.language.language : undefined;
+
+    const result = { reciterId, translationId, language };
+    console.log('[QF] Parsed preferences:', result);
+    return result;
   } catch (err) {
     console.error('[QF] Failed to fetch preferences:', err);
     return null;

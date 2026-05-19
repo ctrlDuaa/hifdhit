@@ -241,11 +241,16 @@ export const MemorizationSetup = ({ onStart, loading: startLoading, onBack, init
 
           <HifdhCollectionPicker onSelectVerses={handleHifdhSelect} />
 
-          <Button onClick={handleStart} className="w-full bg-[#C6A477] hover:bg-[#b8956a] text-white" size="lg" disabled={startLoading || chaptersLoading}>
+          <Button onClick={handleStart} className="w-full bg-[#C6A477] hover:bg-[#b8956a] text-white" size="lg" disabled={startLoading || chaptersLoading || (qfPrefs.qfConnected && qfPrefs.loading)}>
             {startLoading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Loading verses...
+              </>
+            ) : qfPrefs.qfConnected && qfPrefs.loading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Loading your Quran.com preferences...
               </>
             ) : (
               isContinuing ? 'Continue Memorization' : 'Start Memorization'
