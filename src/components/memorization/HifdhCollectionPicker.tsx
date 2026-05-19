@@ -49,7 +49,7 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
     setCollections([]);
     setSelectedCollectionId(null);
     setBookmarks([]);
-    setSelected(new Set());
+    setSelected(null);
 
     try {
       const collectionsRes = await callQfUserApi('/auth/v1/collections?first=1&type=ayah') as any;
