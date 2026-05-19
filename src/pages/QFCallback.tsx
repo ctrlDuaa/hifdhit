@@ -32,6 +32,7 @@ const QFCallback = () => {
         console.log("QF SESSION:", JSON.stringify(result, null, 2));
         setSession(result);
         setStatus('success');
+        navigate('/dashboard');
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : 'Unknown error');
