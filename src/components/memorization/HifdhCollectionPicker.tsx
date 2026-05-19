@@ -33,7 +33,7 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
   const [bookmarks, setBookmarks] = useState<CollectionBookmark[]>([]);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<string | null>(null);
   const isConnected = isQfSessionValid();
   const { data: chapters } = useSurahList();
 
