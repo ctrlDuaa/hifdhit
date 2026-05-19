@@ -134,8 +134,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
 
         const loaded = new Map<string, MistakeData>();
         data?.forEach(m => {
-          const storedWordIndex = typeof m.word_index === 'number' ? m.word_index - 1 : m.word_index;
-          const key = `${m.surah_number}-${m.ayah_number}-${storedWordIndex}`;
+          const key = `${m.surah_number}-${m.ayah_number}-${m.word_index}`;
           loaded.set(key, {
             category: (m.mistake_category as MistakeCategory) || 'tajweed',
             note: m.note || '',
@@ -289,7 +288,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
             reciter_id: user.id,
             surah_number: selectedWordInfo.surah,
             ayah_number: selectedWordInfo.ayah,
-            word_index: selectedWordInfo.wordIndex + 1,
+            word_index: selectedWordInfo.wordIndex,
             mistake_category: category,
           }, { onConflict: 'reciter_id,surah_number,ayah_number,word_index' })
           .select()
