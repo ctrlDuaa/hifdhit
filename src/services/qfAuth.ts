@@ -388,20 +388,35 @@ export async function getQfPreferences(): Promise<QfPreferences | null> {
 
     const reciterId = toNumber(prefs?.audio?.reciter);
 
-    const translationsList = prefs?.translations?.selectedTranslations;
-    let translationId =
-      Array.isArray(translationsList) && translationsList.length > 0
-        ? toNumber(translationsList[0])
-        : undefined;
-    // Fallback: some users only have `reading.selectedReadingTranslation` populated.
-    if (translationId === undefined) {
-      translationId = toNumber(prefs?.reading?.selectedReadingTranslation);
+    // Translation ID can live in several places depending on whether the user
+    // customised "Reading translations" vs "Selected translations" on Quran.com:
+    //   • prefs.translations.selectedTranslations  → integer[] (canonical)
+    //   • prefs.reading.selectedReadingTranslation → string, sometimes CSV like "131,20"
+    //   • prefs.translations                       → some rare API variants return a bare array
+    const candidates: unknown[] = [];
+    const sel = prefs?.translations?.selectedTranslations;
+    if (Array.isArray(sel)) candidates.push(...sel);
+    if (Array.isArray(prefs?.translations)) candidates.push(...prefs.translations);
+    const readingSel = prefs?.reading?.selectedReadingTranslation;
+    if (typeof readingSel === 'string') {
+      candidates.push(...readingSel.split(',').map(s => s.trim()).filter(Boolean));
+    } else if (Array.isArray(readingSel)) {
+      candidates.push(...readingSel);
+    } else if (typeof readingSel === 'number') {
+      candidates.push(readingSel);
+    }
+
+    let translationId: number | undefined;
+    for (const c of candidates) {
+      const n = toNumber(c);
+      if (n !== undefined) { translationId = n; break; }
     }
 
     const language =
       typeof prefs?.language?.language === 'string' ? prefs.language.language : undefined;
 
     const result = { reciterId, translationId, language };
+    console.log('[QF] Translation candidates considered:', candidates, '→ picked', translationId);
     console.log('[QF] Parsed preferences:', result);
     return result;
   } catch (err) {
