@@ -123,11 +123,11 @@ export async function getVerseByKey(
 }
 
 /** Get a range of verses */
-export async function getVerseRange(
+async function fetchVerseRangeInternal(
   chapter: number,
   startVerse: number,
   endVerse: number,
-  { translationId = DEFAULT_TRANSLATION_ID } = {}
+  translationId: number,
 ) {
   const allVerses: any[] = [];
   let page = 1;
@@ -139,13 +139,38 @@ export async function getVerseRange(
     for (const v of verses) {
       const vNum = parseInt(v.verse_key.split(":")[1]);
       if (vNum >= startVerse && vNum <= endVerse) allVerses.push(v);
-      if (vNum > endVerse) return { verses: allVerses };
+      if (vNum > endVerse) return allVerses;
     }
     if (!data.pagination || page >= data.pagination.total_pages) break;
     page++;
   }
+  return allVerses;
+}
 
-  return { verses: allVerses };
+export async function getVerseRange(
+  chapter: number,
+  startVerse: number,
+  endVerse: number,
+  { translationId = DEFAULT_TRANSLATION_ID } = {}
+) {
+  const verses = await fetchVerseRangeInternal(chapter, startVerse, endVerse, translationId);
+
+  // Fallback: if the requested translation returned no translation text for any verse
+  // (e.g. user's QF-preferred translation ID isn't available on this endpoint),
+  // refetch with the default translation so the UI can still display something.
+  const anyTranslations = verses.some(v => Array.isArray(v.translations) && v.translations.length > 0);
+  if (!anyTranslations && translationId !== DEFAULT_TRANSLATION_ID) {
+    console.warn(`[quran-api] translation_id=${translationId} returned no translations for ${chapter}:${startVerse}-${endVerse}; falling back to default ${DEFAULT_TRANSLATION_ID}`);
+    const fallbackVerses = await fetchVerseRangeInternal(chapter, startVerse, endVerse, DEFAULT_TRANSLATION_ID);
+    // Merge fallback translations into the original verses (keeps word data etc.)
+    const byKey = new Map(fallbackVerses.map(v => [v.verse_key, v]));
+    for (const v of verses) {
+      const fb = byKey.get(v.verse_key);
+      if (fb?.translations) v.translations = fb.translations;
+    }
+  }
+
+  return { verses };
 }
 
 /** Get tafsir for a verse */
