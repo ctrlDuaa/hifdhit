@@ -30,15 +30,18 @@ const FALLBACK = {
   translationName: 'Sahih International',
 };
 
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes — pick up Quran.com changes quickly.
 let cache: ResolvedQfPreferences | null = null;
+let cacheTimestamp = 0;
 
 /**
  * Resolve Quran Foundation user preferences (reciter / translation / language)
  * to concrete IDs + display names, falling back to app defaults.
  */
 export function useQfPreferences(): ResolvedQfPreferences {
+  const cacheFresh = cache && Date.now() - cacheTimestamp < CACHE_TTL_MS;
   const [state, setState] = useState<ResolvedQfPreferences>(
-    () => cache || {
+    () => (cacheFresh ? cache! : {
       qfConnected: isQfSessionValid(),
       loading: true,
       reciterId: FALLBACK.reciterId,
@@ -47,10 +50,16 @@ export function useQfPreferences(): ResolvedQfPreferences {
       reciterName: FALLBACK.reciterName,
       translationName: FALLBACK.translationName,
       fromQfPreferences: false,
-    }
+    })
   );
 
   useEffect(() => {
+    // Skip re-fetching if we already have a fresh cache.
+    if (cache && Date.now() - cacheTimestamp < CACHE_TTL_MS) {
+      setState(cache);
+      return;
+    }
+
     let cancelled = false;
 
     (async () => {
@@ -63,6 +72,8 @@ export function useQfPreferences(): ResolvedQfPreferences {
       const reciterId = prefs?.reciterId ?? FALLBACK.reciterId;
       const translationId = prefs?.translationId ?? FALLBACK.translationId;
       const language = prefs?.language ?? FALLBACK.language;
+
+      console.log('[QF Prefs Hook] connected=', connected, 'reciterId=', reciterId, 'translationId=', translationId);
 
       // Resolve names in parallel; tolerate failures with defaults.
       const [recitersRes, translationsRes] = await Promise.all([
@@ -92,6 +103,7 @@ export function useQfPreferences(): ResolvedQfPreferences {
         fromQfPreferences: !!prefs,
       };
       cache = next;
+      cacheTimestamp = Date.now();
       if (!cancelled) setState(next);
     })();
 
