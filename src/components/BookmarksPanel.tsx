@@ -3,8 +3,8 @@
  * Supports deleting entire collections or individual verses within them.
  *
  * Fetching mirrors HifdhCollectionPicker exactly (which works reliably):
- *   - Collections list: GET /auth/v1/collections?first=50&type=ayah
- *   - Per-collection items: GET /auth/v1/collections/{id}?first=50
+ *   - Collections list: GET /auth/v1/collections?first=20&type=ayah
+ *   - Per-collection items: GET /auth/v1/collections/{id}?first=20
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -79,7 +79,7 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
         throw new Error('Not connected to Quran.com. Please reconnect from the header.');
       }
 
-      const res = await callQfUserApi('/auth/v1/collections?first=50&type=ayah') as any;
+      const res = await callQfUserApi('/auth/v1/collections?first=20&type=ayah') as any;
 
       const upstreamStatus = res?.upstreamStatus;
       if (upstreamStatus && upstreamStatus >= 400) {
@@ -122,7 +122,7 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     setBookmarksErrorMap(prev => { const n = { ...prev }; delete n[collectionId]; return n; });
 
     try {
-      const itemsRes = await callQfUserApi(`/auth/v1/collections/${collectionId}?first=50`) as any;
+      const itemsRes = await callQfUserApi(`/auth/v1/collections/${collectionId}?first=20`) as any;
 
       if (itemsRes?.success === false || itemsRes?.type === 'not_found') {
         throw new Error('Collection not found');
