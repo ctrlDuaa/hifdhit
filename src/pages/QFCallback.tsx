@@ -31,7 +31,6 @@ const QFCallback = () => {
         if (cancelled) return;
         console.log("QF SESSION:", JSON.stringify(result, null, 2));
         setSession(result);
-        setStatus('success');
         navigate('/dashboard');
       } catch (err) {
         if (cancelled) return;
