@@ -21,6 +21,7 @@ export const AppHeader = () => {
   const [qfConnected, setQfConnected] = useState(isQfSessionValid());
   const [qfLoading, setQfLoading] = useState(false);
   const [bookmarksOpen, setBookmarksOpen] = useState(false);
+  const [benefitsOpen, setBenefitsOpen] = useState(false);
 
   const handleQfConnect = async () => {
     setQfLoading(true);
