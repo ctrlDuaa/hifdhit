@@ -168,7 +168,6 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     if (open && isQfSessionValid()) {
       fetchCollections();
       setExpandedId(null);
-      setBookmarksMap({});
       setBookmarksErrorMap({});
     }
   }, [open, fetchCollections]);
