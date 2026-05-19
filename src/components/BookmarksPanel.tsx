@@ -168,38 +168,37 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     if (open && isQfSessionValid()) {
       fetchCollections();
       setExpandedId(null);
-      setBookmarksMap({});
       setBookmarksErrorMap({});
     }
   }, [open, fetchCollections]);
+
+  const fetchBookmarksRaw = useCallback(async (collectionId: string): Promise<Bookmark[]> => {
+    const itemsRes = await callQfUserApi(`/auth/v1/collections/${collectionId}?first=20`) as any;
+    if (itemsRes?.success === false || itemsRes?.type === 'not_found') {
+      throw new Error('Collection not found');
+    }
+    const resData = itemsRes?.data?.data ?? itemsRes?.data;
+    const rawItems: any[] = Array.isArray(resData?.items)
+      ? resData.items
+      : Array.isArray(resData?.bookmarks)
+        ? resData.bookmarks
+        : Array.isArray(resData)
+          ? resData
+          : [];
+    const normalized: Bookmark[] = [];
+    for (const raw of rawItems) {
+      const bm = normalizeBookmark(raw);
+      if (bm) normalized.push(bm);
+    }
+    return normalized;
+  }, []);
 
   const fetchBookmarks = useCallback(async (collectionId: string, force = false) => {
     if (!force && bookmarksMap[collectionId]) return;
     setLoadingBookmarks(collectionId);
     setBookmarksErrorMap(prev => { const n = { ...prev }; delete n[collectionId]; return n; });
-
     try {
-      const itemsRes = await callQfUserApi(`/auth/v1/collections/${collectionId}?first=20`) as any;
-
-      if (itemsRes?.success === false || itemsRes?.type === 'not_found') {
-        throw new Error('Collection not found');
-      }
-
-      const resData = itemsRes?.data?.data ?? itemsRes?.data;
-      const rawItems: any[] = Array.isArray(resData?.items)
-        ? resData.items
-        : Array.isArray(resData?.bookmarks)
-          ? resData.bookmarks
-          : Array.isArray(resData)
-            ? resData
-            : [];
-
-      const normalized: Bookmark[] = [];
-      for (const raw of rawItems) {
-        const bm = normalizeBookmark(raw);
-        if (bm) normalized.push(bm);
-      }
-
+      const normalized = await fetchBookmarksRaw(collectionId);
       setBookmarksMap(prev => ({ ...prev, [collectionId]: normalized }));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load bookmarks';
@@ -207,7 +206,35 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     } finally {
       setLoadingBookmarks(null);
     }
-  }, [bookmarksMap]);
+  }, [bookmarksMap, fetchBookmarksRaw]);
+
+  // Background prefetch: load all collections' items in parallel (limited concurrency)
+  // so expanding any collection is instant.
+  useEffect(() => {
+    if (!open || collections.length === 0) return;
+    let cancelled = false;
+    const CONCURRENCY = 4;
+    const queue = collections.map(c => c.id).filter(id => !bookmarksMap[id]);
+    if (queue.length === 0) return;
+
+    const worker = async () => {
+      while (!cancelled && queue.length > 0) {
+        const id = queue.shift();
+        if (!id) break;
+        try {
+          const normalized = await fetchBookmarksRaw(id);
+          if (cancelled) return;
+          setBookmarksMap(prev => prev[id] ? prev : { ...prev, [id]: normalized });
+        } catch {
+          // silent; user can retry by expanding
+        }
+      }
+    };
+    const workers = Array.from({ length: Math.min(CONCURRENCY, queue.length) }, worker);
+    Promise.all(workers);
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, collections, fetchBookmarksRaw]);
 
   const toggleExpand = (collection: Collection) => {
     if (expandedId === collection.id) {
