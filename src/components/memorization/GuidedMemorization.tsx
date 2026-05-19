@@ -289,7 +289,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
             reciter_id: user.id,
             surah_number: selectedWordInfo.surah,
             ayah_number: selectedWordInfo.ayah,
-            word_index: selectedWordInfo.wordIndex,
+            word_index: selectedWordInfo.wordIndex + 1,
             mistake_category: category,
           }, { onConflict: 'reciter_id,surah_number,ayah_number,word_index' })
           .select()
