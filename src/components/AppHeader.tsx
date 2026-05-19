@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { LogOut, Link2, Bookmark } from 'lucide-react';
+import { LogOut, Link2, Bookmark, BookMarked, Library, SlidersHorizontal } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Link } from 'react-router-dom';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -7,6 +7,13 @@ import { startQfLogin, isQfSessionValid, logoutQf } from '@/services/qfAuth';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { BookmarksPanel } from '@/components/BookmarksPanel';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 export const AppHeader = () => {
   const { signOut } = useAuth();
@@ -14,6 +21,7 @@ export const AppHeader = () => {
   const [qfConnected, setQfConnected] = useState(isQfSessionValid());
   const [qfLoading, setQfLoading] = useState(false);
   const [bookmarksOpen, setBookmarksOpen] = useState(false);
+  const [benefitsOpen, setBenefitsOpen] = useState(false);
 
   const handleQfConnect = async () => {
     setQfLoading(true);
@@ -66,7 +74,7 @@ export const AppHeader = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleQfConnect}
+                onClick={() => setBenefitsOpen(true)}
                 disabled={qfLoading}
                 className="text-xs bg-[#c6a477]"
               >
@@ -83,6 +91,51 @@ export const AppHeader = () => {
       </div>
     </header>
     <BookmarksPanel open={bookmarksOpen} onOpenChange={setBookmarksOpen} />
+
+    <Dialog open={benefitsOpen} onOpenChange={setBenefitsOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Connect Your Quran.com Account</DialogTitle>
+          <DialogDescription className="text-muted-foreground">
+            Link your Quran.com account to unlock a seamless memorization experience.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="flex gap-3 items-start">
+            <div className="mt-0.5 shrink-0">
+              <BookMarked className="w-5 h-5 text-[#C6A477]" />
+            </div>
+            <p className="text-sm text-foreground leading-relaxed">
+              Save meaningful ayat as you memorize — revisit them later on Quran.com to explore tafsir, reflect deeper, and make personal connections.
+            </p>
+          </div>
+          <div className="flex gap-3 items-start">
+            <div className="mt-0.5 shrink-0">
+              <Library className="w-5 h-5 text-[#C6A477]" />
+            </div>
+            <p className="text-sm text-foreground leading-relaxed">
+              Your saved ayat, now ready for hifdh — seamlessly import collections from Quran.com and begin memorizing what matters to you.
+            </p>
+          </div>
+          <div className="flex gap-3 items-start">
+            <div className="mt-0.5 shrink-0">
+              <SlidersHorizontal className="w-5 h-5 text-[#C6A477]" />
+            </div>
+            <p className="text-sm text-foreground leading-relaxed">
+              Your hifdh, your preferences — automatically sync your preferred reciter, translation, and language from Quran.com for a personalized memorization experience.
+            </p>
+          </div>
+        </div>
+        <Button
+          onClick={handleQfConnect}
+          disabled={qfLoading}
+          className="w-full bg-[#C6A477] hover:bg-[#b8956a] text-white"
+        >
+          <Link2 className="w-4 h-4 mr-2" />
+          {qfLoading ? 'Connecting...' : 'Connect to Quran.com'}
+        </Button>
+      </DialogContent>
+    </Dialog>
     </>
   );
 };
