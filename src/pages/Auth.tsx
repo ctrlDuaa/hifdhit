@@ -55,7 +55,7 @@ const Auth = () => {
           <p className="text-xl md:text-2xl text-white/90 mb-8" style={{
           textShadow: '0 2px 10px rgba(0,0,0,0.6)'
         }}>
-            Memorize better. Remember longer.
+            Hifdh, now for everyone.
           </p>
 
           {/* Buttons */}
