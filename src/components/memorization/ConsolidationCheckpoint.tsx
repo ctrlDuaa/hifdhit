@@ -44,6 +44,7 @@ export const ConsolidationCheckpoint = ({ state, chunkAyahs, onResult }: Props) 
             <RecitationRecorder
               resetKey={`checkpoint-${chunk.chunkIndex}-${chunk.ayahStart}-${chunk.ayahEnd}`}
               variant="inline"
+              title="Want to self-check your recitation?"
             />
           </div>
 

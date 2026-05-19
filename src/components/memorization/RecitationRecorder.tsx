@@ -10,6 +10,8 @@ interface Props {
   /** Visual layout */
   variant?: 'card' | 'inline';
   className?: string;
+  /** Override the default title shown above the recorder */
+  title?: string;
 }
 
 /**
@@ -20,7 +22,7 @@ interface Props {
  * Includes a live waveform visualization captured during recording, and a
  * click/drag-to-seek scrubber during playback.
  */
-export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Props) => {
+export const RecitationRecorder = ({ resetKey, variant = 'card', className, title = 'My Recitation' }: Props) => {
   const { toast } = useToast();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -472,7 +474,7 @@ export const RecitationRecorder = ({ resetKey, variant = 'card', className }: Pr
     </>
   ) : (
     <>
-      <span className="text-[11px] text-muted-foreground uppercase tracking-wide">My Recitation</span>
+      <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{title}</span>
 
       {/* Waveform + time row */}
       {(recording || audioUrl) && (
