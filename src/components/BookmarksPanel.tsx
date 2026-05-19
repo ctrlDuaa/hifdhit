@@ -382,6 +382,18 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
                     </div>
                   );
                 })}
+
+                {hasMore && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-2"
+                    onClick={fetchMoreCollections}
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Load more'}
+                  </Button>
+                )}
               </div>
             )}
           </ScrollArea>
