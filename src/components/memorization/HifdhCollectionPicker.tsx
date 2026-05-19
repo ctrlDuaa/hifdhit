@@ -83,7 +83,7 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
     setLoadingBookmarks(true);
     setBookmarksError(null);
     setBookmarks([]);
-    setSelected(new Set());
+    setSelected(null);
 
     try {
       const itemsRes = await callQfUserApi(`/auth/v1/collections/${collectionId}?first=10`) as any;
@@ -134,20 +134,15 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
     }
   }, [open, selectedCollectionId]);
 
-  const toggleBookmark = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const selectBookmark = (id: string) => {
+    setSelected((prev) => (prev === id ? null : id));
   };
 
   const handleConfirm = () => {
-    const verses = bookmarks
-      .filter((bookmark) => selected.has(bookmark.id))
-      .map((bookmark) => ({ surahId: bookmark.key, ayah: bookmark.verseNumber! }));
-    onSelectVerses(verses);
+    if (!selected) return;
+    const bookmark = bookmarks.find((b) => b.id === selected);
+    if (!bookmark || bookmark.verseNumber == null) return;
+    onSelectVerses([{ surahId: bookmark.key, ayah: bookmark.verseNumber }]);
     setOpen(false);
   };
 
@@ -177,7 +172,7 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Your Collections</DialogTitle>
-            <DialogDescription>Select verses to memorize from any Quran.com collection</DialogDescription>
+            <DialogDescription>Select one verse to memorize from any Quran.com collection</DialogDescription>
           </DialogHeader>
 
           {loadingCollections && collections.length === 0 && (
@@ -271,8 +266,8 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
                                   className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-muted/50"
                                 >
                                   <Checkbox
-                                    checked={selected.has(bookmark.id)}
-                                    onCheckedChange={() => toggleBookmark(bookmark.id)}
+                                    checked={selected === bookmark.id}
+                                    onCheckedChange={() => selectBookmark(bookmark.id)}
                                   />
                                   <span className="text-sm">
                                     Ayah {bookmark.verseNumber} ({surahNum}:{bookmark.verseNumber})
@@ -288,10 +283,10 @@ export const HifdhCollectionPicker = ({ onSelectVerses }: Props) => {
                   </ScrollArea>
                   <Button
                     onClick={handleConfirm}
-                    disabled={selected.size === 0}
+                    disabled={selected === null}
                     className="w-full"
                   >
-                    Memorize {selected.size} selected {selected.size === 1 ? 'verse' : 'verses'}
+                    Memorize selected verse
                   </Button>
                 </>
               ) : null}
