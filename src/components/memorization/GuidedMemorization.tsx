@@ -150,9 +150,9 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
     loadMistakes();
   }, [user, surahId, state.config.ayahStart, state.config.ayahEnd]);
 
-  // Reset recitation counter whenever the current ayah changes
+  // Reset repetition counter whenever the current ayah changes
   useEffect(() => {
-    setRecitationCount(0);
+    setRepetitionCount(0);
   }, [currentAyahNum]);
 
   // ── Audio management ─────────────────────────────────────
