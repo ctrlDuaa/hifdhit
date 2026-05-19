@@ -52,10 +52,16 @@ function normalizeBookmark(raw: any): Bookmark | null {
   return null;
 }
 
+const PAGE_SIZE = 20;
+
 export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [nextPage, setNextPage] = useState<number>(2);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [bookmarksMap, setBookmarksMap] = useState<Record<string, Bookmark[]>>({});
   const [bookmarksErrorMap, setBookmarksErrorMap] = useState<Record<string, string>>({});
@@ -71,33 +77,63 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     return map;
   }, [chapters]);
 
+  const loadCollectionPage = useCallback(async (opts: { cursor?: string | null; page?: number }) => {
+    const params = new URLSearchParams();
+    params.set('first', String(PAGE_SIZE));
+    params.set('type', 'ayah');
+    if (opts.cursor) params.set('after', opts.cursor);
+    else if (opts.page && opts.page > 1) params.set('page', String(opts.page));
+
+    const res = await callQfUserApi(`/auth/v1/collections?${params.toString()}`) as any;
+
+    const upstreamStatus = res?.upstreamStatus;
+    if (upstreamStatus && upstreamStatus >= 400) {
+      throw new Error(`HTTP ${upstreamStatus}`);
+    }
+
+    const innerData = res?.data;
+    const container = innerData?.data ?? innerData;
+    const pageItems: any[] = Array.isArray(container)
+      ? container
+      : Array.isArray(container?.records)
+        ? container.records
+        : Array.isArray(container?.items)
+          ? container.items
+          : Array.isArray(innerData?.data) ? innerData.data : [];
+
+    const parsed: Collection[] = pageItems
+      .filter((c: any) => !!c?.id)
+      .map((c: any) => ({ id: String(c.id), name: c.name ?? c.title ?? 'Untitled Collection' }));
+
+    // Try multiple shapes to detect more pages
+    const pagination = innerData?.pagination ?? container?.pagination ?? innerData?.meta ?? container?.meta ?? innerData?.pageInfo ?? container?.pageInfo;
+    const endCursor: string | null = pagination?.endCursor ?? pagination?.end_cursor ?? pagination?.after ?? pagination?.next_cursor ?? pagination?.nextCursor ?? null;
+    const explicitHasMore: boolean | undefined = pagination?.hasNextPage ?? pagination?.has_more ?? pagination?.hasMore;
+    const currentPage = pagination?.currentPage ?? pagination?.current_page ?? pagination?.page;
+    const totalPages = pagination?.totalPages ?? pagination?.total_pages;
+
+    let more = false;
+    if (typeof explicitHasMore === 'boolean') more = explicitHasMore;
+    else if (currentPage != null && totalPages != null) more = Number(currentPage) < Number(totalPages);
+    else more = parsed.length >= PAGE_SIZE;
+
+    return { parsed, endCursor, more };
+  }, []);
+
   const fetchCollections = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
+    setNextCursor(null);
+    setNextPage(2);
+    setHasMore(false);
     try {
       if (!isQfSessionValid()) {
         throw new Error('Not connected to Quran.com. Please reconnect from the header.');
       }
-
-      const res = await callQfUserApi('/auth/v1/collections?first=20&type=ayah') as any;
-
-      const upstreamStatus = res?.upstreamStatus;
-      if (upstreamStatus && upstreamStatus >= 400) {
-        throw new Error(`HTTP ${upstreamStatus}`);
-      }
-
-      const innerData = res?.data;
-      const pageItems: any[] = Array.isArray(innerData?.data)
-        ? innerData.data
-        : Array.isArray(innerData)
-          ? innerData
-          : [];
-
-      const parsed: Collection[] = pageItems
-        .filter((c: any) => !!c?.id)
-        .map((c: any) => ({ id: String(c.id), name: c.name ?? c.title ?? 'Untitled Collection' }));
-
+      const { parsed, endCursor, more } = await loadCollectionPage({ page: 1 });
       setCollections(parsed);
+      setNextCursor(endCursor);
+      setHasMore(more);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load collections';
       setLoadError(message);
@@ -105,7 +141,28 @@ export const BookmarksPanel = ({ open, onOpenChange }: Props) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadCollectionPage]);
+
+  const fetchMoreCollections = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const { parsed, endCursor, more } = await loadCollectionPage({ cursor: nextCursor, page: nextPage });
+      setCollections(prev => {
+        const seen = new Set(prev.map(c => c.id));
+        const additions = parsed.filter(c => !seen.has(c.id));
+        return [...prev, ...additions];
+      });
+      setNextCursor(endCursor);
+      setNextPage(p => p + 1);
+      setHasMore(more && parsed.length > 0);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load more collections';
+      toast({ title: 'Failed to load more', description: message, variant: 'destructive' });
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadCollectionPage, loadingMore, hasMore, nextCursor, nextPage]);
 
   useEffect(() => {
     if (open && isQfSessionValid()) {
