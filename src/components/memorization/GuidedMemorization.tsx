@@ -102,8 +102,8 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   const [noteDrawerOpen, setNoteDrawerOpen] = useState(false);
   const [currentNote, setCurrentNote] = useState('');
 
-  // Recitation counter for current verse
-  const [recitationCount, setRecitationCount] = useState(0);
+  // Repetition counter for current verse
+  const [repetitionCount, setRepetitionCount] = useState(0);
 
   const chunk = state.chunks[state.currentChunkIndex];
   const currentAyahNum = chunk ? chunk.ayahStart + state.currentAyahInChunk : 0;
@@ -150,9 +150,9 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
     loadMistakes();
   }, [user, surahId, state.config.ayahStart, state.config.ayahEnd]);
 
-  // Reset recitation counter whenever the current ayah changes
+  // Reset repetition counter whenever the current ayah changes
   useEffect(() => {
-    setRecitationCount(0);
+    setRepetitionCount(0);
   }, [currentAyahNum]);
 
   // ── Audio management ─────────────────────────────────────
@@ -625,24 +625,24 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
                   </Button>
                 </div>
 
-                {/* Recitation counter — mobile inline, desktop hidden (desktop has fixed widget) */}
+                {/* Repetition counter — mobile inline, desktop hidden (desktop has fixed widget) */}
                 <div className="flex md:hidden items-center justify-center gap-2 border-t pt-4">
-                  <span className="text-xs text-muted-foreground mr-1">Recitations</span>
+                  <span className="text-xs text-muted-foreground mr-1">Repetitions</span>
                   <Button
                     variant="outline"
                     size="icon"
                     className="h-8 w-8 rounded-full"
-                    onClick={() => setRecitationCount(c => Math.max(0, c - 1))}
-                    disabled={recitationCount <= 0}
+                    onClick={() => setRepetitionCount(c => Math.max(0, c - 1))}
+                    disabled={repetitionCount <= 0}
                   >
                     <Minus className="w-3 h-3" />
                   </Button>
-                  <span className="min-w-[2.5rem] text-center font-semibold text-lg tabular-nums">{recitationCount}</span>
+                  <span className="min-w-[2.5rem] text-center font-semibold text-lg tabular-nums">{repetitionCount}</span>
                   <Button
                     variant="outline"
                     size="icon"
                     className="h-8 w-8 rounded-full border-[#C6A477] text-[#C6A477] hover:bg-[#C6A477]/10"
-                    onClick={() => setRecitationCount(c => c + 1)}
+                    onClick={() => setRepetitionCount(c => c + 1)}
                   >
                     <Plus className="w-3 h-3" />
                   </Button>
@@ -650,7 +650,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
                     variant="ghost"
                     size="sm"
                     className="text-xs text-muted-foreground hover:text-foreground"
-                    onClick={() => setRecitationCount(0)}
+                    onClick={() => setRepetitionCount(0)}
                   >
                     <RotateCcw className="w-3 h-3 mr-1" /> Reset
                   </Button>
@@ -707,19 +707,19 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
         )}
       </div>
 
-      {/* ── Desktop recitation counter (fixed right side) ── */}
+      {/* ── Desktop repetition counter (fixed right side) ── */}
       <div className="hidden md:flex fixed right-6 top-1/2 -translate-y-1/2 z-30 flex-col items-center gap-3">
         <Card className="shadow-lg border-border/50 w-[110px]">
           <CardContent className="p-3 flex flex-col items-center gap-2">
-            <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Recitations</span>
-            <span className="text-3xl font-bold tabular-nums text-foreground">{recitationCount}</span>
+            <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Repetitions</span>
+            <span className="text-3xl font-bold tabular-nums text-foreground">{repetitionCount}</span>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="icon"
                 className="h-8 w-8 rounded-full"
-                onClick={() => setRecitationCount(c => Math.max(0, c - 1))}
-                disabled={recitationCount <= 0}
+                onClick={() => setRepetitionCount(c => Math.max(0, c - 1))}
+                disabled={repetitionCount <= 0}
               >
                 <Minus className="w-3 h-3" />
               </Button>
@@ -727,7 +727,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
                 variant="outline"
                 size="icon"
                 className="h-8 w-8 rounded-full border-[#C6A477] text-[#C6A477] hover:bg-[#C6A477]/10"
-                onClick={() => setRecitationCount(c => c + 1)}
+                onClick={() => setRepetitionCount(c => c + 1)}
               >
                 <Plus className="w-3 h-3" />
               </Button>
@@ -736,7 +736,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
               variant="ghost"
               size="sm"
               className="text-xs text-muted-foreground hover:text-foreground h-7 px-2"
-              onClick={() => setRecitationCount(0)}
+              onClick={() => setRepetitionCount(0)}
             >
               <RotateCcw className="w-3 h-3 mr-1" /> Reset
             </Button>
