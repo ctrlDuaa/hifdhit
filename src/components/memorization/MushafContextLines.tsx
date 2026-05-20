@@ -226,11 +226,6 @@ export const MushafContextLines = ({
     );
   }
 
-  // 1-based Mushaf word position within the *target* ayah, counted globally
-  // across rendered lines. This matches the QCF `position` field, the local
-  // Mushaf word field, and the value stored in the canonical `mistakes` table.
-  let targetAyahWordPosition = 0;
-
   // Track surah transitions so we can render the surah-name + bismillah header
   // when a new surah starts on the page (only meaningful in full-page mode).
   let prevSurahOnPage: number | null = null;
@@ -313,15 +308,10 @@ export const MushafContextLines = ({
             {words.map((word, wi) => {
               const isEnd = word.char_type_name === 'end';
               const isTargetAyah = word.verse_key === verseKey;
-              if (isTargetAyah && !isEnd) {
-                targetAyahWordPosition =
-                  typeof word.position === 'number' && word.position > 0
-                    ? word.position
-                    : targetAyahWordPosition + 1;
-              }
+              const wordPosition = !isEnd ? word.normalizedPosition ?? word.position : undefined;
 
               const mistakeKey = isTargetAyah && !isEnd
-                ? `${surahId}-${ayahNumber}-${targetAyahWordPosition}`
+                ? `${surahId}-${ayahNumber}-${wordPosition}`
                 : null;
               const mistake = mistakeKey ? mistakes?.get(mistakeKey) : undefined;
               const hasMistake = !!mistake;
@@ -332,13 +322,13 @@ export const MushafContextLines = ({
               const family = useGlyph ? `'p${pageNum}-v2'` : "'UthmanicHafs', serif";
 
               const interactive = isTargetAyah && !isEnd && !!onWordClick;
-              const wordPositionForClick = targetAyahWordPosition;
+              const wordPositionForClick = wordPosition;
 
               // Hide-mode logic — only target-ayah, non-end words.
               let hidden = false;
               let firstLetterOnly = false;
-              if (isTargetAyah && !isEnd && hideMode !== 'none') {
-                const zeroBasedWordIndex = targetAyahWordPosition - 1;
+              if (isTargetAyah && !isEnd && typeof wordPosition === 'number' && hideMode !== 'none') {
+                const zeroBasedWordIndex = wordPosition - 1;
                 if (hideMode === 'full-hide') hidden = true;
                 else if (hideMode === 'hide-third') hidden = zeroBasedWordIndex % 3 === 2;
                 else if (hideMode === 'hide-half') hidden = zeroBasedWordIndex % 2 === 1;
@@ -355,7 +345,7 @@ export const MushafContextLines = ({
                   )}
                   style={{ margin: '0 0.5px' }}
                   onClick={interactive
-                    ? (e) => onWordClick!(ayahNumber, wordPositionForClick, e)
+                    ? (e) => typeof wordPositionForClick === 'number' && onWordClick!(ayahNumber, wordPositionForClick, e)
                     : undefined}
                 >
                   {hasMistake && mistake && !hidden && (
