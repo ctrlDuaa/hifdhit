@@ -95,7 +95,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   // Key: "surahNumber-ayahNumber-wordPosition" using the canonical 1-based Mushaf word position.
   const [mistakes, setMistakes] = useState<Map<string, MistakeData>>(new Map());
   const [selectedWordKey, setSelectedWordKey] = useState<string | null>(null);
-  const [selectedWordInfo, setSelectedWordInfo] = useState<{ surah: number; ayah: number; wordIndex: number } | null>(null);
+  const [selectedWordInfo, setSelectedWordInfo] = useState<{ surah: number; ayah: number; wordPosition: number } | null>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
@@ -251,7 +251,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
     setPopoverPosition({ x: rect.left + rect.width / 2, y: rect.top });
     const key = `${surahId}-${ayahNum}-${wordPosition}`;
     setSelectedWordKey(key);
-    setSelectedWordInfo({ surah: surahId, ayah: ayahNum, wordIndex: wordPosition });
+    setSelectedWordInfo({ surah: surahId, ayah: ayahNum, wordPosition });
     setPopoverOpen(true);
   };
 
@@ -289,7 +289,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
             reciter_id: user.id,
             surah_number: selectedWordInfo.surah,
             ayah_number: selectedWordInfo.ayah,
-            word_index: selectedWordInfo.wordIndex,
+            word_index: selectedWordInfo.wordPosition,
             mistake_category: category,
           }, { onConflict: 'reciter_id,surah_number,ayah_number,word_index' })
           .select()
@@ -300,9 +300,9 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
         // Update local state with the DB id
         setMistakes(prev => {
           const updated = new Map(prev);
-          const current = updated.get(`${selectedWordInfo.surah}-${selectedWordInfo.ayah}-${selectedWordInfo.wordIndex}`);
+          const current = updated.get(`${selectedWordInfo.surah}-${selectedWordInfo.ayah}-${selectedWordInfo.wordPosition}`);
           if (current) {
-            updated.set(`${selectedWordInfo.surah}-${selectedWordInfo.ayah}-${selectedWordInfo.wordIndex}`, {
+            updated.set(`${selectedWordInfo.surah}-${selectedWordInfo.ayah}-${selectedWordInfo.wordPosition}`, {
               ...current,
               mistakeId: data.id,
             });
