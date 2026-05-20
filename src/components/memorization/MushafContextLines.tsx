@@ -72,7 +72,7 @@ export interface MushafContextLinesProps {
   /** Map keyed by `${surahId}-${ayahNumber}-${wordPosition}` (1-based Mushaf position, end markers excluded). */
   mistakes?: Map<string, { category: string }>;
   /** Click handler for words inside the target ayah. wordPosition is the 1-based Mushaf position. */
-  onWordClick?: (ayahNumber: number, wordPosition: number, e: React.MouseEvent<HTMLSpanElement>) => void;
+  onWordClick?: (ayahNumber: number, wordPosition: number, e: React.MouseEvent<HTMLSpanElement>, pageNumber?: number) => void;
   /** Hide pattern applied ONLY to words inside the target ayah. */
   hideMode?: HideMode;
   className?: string;
@@ -345,7 +345,7 @@ export const MushafContextLines = ({
                   )}
                   style={{ margin: '0 0.5px' }}
                   onClick={interactive
-                    ? (e) => typeof wordPositionForClick === 'number' && onWordClick!(ayahNumber, wordPositionForClick, e)
+                    ? (e) => typeof wordPositionForClick === 'number' && onWordClick!(ayahNumber, wordPositionForClick, e, pageNum || undefined)
                     : undefined}
                 >
                   {hasMistake && mistake && !hidden && (
