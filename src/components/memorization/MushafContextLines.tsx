@@ -25,6 +25,21 @@ interface QcfWord {
   position?: number;
 }
 
+interface QcfVersePayload {
+  verse_key?: string;
+  page_number?: number;
+  words?: QcfWord[];
+}
+
+interface VerseResponsePayload {
+  verse?: QcfVersePayload;
+  data?: { verse?: QcfVersePayload };
+}
+
+interface QcfPagePayload {
+  verses?: QcfVersePayload[];
+}
+
 export type HideMode = 'none' | 'hide-third' | 'hide-half' | 'first-letters' | 'full-hide';
 
 export interface MushafContextLinesProps {
@@ -108,12 +123,12 @@ export const MushafContextLines = ({
         //    direct fetch leaves the page in a permanent skeleton state).
         let page: number | null = null;
         try {
-          const res: any = await quranApi.getVerse(verseKey);
+          const res = await quranApi.getVerse(verseKey) as VerseResponsePayload;
           const verse = res?.verse ?? res?.data?.verse ?? null;
           if (typeof verse?.page_number === 'number') {
             page = verse.page_number;
           } else if (Array.isArray(verse?.words)) {
-            const w = verse.words.find((w: any) => typeof w?.page_number === 'number');
+            const w = verse.words.find((candidate) => typeof candidate?.page_number === 'number');
             if (w) page = w.page_number;
           }
         } catch (err) {
@@ -126,13 +141,13 @@ export const MushafContextLines = ({
         setPageNumber(page);
 
         // 2) Fetch QCF data for the page (verses + words).
-        const data = await quranApi.getPageQcf(page);
-        const verses: any[] = Array.isArray(data?.verses) ? data.verses : [];
+        const data = await quranApi.getPageQcf(page) as QcfPagePayload;
+        const verses = Array.isArray(data?.verses) ? data.verses : [];
 
         // Flatten words AND attach verse_key from the parent verse — the API's
         // word objects don't carry verse_key by default.
-        const words: QcfWord[] = verses.flatMap((v: any) =>
-          (v?.words ?? []).map((w: any) => ({ ...w, verse_key: w.verse_key ?? v.verse_key })),
+        const words: QcfWord[] = verses.flatMap((v) =>
+          (v?.words ?? []).map((w) => ({ ...w, verse_key: w.verse_key ?? v.verse_key })),
         );
 
         if (!cancelled) setPageWords(words);
