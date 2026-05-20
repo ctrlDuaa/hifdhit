@@ -427,6 +427,8 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
       return <span className="text-muted-foreground/30 select-none blur-md">{ayah.text}</span>;
     }
 
+    const firstWordPosition = ayah.words?.[0]?.position === 1 ? 1 : 1;
+
     return (
       <span className="flex flex-wrap justify-center gap-x-3 gap-y-1" dir="rtl">
         {words.map((word, i) => {
@@ -437,7 +439,8 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
           if (stage === 'hide-half') hidden = i % 2 === 1;
           if (stage === 'first-letters') { hidden = true; showFirstLetter = true; }
 
-          const wordKey = `${surahId}-${ayahNum}-${i}`;
+          const wordPosition = typeof word?.position === 'number' && word.position > 0 ? word.position : firstWordPosition + i;
+          const wordKey = `${surahId}-${ayahNum}-${wordPosition}`;
           const mistake = mistakes.get(wordKey);
           const hasMistake = !!mistake;
 
@@ -447,7 +450,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
               className={cn(
                 'relative inline-block cursor-pointer transition-opacity hover:opacity-70',
               )}
-              onClick={(e) => handleWordClick(ayahNum, i, e)}
+              onClick={(e) => handleWordClick(ayahNum, wordPosition, e)}
             >
               {hasMistake && mistake && (
                 <span
