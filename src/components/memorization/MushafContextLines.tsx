@@ -40,6 +40,29 @@ interface QcfPagePayload {
   verses?: QcfVersePayload[];
 }
 
+type PositionedQcfWord = QcfWord & {
+  verse_key?: string;
+  normalizedPosition?: number;
+};
+
+const normalizeQcfPageWords = (verses: QcfVersePayload[]): PositionedQcfWord[] => {
+  const counters = new Map<string, number>();
+
+  return verses.flatMap((v) => {
+    const verseKey = v?.verse_key ?? '';
+    return (v?.words ?? []).map((word) => {
+      const withVerseKey: PositionedQcfWord = { ...word, verse_key: word.verse_key ?? verseKey };
+      const isEnd = withVerseKey.char_type_name === 'end';
+      if (!isEnd && withVerseKey.verse_key) {
+        const nextPosition = (counters.get(withVerseKey.verse_key) ?? 0) + 1;
+        counters.set(withVerseKey.verse_key, nextPosition);
+        withVerseKey.normalizedPosition = nextPosition;
+      }
+      return withVerseKey;
+    });
+  });
+};
+
 export type HideMode = 'none' | 'hide-third' | 'hide-half' | 'first-letters' | 'full-hide';
 
 export interface MushafContextLinesProps {
@@ -106,7 +129,7 @@ export const MushafContextLines = ({
 }: MushafContextLinesProps) => {
   const verseKey = `${surahId}:${ayahNumber}`;
   const [pageNumber, setPageNumber] = useState<number | null>(null);
-  const [pageWords, setPageWords] = useState<QcfWord[]>([]);
+  const [pageWords, setPageWords] = useState<PositionedQcfWord[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Resolve the page that contains this verse, then load its QCF data.
@@ -144,11 +167,7 @@ export const MushafContextLines = ({
         const data = await quranApi.getPageQcf(page) as QcfPagePayload;
         const verses = Array.isArray(data?.verses) ? data.verses : [];
 
-        // Flatten words AND attach verse_key from the parent verse — the API's
-        // word objects don't carry verse_key by default.
-        const words: QcfWord[] = verses.flatMap((v) =>
-          (v?.words ?? []).map((w) => ({ ...w, verse_key: w.verse_key ?? v.verse_key })),
-        );
+        const words = normalizeQcfPageWords(verses);
 
         if (!cancelled) setPageWords(words);
       } catch {
