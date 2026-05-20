@@ -95,7 +95,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   // Key: "surahNumber-ayahNumber-wordPosition" using the canonical 1-based Mushaf word position.
   const [mistakes, setMistakes] = useState<Map<string, MistakeData>>(new Map());
   const [selectedWordKey, setSelectedWordKey] = useState<string | null>(null);
-  const [selectedWordInfo, setSelectedWordInfo] = useState<{ surah: number; ayah: number; wordPosition: number } | null>(null);
+  const [selectedWordInfo, setSelectedWordInfo] = useState<{ surah: number; ayah: number; wordPosition: number; pageNumber?: number } | null>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
@@ -246,12 +246,12 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   }, [popoverOpen]);
 
   // ── Mistake handlers ─────────────────────────────────────
-  const handleWordClick = (ayahNum: number, wordPosition: number, event: React.MouseEvent<HTMLSpanElement>) => {
+  const handleWordClick = (ayahNum: number, wordPosition: number, event: React.MouseEvent<HTMLSpanElement>, pageNumber?: number) => {
     const rect = event.currentTarget.getBoundingClientRect();
     setPopoverPosition({ x: rect.left + rect.width / 2, y: rect.top });
     const key = `${surahId}-${ayahNum}-${wordPosition}`;
     setSelectedWordKey(key);
-    setSelectedWordInfo({ surah: surahId, ayah: ayahNum, wordPosition });
+    setSelectedWordInfo({ surah: surahId, ayah: ayahNum, wordPosition, pageNumber });
     setPopoverOpen(true);
   };
 
@@ -290,6 +290,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
             surah_number: selectedWordInfo.surah,
             ayah_number: selectedWordInfo.ayah,
             word_index: selectedWordInfo.wordPosition,
+            page_number: selectedWordInfo.pageNumber ?? null,
             mistake_category: category,
           }, { onConflict: 'reciter_id,surah_number,ayah_number,word_index' })
           .select()
