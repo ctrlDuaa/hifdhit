@@ -40,6 +40,29 @@ interface QcfPagePayload {
   verses?: QcfVersePayload[];
 }
 
+type PositionedQcfWord = QcfWord & {
+  verse_key?: string;
+  normalizedPosition?: number;
+};
+
+const normalizeQcfPageWords = (verses: QcfVersePayload[]): PositionedQcfWord[] => {
+  const counters = new Map<string, number>();
+
+  return verses.flatMap((v) => {
+    const verseKey = v?.verse_key ?? '';
+    return (v?.words ?? []).map((word) => {
+      const withVerseKey: PositionedQcfWord = { ...word, verse_key: word.verse_key ?? verseKey };
+      const isEnd = withVerseKey.char_type_name === 'end';
+      if (!isEnd && withVerseKey.verse_key) {
+        const nextPosition = (counters.get(withVerseKey.verse_key) ?? 0) + 1;
+        counters.set(withVerseKey.verse_key, nextPosition);
+        withVerseKey.normalizedPosition = nextPosition;
+      }
+      return withVerseKey;
+    });
+  });
+};
+
 export type HideMode = 'none' | 'hide-third' | 'hide-half' | 'first-letters' | 'full-hide';
 
 export interface MushafContextLinesProps {
@@ -49,7 +72,7 @@ export interface MushafContextLinesProps {
   /** Map keyed by `${surahId}-${ayahNumber}-${wordPosition}` (1-based Mushaf position, end markers excluded). */
   mistakes?: Map<string, { category: string }>;
   /** Click handler for words inside the target ayah. wordPosition is the 1-based Mushaf position. */
-  onWordClick?: (ayahNumber: number, wordPosition: number, e: React.MouseEvent<HTMLSpanElement>) => void;
+  onWordClick?: (ayahNumber: number, wordPosition: number, e: React.MouseEvent<HTMLSpanElement>, pageNumber?: number) => void;
   /** Hide pattern applied ONLY to words inside the target ayah. */
   hideMode?: HideMode;
   className?: string;
@@ -106,7 +129,7 @@ export const MushafContextLines = ({
 }: MushafContextLinesProps) => {
   const verseKey = `${surahId}:${ayahNumber}`;
   const [pageNumber, setPageNumber] = useState<number | null>(null);
-  const [pageWords, setPageWords] = useState<QcfWord[]>([]);
+  const [pageWords, setPageWords] = useState<PositionedQcfWord[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Resolve the page that contains this verse, then load its QCF data.
@@ -144,11 +167,7 @@ export const MushafContextLines = ({
         const data = await quranApi.getPageQcf(page) as QcfPagePayload;
         const verses = Array.isArray(data?.verses) ? data.verses : [];
 
-        // Flatten words AND attach verse_key from the parent verse — the API's
-        // word objects don't carry verse_key by default.
-        const words: QcfWord[] = verses.flatMap((v) =>
-          (v?.words ?? []).map((w) => ({ ...w, verse_key: w.verse_key ?? v.verse_key })),
-        );
+        const words = normalizeQcfPageWords(verses);
 
         if (!cancelled) setPageWords(words);
       } catch {
@@ -166,7 +185,7 @@ export const MushafContextLines = ({
 
   // Group words by line.
   const lineMap = useMemo(() => {
-    const m = new Map<number, QcfWord[]>();
+    const m = new Map<number, PositionedQcfWord[]>();
     for (const w of pageWords) {
       const ln = typeof w.line_number === 'number' ? w.line_number : -1;
       if (ln < 0) continue;
@@ -206,11 +225,6 @@ export const MushafContextLines = ({
       </div>
     );
   }
-
-  // 1-based Mushaf word position within the *target* ayah, counted globally
-  // across rendered lines. This matches the QCF `position` field, the local
-  // Mushaf word field, and the value stored in the canonical `mistakes` table.
-  let targetAyahWordPosition = 0;
 
   // Track surah transitions so we can render the surah-name + bismillah header
   // when a new surah starts on the page (only meaningful in full-page mode).
@@ -294,15 +308,10 @@ export const MushafContextLines = ({
             {words.map((word, wi) => {
               const isEnd = word.char_type_name === 'end';
               const isTargetAyah = word.verse_key === verseKey;
-              if (isTargetAyah && !isEnd) {
-                targetAyahWordPosition =
-                  typeof word.position === 'number' && word.position > 0
-                    ? word.position
-                    : targetAyahWordPosition + 1;
-              }
+              const wordPosition = !isEnd ? word.normalizedPosition ?? word.position : undefined;
 
               const mistakeKey = isTargetAyah && !isEnd
-                ? `${surahId}-${ayahNumber}-${targetAyahWordPosition}`
+                ? `${surahId}-${ayahNumber}-${wordPosition}`
                 : null;
               const mistake = mistakeKey ? mistakes?.get(mistakeKey) : undefined;
               const hasMistake = !!mistake;
@@ -313,13 +322,13 @@ export const MushafContextLines = ({
               const family = useGlyph ? `'p${pageNum}-v2'` : "'UthmanicHafs', serif";
 
               const interactive = isTargetAyah && !isEnd && !!onWordClick;
-              const wordPositionForClick = targetAyahWordPosition;
+              const wordPositionForClick = wordPosition;
 
               // Hide-mode logic — only target-ayah, non-end words.
               let hidden = false;
               let firstLetterOnly = false;
-              if (isTargetAyah && !isEnd && hideMode !== 'none') {
-                const zeroBasedWordIndex = targetAyahWordPosition - 1;
+              if (isTargetAyah && !isEnd && typeof wordPosition === 'number' && hideMode !== 'none') {
+                const zeroBasedWordIndex = wordPosition - 1;
                 if (hideMode === 'full-hide') hidden = true;
                 else if (hideMode === 'hide-third') hidden = zeroBasedWordIndex % 3 === 2;
                 else if (hideMode === 'hide-half') hidden = zeroBasedWordIndex % 2 === 1;
@@ -336,7 +345,7 @@ export const MushafContextLines = ({
                   )}
                   style={{ margin: '0 0.5px' }}
                   onClick={interactive
-                    ? (e) => onWordClick!(ayahNumber, wordPositionForClick, e)
+                    ? (e) => typeof wordPositionForClick === 'number' && onWordClick!(ayahNumber, wordPositionForClick, e, pageNum || undefined)
                     : undefined}
                 >
                   {hasMistake && mistake && !hidden && (

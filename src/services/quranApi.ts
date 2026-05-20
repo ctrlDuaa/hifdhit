@@ -159,7 +159,7 @@ class QuranApiService {
     if (inflight) return inflight;
 
     const promise = (async () => {
-      const wordFields = "code_v2,text_qpc_hafs,page_number,line_number,char_type_name";
+      const wordFields = "code_v2,text_qpc_hafs,page_number,line_number,char_type_name,position";
       // 1) Try our edge function (QF prelive + server-side fallback)
       try {
         const data = await this.invoke<any>({
