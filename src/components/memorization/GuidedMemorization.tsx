@@ -92,10 +92,10 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   const { toast } = useToast();
 
   // ── Mistake state ────────────────────────────────────────
-  // Key: "surahNumber-ayahNumber-wordIndex" (matches SessionMushafViewer format)
+  // Key: "surahNumber-ayahNumber-wordPosition" using the canonical 1-based Mushaf word position.
   const [mistakes, setMistakes] = useState<Map<string, MistakeData>>(new Map());
   const [selectedWordKey, setSelectedWordKey] = useState<string | null>(null);
-  const [selectedWordInfo, setSelectedWordInfo] = useState<{ surah: number; ayah: number; wordIndex: number } | null>(null);
+  const [selectedWordInfo, setSelectedWordInfo] = useState<{ surah: number; ayah: number; wordPosition: number } | null>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
@@ -134,8 +134,8 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
 
         const loaded = new Map<string, MistakeData>();
         data?.forEach(m => {
-          // DB stores 1-based word_index (Mushaf convention); local map keys use 0-based render index.
-          const key = `${m.surah_number}-${m.ayah_number}-${m.word_index - 1}`;
+          // DB and Mushaf renderers both use the same 1-based word position.
+          const key = `${m.surah_number}-${m.ayah_number}-${m.word_index}`;
           loaded.set(key, {
             category: (m.mistake_category as MistakeCategory) || 'tajweed',
             note: m.note || '',
@@ -246,12 +246,12 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   }, [popoverOpen]);
 
   // ── Mistake handlers ─────────────────────────────────────
-  const handleWordClick = (ayahNum: number, wordIndex: number, event: React.MouseEvent<HTMLSpanElement>) => {
+  const handleWordClick = (ayahNum: number, wordPosition: number, event: React.MouseEvent<HTMLSpanElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
     setPopoverPosition({ x: rect.left + rect.width / 2, y: rect.top });
-    const key = `${surahId}-${ayahNum}-${wordIndex}`;
+    const key = `${surahId}-${ayahNum}-${wordPosition}`;
     setSelectedWordKey(key);
-    setSelectedWordInfo({ surah: surahId, ayah: ayahNum, wordIndex });
+    setSelectedWordInfo({ surah: surahId, ayah: ayahNum, wordPosition });
     setPopoverOpen(true);
   };
 
@@ -289,7 +289,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
             reciter_id: user.id,
             surah_number: selectedWordInfo.surah,
             ayah_number: selectedWordInfo.ayah,
-            word_index: selectedWordInfo.wordIndex + 1,
+            word_index: selectedWordInfo.wordPosition,
             mistake_category: category,
           }, { onConflict: 'reciter_id,surah_number,ayah_number,word_index' })
           .select()
@@ -300,9 +300,9 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
         // Update local state with the DB id
         setMistakes(prev => {
           const updated = new Map(prev);
-          const current = updated.get(`${selectedWordInfo.surah}-${selectedWordInfo.ayah}-${selectedWordInfo.wordIndex}`);
+          const current = updated.get(`${selectedWordInfo.surah}-${selectedWordInfo.ayah}-${selectedWordInfo.wordPosition}`);
           if (current) {
-            updated.set(`${selectedWordInfo.surah}-${selectedWordInfo.ayah}-${selectedWordInfo.wordIndex}`, {
+            updated.set(`${selectedWordInfo.surah}-${selectedWordInfo.ayah}-${selectedWordInfo.wordPosition}`, {
               ...current,
               mistakeId: data.id,
             });
@@ -584,7 +584,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
                     ayahNumber={currentAyahNum}
                     showFullPage={showFullPage}
                     mistakes={mistakes}
-                    onWordClick={(ayah, wordIndex, e) => handleWordClick(ayah, wordIndex, e)}
+                    onWordClick={(ayah, wordPosition, e) => handleWordClick(ayah, wordPosition, e)}
                     hideMode={
                       state.currentStage === 'hide-third' ? 'hide-third'
                       : state.currentStage === 'hide-half' ? 'hide-half'
