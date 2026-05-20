@@ -584,7 +584,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
                     ayahNumber={currentAyahNum}
                     showFullPage={showFullPage}
                     mistakes={mistakes}
-                    onWordClick={(ayah, wordIndex, e) => handleWordClick(ayah, wordIndex, e)}
+                    onWordClick={(ayah, wordPosition, e) => handleWordClick(ayah, wordPosition, e)}
                     hideMode={
                       state.currentStage === 'hide-third' ? 'hide-third'
                       : state.currentStage === 'hide-half' ? 'hide-half'
