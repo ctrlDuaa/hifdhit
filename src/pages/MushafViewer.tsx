@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
 import { useQcfFontLoader, prefetchQcfPageFont } from '@/hooks/useQcfFontLoader';
-import { QcfVerseText, QcfWord } from '@/components/quran/QcfVerseText';
+import { QcfWord } from '@/components/quran/QcfVerseText';
 import { quranApi } from '@/services/quranApi';
 import { AppHeader } from '@/components/AppHeader';
 import { format } from 'date-fns';
@@ -426,6 +426,10 @@ const MushafViewer = () => {
                 {line.line_type === 'ayah' && (() => {
                   const qcfLineWords = qcfWords && !qcfError ? qcfLineMap.get(line.line_number) : null;
                   if (!qcfLineWords || qcfLineWords.length === 0) return null;
+
+                  const localLineWords: SupabaseWord[] = line.words ?? [];
+                  let localIdx = 0;
+
                   return (
                     <div
                       className="w-full max-w-3xl mx-auto text-xl md:text-2xl lg:text-3xl leading-tight"
@@ -436,35 +440,59 @@ const MushafViewer = () => {
                         wordSpacing: '0.05em',
                       }}
                     >
-                      <QcfVerseText
-                        words={qcfLineWords}
-                        loadedPages={qcfLoadedPages}
-                        wordWrapper={(w, _i, child) => {
-                          if (w.char_type_name === 'end') return child;
-                          const wordKey = `${w.surah}-${w.ayah}-${w.position}`;
-                          const mistakeData = highlightedWords.get(wordKey);
-                          const hasMistake = mistakeData !== undefined;
-                          return (
-                            <span
-                              className="transition-colors duration-200 rounded-sm"
-                              style={
-                                hasMistake
-                                  ? {
-                                      backgroundColor: getCategoryColor(mistakeData.category),
-                                      border: `2px solid ${getCategoryBorderColor(mistakeData.category)}`,
-                                      padding: '2px 4px',
-                                      color: 'black',
-                                      display: 'inline-block',
-                                    }
-                                  : undefined
-                              }
-                              title={hasMistake ? `${mistakeData.category} - ${mistakeData.date}` : ''}
-                            >
-                              {child}
-                            </span>
-                          );
-                        }}
-                      />
+                      {qcfLineWords.map((word, wordIndex) => {
+                        const isEnd = word.char_type_name === 'end';
+                        const localWord = !isEnd ? localLineWords[localIdx] : undefined;
+                        if (!isEnd) localIdx += 1;
+
+                        const wordKey = localWord
+                          ? `${localWord.surah}-${localWord.ayah}-${localWord.word}`
+                          : null;
+                        const mistakeData = wordKey ? highlightedWords.get(wordKey) : undefined;
+                        const hasMistake = !!mistakeData;
+                        const pageNum = typeof word.page_number === 'number' ? word.page_number : currentPage;
+                        const fontReady = qcfLoadedPages.has(pageNum);
+                        const useGlyph = !isEnd && fontReady && !!word.code_v2;
+                        const family = useGlyph ? `'p${pageNum}-v2'` : "'UthmanicHafs', serif";
+
+                        return (
+                          <span
+                            key={`${currentPage}-${line.line_number}-${wordIndex}`}
+                            className="relative inline-block transition-opacity"
+                            style={{ margin: '0 0.5px' }}
+                            title={hasMistake ? `${mistakeData.category} - ${mistakeData.date}` : ''}
+                          >
+                            {hasMistake && (
+                              <span
+                                className="absolute rounded-sm pointer-events-none"
+                                style={{
+                                  backgroundColor: getCategoryColor(mistakeData.category),
+                                  top: '1px',
+                                  left: '-2px',
+                                  right: '-2px',
+                                  bottom: '1px',
+                                  zIndex: 0,
+                                  border: 'none',
+                                }}
+                              />
+                            )}
+                            {useGlyph ? (
+                              <span
+                                className={`relative ${hasMistake ? 'dark:text-black' : ''}`}
+                                style={{ zIndex: 1, fontFamily: family }}
+                                dangerouslySetInnerHTML={{ __html: word.code_v2! }}
+                              />
+                            ) : (
+                              <span
+                                className={`relative ${hasMistake ? 'dark:text-black' : ''}`}
+                                style={{ zIndex: 1, fontFamily: family }}
+                              >
+                                {word.text_qpc_hafs ?? localWord?.text ?? ''}
+                              </span>
+                            )}
+                          </span>
+                        );
+                      })}
                     </div>
                   );
                 })()}
