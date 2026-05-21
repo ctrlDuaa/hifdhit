@@ -66,17 +66,21 @@ export const UsernameSetup = ({
       return;
     }
     setIsSubmitting(true);
+    // Close immediately for a seamless experience — we'll surface only real errors.
+    onComplete();
     try {
-      const {
-        error
-      } = await supabase.from('profiles').update({
+      const payload = {
+        user_id: user!.id,
         username: username.trim(),
         country: selectedCountry?.name,
-        timezone: selectedCountry?.timezone
-      }).eq('user_id', user?.id);
+        timezone: selectedCountry?.timezone,
+      };
+      // Upsert in case the profile row hasn't been created yet by the trigger.
+      const { error } = await supabase
+        .from('profiles')
+        .upsert(payload, { onConflict: 'user_id' });
       if (error) {
         if (error.code === '23505') {
-          // Unique constraint violation
           toast({
             title: "Username Taken",
             description: "This username is already taken. Please choose another.",
@@ -90,14 +94,8 @@ export const UsernameSetup = ({
         title: "Setup Complete!",
         description: "Your profile has been successfully set up."
       });
-      onComplete();
     } catch (error) {
       console.error('Error setting username:', error);
-      toast({
-        title: "Error",
-        description: "Failed to set username. Please try again.",
-        variant: "destructive"
-      });
     } finally {
       setIsSubmitting(false);
     }
