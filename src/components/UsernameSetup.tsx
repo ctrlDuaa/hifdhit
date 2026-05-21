@@ -11,11 +11,13 @@ import { countries, type CountryOption } from '@/utils/timezoneMapping';
 import { Globe } from 'lucide-react';
 interface UsernameSetupProps {
   isOpen: boolean;
-  onComplete: () => void;
+  onComplete: (profile: { user_id: string; username: string; country?: string; timezone?: string }) => void;
+  onClose?: () => void;
 }
 export const UsernameSetup = ({
   isOpen,
-  onComplete
+  onComplete,
+  onClose
 }: UsernameSetupProps) => {
   const {
     user
@@ -89,11 +91,16 @@ export const UsernameSetup = ({
         }
         throw error;
       }
+      onComplete({
+        user_id: payload.user_id,
+        username: payload.username,
+        country: payload.country,
+        timezone: payload.timezone,
+      });
       toast({
         title: "Setup Complete!",
         description: "Your profile has been successfully set up."
       });
-      onComplete();
     } catch (error) {
       console.error('Error setting username:', error);
       toast({
@@ -105,7 +112,9 @@ export const UsernameSetup = ({
       setIsSubmitting(false);
     }
   };
-  return <Dialog open={isOpen} onOpenChange={() => {}}>
+  return <Dialog open={isOpen} onOpenChange={(open) => {
+    if (!open) onClose?.();
+  }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
