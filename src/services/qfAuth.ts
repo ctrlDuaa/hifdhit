@@ -317,8 +317,8 @@ export async function handleQfCallback(searchParams: URLSearchParams): Promise<Q
 /**
  * Refresh the access token using the backend.
  */
-export async function refreshQfToken(): Promise<QfOAuthSession | null> {
-  const current = getQfSession();
+export async function refreshQfToken(appUserId?: string | null): Promise<QfOAuthSession | null> {
+  const current = getQfSession(appUserId);
   if (!current?.refreshToken) return null;
 
   try {
@@ -334,10 +334,10 @@ export async function refreshQfToken(): Promise<QfOAuthSession | null> {
       scope: data.scope || current.scope,
     };
 
-    setQfSession(session);
+    setQfSession(session, appUserId);
     return session;
   } catch {
-    clearQfSession();
+    clearQfSession(appUserId);
     return null;
   }
 }
@@ -345,13 +345,13 @@ export async function refreshQfToken(): Promise<QfOAuthSession | null> {
 /**
  * Get a valid access token, refreshing if needed.
  */
-export async function getValidAccessToken(): Promise<string | null> {
-  let session = getQfSession();
+export async function getValidAccessToken(appUserId?: string | null): Promise<string | null> {
+  let session = getQfSession(appUserId);
   if (!session) return null;
 
   // Refresh if expired or about to expire (30s buffer)
   if (Date.now() >= session.expiresAt - 30_000) {
-    session = await refreshQfToken();
+    session = await refreshQfToken(appUserId);
   }
 
   return session?.accessToken || null;
@@ -364,10 +364,11 @@ export async function getValidAccessToken(): Promise<string | null> {
 export async function callQfUserApi(
   path: string,
   method = 'GET',
-  body?: unknown
+  body?: unknown,
+  appUserId?: string | null
 ): Promise<unknown> {
   console.log("FINAL PATH:", path);
-  let accessToken = await getValidAccessToken();
+  let accessToken = await getValidAccessToken(appUserId);
   if (!accessToken) throw new Error('Not authenticated with Quran Foundation');
 
   try {
@@ -379,7 +380,7 @@ export async function callQfUserApi(
     });
   } catch (err) {
     // Try one refresh + retry on failure
-    const refreshed = await refreshQfToken();
+    const refreshed = await refreshQfToken(appUserId);
     if (!refreshed) throw err;
 
     return callEdgeFunction('user-api', {
