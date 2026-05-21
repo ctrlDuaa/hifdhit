@@ -95,7 +95,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   // Key: "surahNumber-ayahNumber-wordPosition" using the canonical 1-based Mushaf word position.
   const [mistakes, setMistakes] = useState<Map<string, MistakeData>>(new Map());
   const [selectedWordKey, setSelectedWordKey] = useState<string | null>(null);
-  const [selectedWordInfo, setSelectedWordInfo] = useState<{ surah: number; ayah: number; wordPosition: number; pageNumber?: number } | null>(null);
+  const [selectedWordInfo, setSelectedWordInfo] = useState<{ surah: number; ayah: number; wordPosition: number; pageNumber?: number; flatIndex?: number } | null>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
