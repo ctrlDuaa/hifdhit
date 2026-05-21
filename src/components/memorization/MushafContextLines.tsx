@@ -326,18 +326,17 @@ export const MushafContextLines = ({
               wordSpacing: '-0.02em',
             }}
           >
-            {words.map((word, wi) => {
+            {(() => {
+              let targetAyahCounter = -1; // 0-based per-render-pass counter used ONLY for hide-mode visuals
+              return words.map((word, wi) => {
               const isEnd = word.char_type_name === 'end';
               const isTargetAyah = word.verse_key === verseKey;
-              // Single canonical source — values come directly from the page's
-              // flat word list, never re-derived from local loops or UI maps.
-              const wordPosition = !isEnd ? word.wordPosition : undefined;
-              const flatIndex = !isEnd ? word.flatIndex : undefined;
+              const wordId = typeof word.id === 'number' ? word.id : undefined;
 
-              const mistakeKey = isTargetAyah && !isEnd
-                ? `${surahId}-${ayahNumber}-${wordPosition}`
-                : null;
-              const mistake = mistakeKey ? mistakes?.get(mistakeKey) : undefined;
+              if (isTargetAyah && !isEnd) targetAyahCounter += 1;
+              const hideIdx = targetAyahCounter;
+
+              const mistake = !isEnd && typeof wordId === 'number' ? mistakes?.get(wordId) : undefined;
               const hasMistake = !!mistake;
 
               const pageNum = typeof word.page_number === 'number' ? word.page_number : pageNumber ?? 0;
@@ -345,22 +344,22 @@ export const MushafContextLines = ({
               const useGlyph = !isEnd && fontReady && !!word.code_v2;
               const family = useGlyph ? `'p${pageNum}-v2'` : "'UthmanicHafs', serif";
 
-              const interactive = isTargetAyah && !isEnd && !!onWordClick;
+              const interactive = isTargetAyah && !isEnd && typeof wordId === 'number' && !!onWordClick;
 
-              // Hide-mode logic — only target-ayah, non-end words.
+              // Hide-mode is a purely visual pattern; uses a local render-pass
+              // counter (NOT used for mistake tracking).
               let hidden = false;
               let firstLetterOnly = false;
-              if (isTargetAyah && !isEnd && typeof wordPosition === 'number' && hideMode !== 'none') {
-                const zeroBasedWordIndex = wordPosition - 1;
+              if (isTargetAyah && !isEnd && hideIdx >= 0 && hideMode !== 'none') {
                 if (hideMode === 'full-hide') hidden = true;
-                else if (hideMode === 'hide-third') hidden = zeroBasedWordIndex % 3 === 2;
-                else if (hideMode === 'hide-half') hidden = zeroBasedWordIndex % 2 === 1;
+                else if (hideMode === 'hide-third') hidden = hideIdx % 3 === 2;
+                else if (hideMode === 'hide-half') hidden = hideIdx % 2 === 1;
                 else if (hideMode === 'first-letters') { hidden = true; firstLetterOnly = true; }
               }
 
               return (
                 <span
-                  key={`ctx-flat-${word.flatIndex || `end-${ln}-${wi}`}`}
+                  key={typeof wordId === 'number' ? `w-${wordId}` : `ctx-end-${ln}-${wi}`}
                   className={cn(
                     'relative inline-block transition-opacity',
                     interactive && 'cursor-pointer hover:opacity-70',
@@ -368,9 +367,10 @@ export const MushafContextLines = ({
                   )}
                   style={{ margin: '0 0.5px' }}
                   onClick={interactive
-                    ? (e) => typeof wordPosition === 'number' && onWordClick!(ayahNumber, wordPosition, e, pageNum || undefined, flatIndex)
+                    ? (e) => onWordClick!(wordId!, ayahNumber, e, pageNum || undefined)
                     : undefined}
                 >
+
 
                   {hasMistake && mistake && !hidden && (
                     <span
