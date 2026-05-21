@@ -62,9 +62,10 @@ export function clearPkceState() {
   sessionStorage.removeItem(PKCE_KEY);
 }
 
-// ── QF OAuth session storage ─────────────────────────────────
+// ── QF OAuth session storage (per app user) ──────────────────
 
-const QF_SESSION_KEY = 'qf_oauth_session';
+const QF_SESSION_PREFIX = 'qf_oauth_session::';
+const QF_LEGACY_KEY = 'qf_oauth_session';
 
 export interface QfOAuthSession {
   accessToken: string;
@@ -81,9 +82,38 @@ export interface QfOAuthSession {
   };
 }
 
+/**
+ * Synchronously read the current Supabase user id from the supabase-js
+ * persisted auth token in localStorage. Returns null when nobody is signed in.
+ * This lets us namespace the QF session per app user without making callers async.
+ */
+function getCurrentAppUserId(): string | null {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw);
+        const userId = parsed?.user?.id || parsed?.currentSession?.user?.id;
+        if (userId) return userId as string;
+      }
+    }
+  } catch {}
+  return null;
+}
+
+function qfSessionKey(): string | null {
+  const uid = getCurrentAppUserId();
+  return uid ? `${QF_SESSION_PREFIX}${uid}` : null;
+}
+
 export function getQfSession(): QfOAuthSession | null {
   try {
-    const raw = localStorage.getItem(QF_SESSION_KEY);
+    const key = qfSessionKey();
+    if (!key) return null;
+    const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -91,11 +121,16 @@ export function getQfSession(): QfOAuthSession | null {
 }
 
 export function setQfSession(session: QfOAuthSession) {
-  localStorage.setItem(QF_SESSION_KEY, JSON.stringify(session));
+  const key = qfSessionKey();
+  if (!key) return;
+  localStorage.setItem(key, JSON.stringify(session));
 }
 
 export function clearQfSession() {
-  localStorage.removeItem(QF_SESSION_KEY);
+  const key = qfSessionKey();
+  if (key) localStorage.removeItem(key);
+  // Always drop the legacy global key so older shared sessions can't leak across users.
+  localStorage.removeItem(QF_LEGACY_KEY);
 }
 
 export function isQfSessionValid(): boolean {
@@ -103,6 +138,14 @@ export function isQfSessionValid(): boolean {
   if (!session) return false;
   return Date.now() < session.expiresAt;
 }
+
+// Drop any legacy global session left from before per-user namespacing so it
+// can't be inherited by whichever app user happens to be signed in.
+try {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(QF_LEGACY_KEY);
+  }
+} catch {}
 
 // ── Edge function caller ─────────────────────────────────────
 
