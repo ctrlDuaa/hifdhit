@@ -92,10 +92,17 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   const { toast } = useToast();
 
   // ── Mistake state ────────────────────────────────────────
-  // Key: "surahNumber-ayahNumber-wordPosition" using the canonical 1-based Mushaf word position.
-  const [mistakes, setMistakes] = useState<Map<string, MistakeData>>(new Map());
-  const [selectedWordKey, setSelectedWordKey] = useState<string | null>(null);
-  const [selectedWordInfo, setSelectedWordInfo] = useState<{ surah: number; ayah: number; wordPosition: number; pageNumber?: number } | null>(null);
+  // KEYED BY Quran.com global `word.id` — the single source of truth.
+  // No array indices, no positions, no composite string keys.
+  const [mistakes, setMistakes] = useState<Map<number, MistakeData>>(new Map());
+  const [selectedWordId, setSelectedWordId] = useState<number | null>(null);
+  const [selectedWordInfo, setSelectedWordInfo] = useState<{
+    surah: number;
+    ayah: number;
+    wordId: number;
+    wordPosition: number;
+    pageNumber?: number;
+  } | null>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
@@ -118,6 +125,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   const isSelfAssess = state.currentStage === 'self-assess';
 
   // ── Load existing mistakes from DB for entire ayah range ──
+  // Filter by surah + ayah range, then key the result map by word_id only.
   useEffect(() => {
     if (!user) return;
     const loadMistakes = async () => {
@@ -128,15 +136,15 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
           .eq('reciter_id', user.id)
           .eq('surah_number', surahId)
           .gte('ayah_number', state.config.ayahStart)
-          .lte('ayah_number', state.config.ayahEnd);
+          .lte('ayah_number', state.config.ayahEnd)
+          .not('word_id', 'is', null);
 
         if (error) throw error;
 
-        const loaded = new Map<string, MistakeData>();
-        data?.forEach(m => {
-          // DB and Mushaf renderers both use the same 1-based word position.
-          const key = `${m.surah_number}-${m.ayah_number}-${m.word_index}`;
-          loaded.set(key, {
+        const loaded = new Map<number, MistakeData>();
+        data?.forEach((m: any) => {
+          if (typeof m.word_id !== 'number') return;
+          loaded.set(m.word_id, {
             category: (m.mistake_category as MistakeCategory) || 'tajweed',
             note: m.note || '',
             mistakeId: m.id,
@@ -154,6 +162,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   useEffect(() => {
     setRepetitionCount(0);
   }, [currentAyahNum]);
+
 
   // ── Audio management ─────────────────────────────────────
   // Reset playing state and tear down any prior Audio when the verse changes.
