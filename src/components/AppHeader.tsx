@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Link } from 'react-router-dom';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { startQfLogin, isQfSessionValid, logoutQf } from '@/services/qfAuth';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { BookmarksPanel } from '@/components/BookmarksPanel';
 import {
@@ -16,12 +16,19 @@ import {
 } from '@/components/ui/dialog';
 
 export const AppHeader = () => {
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const { toast } = useToast();
-  const [qfConnected, setQfConnected] = useState(isQfSessionValid());
+  const [qfConnected, setQfConnected] = useState(() => isQfSessionValid(user?.id));
   const [qfLoading, setQfLoading] = useState(false);
   const [bookmarksOpen, setBookmarksOpen] = useState(false);
   const [benefitsOpen, setBenefitsOpen] = useState(false);
+
+  useEffect(() => {
+    setQfConnected(isQfSessionValid(user?.id));
+    setQfLoading(false);
+    setBenefitsOpen(false);
+    setBookmarksOpen(false);
+  }, [user?.id]);
 
   const handleQfConnect = async () => {
     setQfLoading(true);
