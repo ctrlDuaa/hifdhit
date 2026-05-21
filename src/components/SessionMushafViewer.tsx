@@ -1021,7 +1021,7 @@ export const SessionMushafViewer = ({
                 <Button variant="ghost" size="sm" className="px-3 py-2" onClick={() => handleCategorySelect('harakah')} title="Harakah mistake">
                   Harakah
                 </Button>
-                {selectedWord && (highlightedWords.has(`${selectedWord.surah}-${selectedWord.ayah}-${selectedWord.word}`) || pastMistakes.has(`${selectedWord.surah}-${selectedWord.ayah}-${selectedWord.word}`)) && (
+                {selectedWord && (highlightedWords.has(selectedWord.id) || pastMistakes.has(selectedWord.id)) && (
                   <>
                     <Button variant="ghost" size="sm" className="px-3 py-2" onClick={handleOpenNoteDrawer} title="Add note">
                       <FileText className="w-4 h-4" />
