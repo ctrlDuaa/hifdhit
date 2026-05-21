@@ -246,12 +246,15 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   }, [popoverOpen]);
 
   // ── Mistake handlers ─────────────────────────────────────
-  const handleWordClick = (ayahNum: number, wordPosition: number, event: React.MouseEvent<HTMLSpanElement>, pageNumber?: number) => {
+  // `wordPosition` and `flatIndex` both originate from the single canonical
+  // flat word list inside `MushafContextLines` — never from `ayah.words` or
+  // any other re-computed array.
+  const handleWordClick = (ayahNum: number, wordPosition: number, event: React.MouseEvent<HTMLSpanElement>, pageNumber?: number, flatIndex?: number) => {
     const rect = event.currentTarget.getBoundingClientRect();
     setPopoverPosition({ x: rect.left + rect.width / 2, y: rect.top });
     const key = `${surahId}-${ayahNum}-${wordPosition}`;
     setSelectedWordKey(key);
-    setSelectedWordInfo({ surah: surahId, ayah: ayahNum, wordPosition, pageNumber });
+    setSelectedWordInfo({ surah: surahId, ayah: ayahNum, wordPosition, pageNumber, flatIndex });
     setPopoverOpen(true);
   };
 
