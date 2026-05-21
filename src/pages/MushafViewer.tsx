@@ -14,7 +14,7 @@ import { QcfVerseText, QcfWord } from '@/components/quran/QcfVerseText';
 import { quranApi } from '@/services/quranApi';
 import { AppHeader } from '@/components/AppHeader';
 import { format } from 'date-fns';
-import { computeMistakeMapSignature, diffMistakeMaps, fetchMistakesByWordIds, mistakeDiffHasChanges } from '@/lib/mushafMistakeUtils';
+import { buildPageWordKeySet, computeMistakeMapSignature, diffMistakeMaps, fetchCanonicalMistakesForPage, getNormalizedMistakeWordKey, mistakeDiffHasChanges } from '@/lib/mushafMistakeUtils';
 
 type MistakeCategory = 'tajweed' | 'missed' | 'harakah' | 'incorrect';
 
@@ -33,7 +33,7 @@ const MushafViewer = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageData, setPageData] = useState<SupabasePage | null>(null);
   const [totalPages, setTotalPages] = useState(0);
-  const [highlightedWords, setHighlightedWords] = useState<Map<number, MistakeData>>(new Map());
+  const [highlightedWords, setHighlightedWords] = useState<Map<string, MistakeData>>(new Map());
   const highlightedSigRef = useRef<string>('');
 
 
@@ -191,24 +191,29 @@ const MushafViewer = () => {
 
     try {
       const activePageData = pageOverride ?? pageData;
-      // Collect all global word IDs on this page from the local mushaf data.
-      const wordIds: number[] = [];
-      activePageData?.lines?.forEach((line) => {
-        line.words?.forEach((w) => {
-          if (typeof w.id === 'number') wordIds.push(w.id);
-        });
-      });
+      const pageWordKeys = buildPageWordKeySet(activePageData);
+      const canonicalMistakes = await fetchCanonicalMistakesForPage(user.id, page, activePageData);
 
-      const rowsById = await fetchMistakesByWordIds(user.id, wordIds);
+      const mistakes = new Map<string, MistakeData>();
+      const seenKeys = new Set<string>();
 
-      const mistakes = new Map<number, MistakeData>();
-      rowsById.forEach((mistake, wordId) => {
-        mistakes.set(wordId, {
-          category: (mistake.mistake_category as MistakeCategory) || 'tajweed',
-          date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : '',
-          mistakeId: mistake.id,
-          note: mistake.note || undefined,
-        });
+      canonicalMistakes.forEach(mistake => {
+        const wordKey = getNormalizedMistakeWordKey(
+          mistake.surah_number,
+          mistake.ayah_number,
+          mistake.word_index,
+          pageWordKeys
+        );
+        if (!wordKey) return;
+        if (!seenKeys.has(wordKey)) {
+          seenKeys.add(wordKey);
+          mistakes.set(wordKey, {
+            category: (mistake.mistake_category as MistakeCategory) || 'tajweed',
+            date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : '',
+            mistakeId: mistake.id,
+            note: mistake.note || undefined
+          });
+        }
       });
 
       setHighlightedWords((prev) => {
@@ -218,13 +223,15 @@ const MushafViewer = () => {
           return prev;
         }
         highlightedSigRef.current = sig;
+        if (mistakeDiffHasChanges(diff)) {
+          console.log('🩺 MushafViewer mistake diff:', diff);
+        }
         return mistakes;
       });
     } catch (err) {
       console.error('Error loading mistakes:', err);
     }
   };
-
 
   const goToNextPage = () => {
     if (currentPage < totalPages) {
@@ -434,8 +441,8 @@ const MushafViewer = () => {
                         loadedPages={qcfLoadedPages}
                         wordWrapper={(w, _i, child) => {
                           if (w.char_type_name === 'end') return child;
-                          const wordId = typeof w.id === 'number' ? w.id : Number(w.id);
-                          const mistakeData = Number.isFinite(wordId) ? highlightedWords.get(wordId) : undefined;
+                          const wordKey = `${w.surah}-${w.ayah}-${w.position}`;
+                          const mistakeData = highlightedWords.get(wordKey);
                           const hasMistake = mistakeData !== undefined;
                           return (
                             <span
