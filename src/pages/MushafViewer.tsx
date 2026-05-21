@@ -33,7 +33,7 @@ const MushafViewer = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageData, setPageData] = useState<SupabasePage | null>(null);
   const [totalPages, setTotalPages] = useState(0);
-  const [highlightedWords, setHighlightedWords] = useState<Map<string, MistakeData>>(new Map());
+  const [highlightedWords, setHighlightedWords] = useState<Map<number, MistakeData>>(new Map());
   const highlightedSigRef = useRef<string>('');
 
 
