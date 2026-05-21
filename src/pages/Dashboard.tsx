@@ -1211,11 +1211,11 @@ const Dashboard = () => {
       <UsernameSetup
         isOpen={showUsernameSetup}
         onClose={() => setShowUsernameSetup(false)}
-        onComplete={() => {
+        onComplete={(profile) => {
           setShowUsernameSetup(false);
           setUserProfile((current: any) => ({
             ...current,
-            user_id: user?.id,
+            ...profile,
           }));
           // Refresh profile without re-triggering the prompt (avoids stale-read flicker).
           setTimeout(() => { loadUserProfile(false); }, 300);
