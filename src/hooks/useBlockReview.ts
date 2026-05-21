@@ -125,7 +125,7 @@ export function useBlockReview() {
       if (existing && existing.mistakeType === type) {
         next.delete(key);
       } else {
-        next.set(key, { ayahNumber, wordIndex, wordText, mistakeType: type });
+        next.set(key, { ayahNumber, wordIndex, wordText, mistakeType: type, note: existing?.note });
       }
       return next;
     });
@@ -138,6 +138,21 @@ export function useBlockReview() {
       return next;
     });
   }, []);
+
+  const setMistakeNote = useCallback((ayahNumber: number, wordIndex: number, note: string) => {
+    setMistakes(prev => {
+      const key = `${ayahNumber}:${wordIndex}`;
+      const existing = prev.get(key);
+      if (!existing) return prev;
+      const next = new Map(prev);
+      next.set(key, { ...existing, note: note.trim() ? note : undefined });
+      return next;
+    });
+  }, []);
+
+  const getNoteForWord = useCallback((ayahNumber: number, wordIndex: number): string => {
+    return mistakes.get(`${ayahNumber}:${wordIndex}`)?.note ?? '';
+  }, [mistakes]);
 
   const getMistakeForWord = useCallback((ayahNumber: number, wordIndex: number): MistakeType | null => {
     return mistakes.get(`${ayahNumber}:${wordIndex}`)?.mistakeType || null;
