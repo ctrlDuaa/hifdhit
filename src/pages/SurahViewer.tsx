@@ -49,7 +49,7 @@ const SurahViewer = () => {
   } = useSupabaseMushaf();
   const [currentPage, setCurrentPage] = useState(1);
   const [pageData, setPageData] = useState<any>(null);
-  const [highlightedWords, setHighlightedWords] = useState<Map<string, {
+  const [highlightedWords, setHighlightedWords] = useState<Map<number, {
     category: string;
     date?: string;
   }>>(new Map());
