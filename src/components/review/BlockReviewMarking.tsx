@@ -238,7 +238,7 @@ export const BlockReviewMarking = ({
         <Drawer open={noteDrawerOpen} onOpenChange={setNoteDrawerOpen}>
           <DrawerContent>
             <DrawerHeader><DrawerTitle>Mistake Note</DrawerTitle></DrawerHeader>
-            <div className="px-4 pb-2"><NoteContent /></div>
+            <div className="px-4 pb-2">{noteContent}</div>
             <DrawerFooter>
               <DrawerClose asChild>
                 <Button variant="outline" onClick={() => setNoteDrawerOpen(false)}>Close</Button>
@@ -250,7 +250,7 @@ export const BlockReviewMarking = ({
         <Sheet open={noteDrawerOpen} onOpenChange={setNoteDrawerOpen}>
           <SheetContent>
             <SheetHeader><SheetTitle>Mistake Note</SheetTitle></SheetHeader>
-            <div className="py-4"><NoteContent /></div>
+            <div className="py-4">{noteContent}</div>
             <SheetFooter>
               <SheetClose asChild>
                 <Button variant="outline">Close</Button>
