@@ -116,12 +116,12 @@ function getCurrentAppUserId(): string | null {
 }
 
 function qfSessionKey(appUserId?: string | null): string | null {
-  const uid = appUserId || getCurrentAppUserId();
+  const uid = appUserId === undefined ? getCurrentAppUserId() : appUserId;
   return uid ? `${QF_SESSION_PREFIX}${uid}` : null;
 }
 
 async function resolveAppUserId(appUserId?: string | null): Promise<string | null> {
-  if (appUserId) return appUserId;
+  if (appUserId !== undefined) return appUserId;
   const { data: { user } } = await supabase.auth.getUser();
   return user?.id || getCurrentAppUserId();
 }
@@ -429,10 +429,10 @@ export interface QfPreferences {
  *
  * We defensively unwrap any of these shapes so a stray layer doesn't drop prefs.
  */
-export async function getQfPreferences(): Promise<QfPreferences | null> {
-  if (!isQfSessionValid()) return null;
+export async function getQfPreferences(appUserId?: string | null): Promise<QfPreferences | null> {
+  if (!isQfSessionValid(appUserId)) return null;
   try {
-    const res: any = await callQfUserApi('/auth/v1/preferences');
+    const res: any = await callQfUserApi('/auth/v1/preferences', 'GET', undefined, appUserId);
 
     // Walk down through up to 3 layers of `.data` wrapping until we find the prefs object.
     let prefs: any = res;
