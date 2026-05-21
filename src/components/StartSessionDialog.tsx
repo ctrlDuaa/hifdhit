@@ -298,7 +298,17 @@ export const StartSessionDialog = () => {
               <p className="text-black">✓ They can join using "Join Session"</p>
             </div>
 
-            <Button onClick={handleJoinSession} className="w-full bg-[#c6a477]">
+            {!reciterJoined && (
+              <p className="text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Waiting for a reciter to join!
+              </p>
+            )}
+            <Button
+              onClick={handleJoinSession}
+              disabled={!reciterJoined}
+              className="w-full bg-[#c6a477] disabled:opacity-60 disabled:cursor-not-allowed"
+            >
               Enter Session
             </Button>
           </div>
