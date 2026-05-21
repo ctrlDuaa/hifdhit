@@ -116,7 +116,8 @@ export const BlockReviewMarking = ({
   }, 0);
 
   // Note content (placeholder — notes not stored in block review mistakes currently)
-  const NoteContent = () => (
+  // Defined as inline JSX (not a nested component) so the Textarea isn't remounted on every keystroke.
+  const noteContent = (
     <div className="space-y-3">
       <p className="text-center text-xl font-arabic" dir="rtl">{selectedWord?.wordText}</p>
       <Textarea
