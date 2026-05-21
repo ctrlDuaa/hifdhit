@@ -14,7 +14,7 @@ import { QcfVerseText, QcfWord } from '@/components/quran/QcfVerseText';
 import { quranApi } from '@/services/quranApi';
 import { AppHeader } from '@/components/AppHeader';
 import { format } from 'date-fns';
-import { buildPageWordKeySet, computeMistakeMapSignature, diffMistakeMaps, fetchCanonicalMistakesForPage, getNormalizedMistakeWordKey, mistakeDiffHasChanges } from '@/lib/mushafMistakeUtils';
+import { computeMistakeMapSignature, diffMistakeMaps, fetchMistakesByWordIds, mistakeDiffHasChanges } from '@/lib/mushafMistakeUtils';
 
 type MistakeCategory = 'tajweed' | 'missed' | 'harakah' | 'incorrect';
 
