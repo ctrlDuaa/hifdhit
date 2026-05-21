@@ -225,7 +225,7 @@ export const MushafContextLines = ({
         const data = await quranApi.getPageQcf(page) as QcfPagePayload;
         const verses = Array.isArray(data?.verses) ? data.verses : [];
 
-        const words = normalizeQcfPageWords(verses);
+        const words = buildCanonicalFlatWordList(verses);
 
         if (!cancelled) setPageWords(words);
       } catch {
