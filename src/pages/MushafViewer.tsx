@@ -266,22 +266,6 @@ const MushafViewer = () => {
     }
   };
 
-  const getCategoryBorderColor = (category: MistakeCategory) => {
-    switch (category) {
-      case 'tajweed':
-        return 'hsl(var(--mistake-tajweed))';
-      case 'missed':
-        return 'hsl(var(--mistake-missed))';
-      case 'harakah':
-        return 'hsl(var(--mistake-harakah))';
-      case 'incorrect':
-        return 'hsl(var(--mistake-incorrect))';
-      default:
-        return 'hsl(var(--mistake-incorrect))';
-    }
-  };
-
-
   const getSurahName = (surahNumber: number): string => {
     const surahNames: { [key: number]: string } = {
       1: 'الفاتحة', 2: 'البقرة', 3: 'آل عمران', 4: 'النساء', 5: 'المائدة',
