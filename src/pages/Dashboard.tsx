@@ -854,18 +854,18 @@ const Dashboard = () => {
       window.removeEventListener('pageshow', refresh);
     };
   }, [user, surahs]);
-  const loadUserProfile = async () => {
+  const loadUserProfile = async (allowPrompt: boolean = true) => {
     if (!user) return;
     try {
       const {
         data,
         error
-      } = await supabase.from('profiles').select('*').eq('user_id', user.id).single();
+      } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
       if (error) throw error;
       setUserProfile(data);
 
-      // Show username setup if user doesn't have a username
-      if (!data?.username) {
+      // Show username setup if user doesn't have a username (only on initial load).
+      if (allowPrompt && !data?.username) {
         setShowUsernameSetup(true);
       }
     } catch (error) {
