@@ -92,10 +92,10 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   const { toast } = useToast();
 
   // ── Mistake state ────────────────────────────────────────
-  // Key: "surahNumber-ayahNumber-wordPosition" using the canonical 1-based Mushaf word position.
-  const [mistakes, setMistakes] = useState<Map<string, MistakeData>>(new Map());
-  const [selectedWordKey, setSelectedWordKey] = useState<string | null>(null);
-  const [selectedWordInfo, setSelectedWordInfo] = useState<{ surah: number; ayah: number; wordPosition: number; pageNumber?: number; flatIndex?: number } | null>(null);
+  // Keyed by Quran.com canonical `word.id` (single source of truth).
+  const [mistakes, setMistakes] = useState<Map<number, MistakeData>>(new Map());
+  const [selectedWordId, setSelectedWordId] = useState<number | null>(null);
+  const [selectedWordInfo, setSelectedWordInfo] = useState<{ wordId: number; surah: number; ayah: number; pageNumber?: number } | null>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
@@ -128,15 +128,15 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
           .eq('reciter_id', user.id)
           .eq('surah_number', surahId)
           .gte('ayah_number', state.config.ayahStart)
-          .lte('ayah_number', state.config.ayahEnd);
+          .lte('ayah_number', state.config.ayahEnd)
+          .not('word_id', 'is', null);
 
         if (error) throw error;
 
-        const loaded = new Map<string, MistakeData>();
+        const loaded = new Map<number, MistakeData>();
         data?.forEach(m => {
-          // DB and Mushaf renderers both use the same 1-based word position.
-          const key = `${m.surah_number}-${m.ayah_number}-${m.word_index}`;
-          loaded.set(key, {
+          if (typeof m.word_id !== 'number') return;
+          loaded.set(m.word_id, {
             category: (m.mistake_category as MistakeCategory) || 'tajweed',
             note: m.note || '',
             mistakeId: m.id,
