@@ -221,6 +221,10 @@ export async function startQfLogin(scopes = 'openid offline_access user bookmark
     throw new Error('Quran.com OAuth must be started from the published app URL: https://hifdhit.lovable.app. Preview URLs use a different origin, so the registered redirect URI will be rejected.');
   }
 
+  const { data: { user } } = await supabase.auth.getUser();
+  const appUserId = user?.id || getCurrentAppUserId();
+  if (!appUserId) throw new Error('Please sign in before connecting Quran.com.');
+
   const { clientId, authBaseUrl } = await getQfOAuthConfig();
   const { codeVerifier, codeChallenge } = await generatePkce();
   const state = randomString(16);
@@ -230,7 +234,7 @@ export async function startQfLogin(scopes = 'openid offline_access user bookmark
   const redirectUri = `${window.location.origin}/callback`;
 
   // Store PKCE state for the callback
-  storePkceState({ codeVerifier, state, nonce, redirectUri });
+  storePkceState({ codeVerifier, state, nonce, redirectUri, appUserId });
 
   // Build authorization URL
   const params = new URLSearchParams({
@@ -242,6 +246,8 @@ export async function startQfLogin(scopes = 'openid offline_access user bookmark
     nonce,
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
+    prompt: 'login',
+    max_age: '0',
   });
 
   // Redirect to QF hosted login
@@ -271,6 +277,13 @@ export async function handleQfCallback(searchParams: URLSearchParams): Promise<Q
   if (!pkce) throw new Error('No PKCE state found — session may have expired');
   if (pkce.state !== returnedState) throw new Error('State mismatch — possible CSRF attack');
 
+  const { data: { user } } = await supabase.auth.getUser();
+  const currentAppUserId = user?.id || getCurrentAppUserId();
+  if (!currentAppUserId || currentAppUserId !== pkce.appUserId) {
+    clearPkceState();
+    throw new Error('App sign-in changed during Quran.com connection. Please try again.');
+  }
+
   // Exchange code for tokens via backend
   const data = await callEdgeFunction('exchange', {
     code,
@@ -297,7 +310,7 @@ export async function handleQfCallback(searchParams: URLSearchParams): Promise<Q
     user: data.user,
   };
 
-  setQfSession(session);
+  setQfSession(session, pkce.appUserId);
   return session;
 }
 
