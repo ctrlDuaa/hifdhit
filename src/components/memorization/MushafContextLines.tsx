@@ -243,7 +243,7 @@ export const MushafContextLines = ({
 
   // Group words by line.
   const lineMap = useMemo(() => {
-    const m = new Map<number, PositionedQcfWord[]>();
+    const m = new Map<number, FlatWord[]>();
     for (const w of pageWords) {
       const ln = typeof w.line_number === 'number' ? w.line_number : -1;
       if (ln < 0) continue;
