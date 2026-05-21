@@ -17,7 +17,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter, DrawerC
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetClose } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { buildPageWordKeySet, computeMistakeMapSignature, diffMistakeMaps, fetchCanonicalMistakeIdsForPageWord, fetchCanonicalMistakesForPage, getNormalizedMistakeWordKey, mistakeDiffHasChanges } from '@/lib/mushafMistakeUtils';
+import { computeMistakeMapSignature, diffMistakeMaps, fetchMistakesByWordIds, mistakeDiffHasChanges } from '@/lib/mushafMistakeUtils';
 type MistakeCategory = 'tajweed' | 'missed' | 'harakah' | 'incorrect';
 interface MistakeData {
   category: MistakeCategory;
