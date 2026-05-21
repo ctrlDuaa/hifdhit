@@ -1,141 +1,89 @@
 import { supabase } from '@/integrations/supabase/client';
 
-type PageWordLike = {
-  surah?: number | null;
-  ayah?: number | null;
-  word?: number | null;
-};
+/**
+ * ID-BASED MISTAKE TRACKING
+ * ─────────────────────────
+ * The single source of truth for which word a mistake is attached to is the
+ * Quran.com global `word.id` (a stable integer, 1..77439). It is identical in
+ * the QF API responses and in our local `words` table (`words.id`).
+ *
+ * - Writes: always set `word_id: word.id` on the `mistakes` row. The legacy
+ *   `word_index` column is still written for backward compatibility but is
+ *   never used for lookup.
+ * - Reads: fetch mistakes for the current page by `word_id IN (...)` and key
+ *   the resulting map by `word_id`. UI lookups are `mistakeMap.get(word.id)` —
+ *   strict O(1), no fallback / candidate / +1 / -1 math anywhere.
+ *
+ * Legacy mistake rows (pre-migration) that do not have a `word_id` will NOT
+ * render. That is intentional — old rows were created with off-by-one bugs
+ * and cannot be reliably reconstructed.
+ */
 
-type PageLineLike = {
-  words?: PageWordLike[] | null;
-};
+export interface MistakeRow {
+  id: string;
+  word_id: number | null;
+  surah_number: number;
+  ayah_number: number;
+  word_index: number;
+  page_number: number | null;
+  mistake_category: string | null;
+  note: string | null;
+  session_id: string | null;
+  reciter_id: string;
+  created_at: string;
+}
 
-type PageLike = {
-  lines?: PageLineLike[] | null;
-};
+/**
+ * Fetch every mistake for a reciter that belongs to one of the given word IDs.
+ * Returns a Map keyed by `word_id`.
+ */
+export const fetchMistakesByWordIds = async (
+  reciterId: string,
+  wordIds: number[]
+): Promise<Map<number, MistakeRow>> => {
+  const map = new Map<number, MistakeRow>();
+  if (!reciterId || wordIds.length === 0) return map;
 
-export const buildPageWordKeySet = (page: PageLike | null | undefined): Set<string> => {
-  const keys = new Set<string>();
+  // Chunk in case the page has many words (max URL length on `.in()`)
+  const chunkSize = 500;
+  for (let i = 0; i < wordIds.length; i += chunkSize) {
+    const chunk = wordIds.slice(i, i + chunkSize);
+    const { data, error } = await supabase
+      .from('mistakes')
+      .select('*')
+      .eq('reciter_id', reciterId)
+      .in('word_id', chunk);
 
-  page?.lines?.forEach((line) => {
-    line.words?.forEach((word) => {
-      if (
-        typeof word.surah === 'number' &&
-        typeof word.ayah === 'number' &&
-        typeof word.word === 'number'
-      ) {
-        keys.add(`${word.surah}-${word.ayah}-${word.word}`);
+    if (error) throw error;
+    (data ?? []).forEach((row: any) => {
+      if (typeof row.word_id === 'number') {
+        map.set(row.word_id, row as MistakeRow);
       }
     });
-  });
-
-  return keys;
-};
-
-export const getSurahsOnPage = (page: PageLike | null | undefined): number[] => {
-  const surahs = new Set<number>();
-
-  page?.lines?.forEach((line) => {
-    line.words?.forEach((word) => {
-      if (typeof word.surah === 'number') surahs.add(word.surah);
-    });
-  });
-
-  return [...surahs];
-};
-
-export const fetchCanonicalMistakesForPage = async (
-  reciterId: string,
-  pageNumber: number,
-  page: PageLike | null | undefined
-) => {
-  const surahsOnPage = getSurahsOnPage(page);
-
-  const { data: pageMistakes, error: pageError } = await supabase
-    .from('mistakes')
-    .select('*')
-    .eq('reciter_id', reciterId)
-    .eq('page_number', pageNumber);
-
-  if (pageError) throw pageError;
-
-  if (surahsOnPage.length === 0) {
-    return pageMistakes ?? [];
   }
 
-  const { data: noPageMistakes, error: noPageError } = await supabase
-    .from('mistakes')
-    .select('*')
-    .eq('reciter_id', reciterId)
-    .is('page_number', null)
-    .in('surah_number', surahsOnPage);
-
-  if (noPageError) throw noPageError;
-
-  return [...(pageMistakes ?? []), ...(noPageMistakes ?? [])];
+  return map;
 };
 
-export const fetchCanonicalMistakeIdsForPageWord = async (
+/**
+ * Fetch the single mistake row for `(reciterId, wordId)` if it exists.
+ */
+export const fetchMistakeByWordId = async (
   reciterId: string,
-  surahNumber: number,
-  ayahNumber: number,
-  pageNumber: number,
-  page: PageLike | null | undefined,
-  pageWordKey: string
-): Promise<string[]> => {
-  const pageWordKeys = buildPageWordKeySet(page);
+  wordId: number
+): Promise<MistakeRow | null> => {
   const { data, error } = await supabase
     .from('mistakes')
-    .select('id, surah_number, ayah_number, word_index, page_number')
+    .select('*')
     .eq('reciter_id', reciterId)
-    .eq('surah_number', surahNumber)
-    .eq('ayah_number', ayahNumber);
-
+    .eq('word_id', wordId)
+    .maybeSingle();
   if (error) throw error;
-
-  return (data ?? [])
-    .filter((mistake) => mistake.page_number === pageNumber || mistake.page_number === null)
-    .filter((mistake) => getNormalizedMistakeWordKey(
-      mistake.surah_number,
-      mistake.ayah_number,
-      mistake.word_index,
-      pageWordKeys
-    ) === pageWordKey)
-    .map((mistake) => mistake.id);
-};
-
-export const getNormalizedMistakeWordKey = (
-  surahNumber: number | null | undefined,
-  ayahNumber: number | null | undefined,
-  wordIndex: number | null | undefined,
-  pageWordKeys?: Set<string>
-): string | null => {
-  if (
-    typeof surahNumber !== 'number' ||
-    typeof ayahNumber !== 'number' ||
-    typeof wordIndex !== 'number'
-  ) {
-    return null;
-  }
-
-  const candidates = [...new Set([wordIndex, wordIndex + 1].filter((value) => value >= 1))];
-
-  if (!pageWordKeys || pageWordKeys.size === 0) {
-    return `${surahNumber}-${ayahNumber}-${candidates[0]}`;
-  }
-
-  for (const candidate of candidates) {
-    const key = `${surahNumber}-${ayahNumber}-${candidate}`;
-    if (pageWordKeys.has(key)) {
-      return key;
-    }
-  }
-
-  return null;
+  return (data as MistakeRow | null) ?? null;
 };
 
 // ---------------------------------------------------------------------------
-// Realtime consistency helpers
+// Realtime helpers (kept ID-keyed)
 // ---------------------------------------------------------------------------
 
 type MistakeMapValueLike = {
@@ -145,16 +93,12 @@ type MistakeMapValueLike = {
   sessionId?: string;
 };
 
-/**
- * Stable signature of a highlighted-mistake map. Used to detect whether a
- * realtime refetch actually changed anything before triggering a re-render.
- */
 export const computeMistakeMapSignature = (
-  map: Map<string, MistakeMapValueLike> | null | undefined
+  map: Map<number, MistakeMapValueLike> | null | undefined
 ): string => {
   if (!map || map.size === 0) return '';
   return [...map.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
+    .sort(([a], [b]) => a - b)
     .map(
       ([k, v]) =>
         `${k}:${v.category ?? ''}:${v.mistakeId ?? ''}:${v.note ?? ''}:${v.sessionId ?? ''}`
@@ -163,18 +107,18 @@ export const computeMistakeMapSignature = (
 };
 
 export type MistakeMapDiff = {
-  added: string[];
-  removed: string[];
-  changed: string[];
+  added: number[];
+  removed: number[];
+  changed: number[];
 };
 
 export const diffMistakeMaps = (
-  prev: Map<string, MistakeMapValueLike> | null | undefined,
-  next: Map<string, MistakeMapValueLike> | null | undefined
+  prev: Map<number, MistakeMapValueLike> | null | undefined,
+  next: Map<number, MistakeMapValueLike> | null | undefined
 ): MistakeMapDiff => {
-  const added: string[] = [];
-  const removed: string[] = [];
-  const changed: string[] = [];
+  const added: number[] = [];
+  const removed: number[] = [];
+  const changed: number[] = [];
   const prevMap = prev ?? new Map();
   const nextMap = next ?? new Map();
 
@@ -198,20 +142,3 @@ export const diffMistakeMaps = (
 
 export const mistakeDiffHasChanges = (diff: MistakeMapDiff): boolean =>
   diff.added.length > 0 || diff.removed.length > 0 || diff.changed.length > 0;
-
-export const getPageWordIndexCandidates = (
-  wordIndex: number | null | undefined,
-  options?: { preferOneBased?: boolean }
-): number[] => {
-  if (typeof wordIndex !== 'number') {
-    return [];
-  }
-
-  const baseCandidates = [wordIndex, wordIndex + 1].filter((value) => value >= 1);
-
-  if (options?.preferOneBased) {
-    return [...new Set([wordIndex + 1, wordIndex, ...baseCandidates].filter((value) => value >= 1))];
-  }
-
-  return [...new Set(baseCandidates)];
-};
