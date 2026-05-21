@@ -25,6 +25,7 @@ export const StartSessionDialog = () => {
   ]);
   const [sessionCode, setSessionCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [reciterJoined, setReciterJoined] = useState(false);
   const {
     createSession,
     loading,
