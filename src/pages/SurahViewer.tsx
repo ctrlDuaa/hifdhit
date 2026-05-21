@@ -1191,11 +1191,12 @@ const SurahViewer = () => {
                               if (!isEnd) {
                                 const localWord = localLineWords[localIdx];
                                 localIdx += 1;
-                                if (localWord && typeof localWord.surah === 'number' && typeof localWord.ayah === 'number' && typeof localWord.word === 'number') {
+                                if (localWord && typeof localWord.surah === 'number' && typeof localWord.ayah === 'number') {
                                   surahNum = localWord.surah;
                                   ayahNum = localWord.ayah;
-                                  const wordKey = `${localWord.surah}-${localWord.ayah}-${localWord.word}`;
-                                  mistakeData = highlightedWords.get(wordKey);
+                                  if (typeof localWord.id === 'number') {
+                                    mistakeData = highlightedWords.get(localWord.id);
+                                  }
                                 }
                               }
 
