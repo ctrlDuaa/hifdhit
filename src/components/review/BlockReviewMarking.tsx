@@ -220,10 +220,18 @@ export const BlockReviewMarking = ({
           {/* Note + Delete row */}
           <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/40">
             <button
-              onClick={() => { setNoteDrawerOpen(true); setPopoverOpen(false); }}
-              className="text-[11px] text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                if (!selectedWord) return;
+                const hasMistake = getMistakeForWord(selectedWord.ayahNumber, selectedWord.wordIndex);
+                if (!hasMistake) return;
+                setCurrentNote(getNoteForWord?.(selectedWord.ayahNumber, selectedWord.wordIndex) ?? '');
+                setNoteDrawerOpen(true);
+                setPopoverOpen(false);
+              }}
+              disabled={!getMistakeForWord(selectedWord.ayahNumber, selectedWord.wordIndex)}
+              className="text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Add note
+              {getNoteForWord?.(selectedWord.ayahNumber, selectedWord.wordIndex) ? 'Edit note' : 'Add note'}
             </button>
             {getMistakeForWord(selectedWord.ayahNumber, selectedWord.wordIndex) && (
               <button
@@ -244,8 +252,18 @@ export const BlockReviewMarking = ({
             <DrawerHeader><DrawerTitle>Mistake Note</DrawerTitle></DrawerHeader>
             <div className="px-4 pb-2">{noteContent}</div>
             <DrawerFooter>
+              <Button
+                onClick={() => {
+                  if (selectedWord && onSaveNote) {
+                    onSaveNote(selectedWord.ayahNumber, selectedWord.wordIndex, currentNote);
+                  }
+                  setNoteDrawerOpen(false);
+                }}
+              >
+                Save note
+              </Button>
               <DrawerClose asChild>
-                <Button variant="outline" onClick={() => setNoteDrawerOpen(false)}>Close</Button>
+                <Button variant="outline" onClick={() => setNoteDrawerOpen(false)}>Cancel</Button>
               </DrawerClose>
             </DrawerFooter>
           </DrawerContent>
@@ -256,8 +274,18 @@ export const BlockReviewMarking = ({
             <SheetHeader><SheetTitle>Mistake Note</SheetTitle></SheetHeader>
             <div className="py-4">{noteContent}</div>
             <SheetFooter>
+              <Button
+                onClick={() => {
+                  if (selectedWord && onSaveNote) {
+                    onSaveNote(selectedWord.ayahNumber, selectedWord.wordIndex, currentNote);
+                  }
+                  setNoteDrawerOpen(false);
+                }}
+              >
+                Save note
+              </Button>
               <SheetClose asChild>
-                <Button variant="outline">Close</Button>
+                <Button variant="outline">Cancel</Button>
               </SheetClose>
             </SheetFooter>
           </SheetContent>
@@ -266,3 +294,4 @@ export const BlockReviewMarking = ({
     </div>
   );
 };
+
