@@ -124,7 +124,52 @@ export const StartSessionDialog = () => {
   const resetForm = () => {
     setRanges([{ surahNumber: '1', startAyah: '', endAyah: '', completeSurah: false }]);
     setSessionCode(null);
+    setReciterJoined(false);
   };
+
+  // Poll for reciter joining once a session has been created
+  useEffect(() => {
+    if (!sessionCode || !currentSession?.id) return;
+    let cancelled = false;
+
+    const check = async () => {
+      const { data } = await supabase
+        .from('session_participants')
+        .select('id')
+        .eq('session_id', currentSession.id)
+        .eq('role', 'reciter')
+        .limit(1);
+      if (!cancelled && data && data.length > 0) {
+        setReciterJoined(true);
+      }
+    };
+
+    check();
+    const interval = setInterval(check, 2000);
+
+    const channel = supabase
+      .channel(`reciter-wait-${currentSession.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'session_participants',
+          filter: `session_id=eq.${currentSession.id}`,
+        },
+        (payload: any) => {
+          if (payload?.new?.role === 'reciter') setReciterJoined(true);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
+  }, [sessionCode, currentSession?.id]);
+
 
   return (
     <Dialog open={open} onOpenChange={isOpen => {
