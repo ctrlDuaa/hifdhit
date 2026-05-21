@@ -69,6 +69,7 @@ export function clearPkceState() {
 
 const QF_SESSION_PREFIX = 'qf_oauth_session::';
 const QF_LEGACY_KEY = 'qf_oauth_session';
+let activeAppUserId: string | null | undefined = undefined;
 
 export interface QfOAuthSession {
   accessToken: string;
@@ -116,12 +117,19 @@ function getCurrentAppUserId(): string | null {
 }
 
 function qfSessionKey(appUserId?: string | null): string | null {
-  const uid = appUserId === undefined ? getCurrentAppUserId() : appUserId;
+  const uid = appUserId === undefined
+    ? activeAppUserId !== undefined ? activeAppUserId : getCurrentAppUserId()
+    : appUserId;
   return uid ? `${QF_SESSION_PREFIX}${uid}` : null;
+}
+
+export function setQfActiveAppUserId(userId: string | null) {
+  activeAppUserId = userId;
 }
 
 async function resolveAppUserId(appUserId?: string | null): Promise<string | null> {
   if (appUserId !== undefined) return appUserId;
+  if (activeAppUserId !== undefined) return activeAppUserId;
   const { data: { user } } = await supabase.auth.getUser();
   return user?.id || getCurrentAppUserId();
 }
