@@ -433,6 +433,7 @@ export type Database = {
           room_id: string | null
           session_id: string | null
           surah_number: number
+          word_id: number | null
           word_index: number
         }
         Insert: {
@@ -446,6 +447,7 @@ export type Database = {
           room_id?: string | null
           session_id?: string | null
           surah_number: number
+          word_id?: number | null
           word_index: number
         }
         Update: {
@@ -459,6 +461,7 @@ export type Database = {
           room_id?: string | null
           session_id?: string | null
           surah_number?: number
+          word_id?: number | null
           word_index?: number
         }
         Relationships: [
