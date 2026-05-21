@@ -186,48 +186,53 @@ const MushafViewer = () => {
     };
   }, [user?.id, currentPage]);
 
-  const loadMistakesForPage = async (page: number, pageOverride?: SupabasePage | null) => {
+  const loadMistakesForPage = async (page: number, _pageOverride?: SupabasePage | null) => {
     if (!user) return;
 
     try {
-      const activePageData = pageOverride ?? pageData;
-      const pageWordKeys = buildPageWordKeySet(activePageData);
-      const canonicalMistakes = await fetchCanonicalMistakesForPage(user.id, page, activePageData);
+      // Fetch all mistakes on this page (and surah-scoped legacy ones), then
+      // key strictly by Quran.com `word_id` — no positional fallback.
+      const { data: pageMistakes, error: pageError } = await supabase
+        .from('mistakes')
+        .select('*')
+        .eq('reciter_id', user.id)
+        .not('word_id', 'is', null)
+        .eq('page_number', page);
 
-      const mistakes = new Map<string, MistakeData>();
-      const seenKeys = new Set<string>();
+      if (pageError) throw pageError;
 
-      canonicalMistakes.forEach(mistake => {
-        const wordKey = getNormalizedMistakeWordKey(
-          mistake.surah_number,
-          mistake.ayah_number,
-          mistake.word_index,
-          pageWordKeys
-        );
-        if (!wordKey) return;
-        if (!seenKeys.has(wordKey)) {
-          seenKeys.add(wordKey);
-          mistakes.set(wordKey, {
-            category: (mistake.mistake_category as MistakeCategory) || 'tajweed',
-            date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : '',
-            mistakeId: mistake.id,
-            note: mistake.note || undefined
-          });
-        }
+      // Also include surah-scoped legacy mistakes (no page_number set) whose
+      // word_id matches the QCF words on this page.
+      const pageWordIds = new Set<number>();
+      (qcfWords ?? []).forEach((w) => {
+        if (typeof w.id === 'number') pageWordIds.add(w.id);
       });
 
-      setHighlightedWords((prev) => {
-        const diff = diffMistakeMaps(prev, mistakes);
-        const sig = computeMistakeMapSignature(mistakes);
-        if (sig === highlightedSigRef.current && !mistakeDiffHasChanges(diff)) {
-          return prev;
-        }
-        highlightedSigRef.current = sig;
-        if (mistakeDiffHasChanges(diff)) {
-          console.log('🩺 MushafViewer mistake diff:', diff);
-        }
-        return mistakes;
+      let extra: any[] = [];
+      if (pageWordIds.size > 0) {
+        const { data: noPageMistakes } = await supabase
+          .from('mistakes')
+          .select('*')
+          .eq('reciter_id', user.id)
+          .not('word_id', 'is', null)
+          .is('page_number', null)
+          .in('word_id', [...pageWordIds]);
+        extra = noPageMistakes ?? [];
+      }
+
+      const mistakes = new Map<number, MistakeData>();
+      [...(pageMistakes ?? []), ...extra].forEach(mistake => {
+        if (typeof mistake.word_id !== 'number') return;
+        if (mistakes.has(mistake.word_id)) return;
+        mistakes.set(mistake.word_id, {
+          category: (mistake.mistake_category as MistakeCategory) || 'tajweed',
+          date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : '',
+          mistakeId: mistake.id,
+          note: mistake.note || undefined,
+        });
       });
+
+      setHighlightedWords(mistakes);
     } catch (err) {
       console.error('Error loading mistakes:', err);
     }
