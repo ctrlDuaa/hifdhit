@@ -83,6 +83,14 @@ const MushafViewer = () => {
 
   const { loadedPages: qcfLoadedPages } = useQcfFontLoader(qcfWords ?? []);
 
+  // Reload mistakes after QCF words become available — the page-vs-no-page
+  // partition uses the canonical word.id set from the QCF response.
+  useEffect(() => {
+    if (!user || !qcfWords || qcfWords.length === 0) return;
+    loadMistakesForPage(currentPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, currentPage, qcfWords]);
+
   // Prefetch QCF fonts for adjacent pages (background, idle) so navigation feels instant
   useEffect(() => {
     if (!currentPage) return;
