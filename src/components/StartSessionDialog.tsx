@@ -6,9 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useSessionSystem } from '@/hooks/useSessionSystem';
 import { useNavigate } from 'react-router-dom';
-import { Copy, Check, Plus, Trash2, ChevronsUpDown } from 'lucide-react';
+import { Copy, Check, Plus, Trash2, ChevronsUpDown, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useSurahList } from '@/hooks/useQuranData';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SurahRange {
   surahNumber: string;
@@ -24,6 +25,7 @@ export const StartSessionDialog = () => {
   ]);
   const [sessionCode, setSessionCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [reciterJoined, setReciterJoined] = useState(false);
   const {
     createSession,
     loading,
@@ -122,7 +124,52 @@ export const StartSessionDialog = () => {
   const resetForm = () => {
     setRanges([{ surahNumber: '1', startAyah: '', endAyah: '', completeSurah: false }]);
     setSessionCode(null);
+    setReciterJoined(false);
   };
+
+  // Poll for reciter joining once a session has been created
+  useEffect(() => {
+    if (!sessionCode || !currentSession?.id) return;
+    let cancelled = false;
+
+    const check = async () => {
+      const { data } = await supabase
+        .from('session_participants')
+        .select('id')
+        .eq('session_id', currentSession.id)
+        .eq('role', 'reciter')
+        .limit(1);
+      if (!cancelled && data && data.length > 0) {
+        setReciterJoined(true);
+      }
+    };
+
+    check();
+    const interval = setInterval(check, 2000);
+
+    const channel = supabase
+      .channel(`reciter-wait-${currentSession.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'session_participants',
+          filter: `session_id=eq.${currentSession.id}`,
+        },
+        (payload: any) => {
+          if (payload?.new?.role === 'reciter') setReciterJoined(true);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
+  }, [sessionCode, currentSession?.id]);
+
 
   return (
     <Dialog open={open} onOpenChange={isOpen => {
@@ -251,7 +298,17 @@ export const StartSessionDialog = () => {
               <p className="text-black">✓ They can join using "Join Session"</p>
             </div>
 
-            <Button onClick={handleJoinSession} className="w-full bg-[#c6a477]">
+            {!reciterJoined && (
+              <p className="text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Waiting for a reciter to join!
+              </p>
+            )}
+            <Button
+              onClick={handleJoinSession}
+              disabled={!reciterJoined}
+              className="w-full bg-[#c6a477] disabled:opacity-60 disabled:cursor-not-allowed"
+            >
               Enter Session
             </Button>
           </div>
