@@ -11,6 +11,8 @@
  *   - Backend exchanges using CLIENT_SECRET
  */
 
+import { supabase } from '@/integrations/supabase/client';
+
 // ── PKCE helpers ─────────────────────────────────────────────
 
 function base64url(buffer: ArrayBuffer): string {
@@ -43,6 +45,7 @@ interface PkceState {
   state: string;
   nonce: string;
   redirectUri: string;
+  appUserId: string;
 }
 
 function storePkceState(data: PkceState) {
@@ -89,6 +92,7 @@ export interface QfOAuthSession {
  */
 function getCurrentAppUserId(): string | null {
   try {
+    const candidates: Array<{ userId: string; expiresAt: number; lastSeen: number }> = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (!key) continue;
@@ -97,21 +101,28 @@ function getCurrentAppUserId(): string | null {
         if (!raw) continue;
         const parsed = JSON.parse(raw);
         const userId = parsed?.user?.id || parsed?.currentSession?.user?.id;
-        if (userId) return userId as string;
+        if (!userId) continue;
+        const expiresAt = Number(parsed?.expires_at || parsed?.currentSession?.expires_at || 0);
+        if (expiresAt && expiresAt * 1000 < Date.now()) continue;
+        const lastSignInAt = parsed?.user?.last_sign_in_at || parsed?.currentSession?.user?.last_sign_in_at;
+        const lastSeen = lastSignInAt ? Date.parse(lastSignInAt) || 0 : expiresAt;
+        candidates.push({ userId: userId as string, expiresAt, lastSeen });
       }
     }
+    candidates.sort((a, b) => (b.lastSeen || b.expiresAt) - (a.lastSeen || a.expiresAt));
+    return candidates[0]?.userId || null;
   } catch {}
   return null;
 }
 
-function qfSessionKey(): string | null {
-  const uid = getCurrentAppUserId();
+function qfSessionKey(appUserId?: string | null): string | null {
+  const uid = appUserId || getCurrentAppUserId();
   return uid ? `${QF_SESSION_PREFIX}${uid}` : null;
 }
 
-export function getQfSession(): QfOAuthSession | null {
+export function getQfSession(appUserId?: string | null): QfOAuthSession | null {
   try {
-    const key = qfSessionKey();
+    const key = qfSessionKey(appUserId);
     if (!key) return null;
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : null;
@@ -120,21 +131,21 @@ export function getQfSession(): QfOAuthSession | null {
   }
 }
 
-export function setQfSession(session: QfOAuthSession) {
-  const key = qfSessionKey();
+export function setQfSession(session: QfOAuthSession, appUserId?: string | null) {
+  const key = qfSessionKey(appUserId);
   if (!key) return;
   localStorage.setItem(key, JSON.stringify(session));
 }
 
-export function clearQfSession() {
-  const key = qfSessionKey();
+export function clearQfSession(appUserId?: string | null) {
+  const key = qfSessionKey(appUserId);
   if (key) localStorage.removeItem(key);
   // Always drop the legacy global key so older shared sessions can't leak across users.
   localStorage.removeItem(QF_LEGACY_KEY);
 }
 
-export function isQfSessionValid(): boolean {
-  const session = getQfSession();
+export function isQfSessionValid(appUserId?: string | null): boolean {
+  const session = getQfSession(appUserId);
   if (!session) return false;
   return Date.now() < session.expiresAt;
 }
@@ -148,8 +159,6 @@ try {
 } catch {}
 
 // ── Edge function caller ─────────────────────────────────────
-
-import { supabase } from '@/integrations/supabase/client';
 
 async function callEdgeFunction(action: string, body: Record<string, unknown>) {
   console.log(`[QF OAuth] Calling edge function: ${action}`, body);
