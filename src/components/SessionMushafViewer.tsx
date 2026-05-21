@@ -154,12 +154,16 @@ export const SessionMushafViewer = ({
 
     const activeReciterId = reciterId;
     const activePage = pageData.page_number;
-    const pageWordKeys = buildPageWordKeySet(pageData);
+    const wordIds: number[] = [];
+    pageData.lines?.forEach((line) => {
+      line.words?.forEach((w) => {
+        if (typeof w.id === 'number') wordIds.push(w.id);
+      });
+    });
     let cancelled = false;
 
     console.log('🔁 Reloading mistakes for reciterId:', activeReciterId, 'page:', activePage);
 
-    // On reciter/page change, reset signatures so the first fetch always applies.
     highlightedSigRef.current = '';
     pastSigRef.current = '';
     setHighlightedWords(new Map());
@@ -167,34 +171,26 @@ export const SessionMushafViewer = ({
 
     (async () => {
       try {
-        const rows = await fetchCanonicalMistakesForPage(activeReciterId, activePage, pageData);
+        const rowsById = await fetchMistakesByWordIds(activeReciterId, wordIds);
 
         if (cancelled) return;
 
-        const toMap = (rows: any[] | null | undefined, currentSessionOnly: boolean) => {
-          const m = new Map<string, MistakeData>();
-          rows?.forEach((mistake) => {
-            const belongsToCurrentSession = mistake.session_id === sessionId;
-            if (currentSessionOnly !== belongsToCurrentSession) return;
-            const wordKey = getNormalizedMistakeWordKey(
-              mistake.surah_number,
-              mistake.ayah_number,
-              mistake.word_index,
-              pageWordKeys
-            );
-            if (!wordKey) return;
-            m.set(wordKey, {
-              category: (mistake.mistake_category as MistakeCategory) || 'tajweed',
-              date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : '',
-              mistakeId: mistake.id,
-              sessionId: mistake.session_id,
-            });
-          });
-          return m;
-        };
+        const nextHighlighted = new Map<number, MistakeData>();
+        const nextPast = new Map<number, MistakeData>();
 
-        const nextHighlighted = toMap(rows, true);
-        const nextPast = toMap(rows, false);
+        rowsById.forEach((mistake, wordId) => {
+          const data: MistakeData = {
+            category: (mistake.mistake_category as MistakeCategory) || 'tajweed',
+            date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : '',
+            mistakeId: mistake.id,
+            sessionId: mistake.session_id ?? undefined,
+          };
+          if (mistake.session_id === sessionId) {
+            nextHighlighted.set(wordId, data);
+          } else {
+            nextPast.set(wordId, data);
+          }
+        });
 
         setHighlightedWords((prev) => {
           const diff = diffMistakeMaps(prev, nextHighlighted);
@@ -203,9 +199,6 @@ export const SessionMushafViewer = ({
             return prev;
           }
           highlightedSigRef.current = sig;
-          if (mistakeDiffHasChanges(diff)) {
-            console.log('🩺 Mistake consistency diff (current session):', diff);
-          }
           return nextHighlighted;
         });
 
@@ -216,9 +209,6 @@ export const SessionMushafViewer = ({
             return prev;
           }
           pastSigRef.current = sig;
-          if (mistakeDiffHasChanges(diff)) {
-            console.log('🩺 Mistake consistency diff (past):', diff);
-          }
           return nextPast;
         });
       } catch (err) {
@@ -230,6 +220,7 @@ export const SessionMushafViewer = ({
       cancelled = true;
     };
   }, [sessionId, pageData, reciterId, mistakeRefreshNonce]);
+
 
 
   // Realtime + safety re-sync: refresh the canonical mistake set when any
