@@ -281,27 +281,48 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
           .eq('id', existing.mistakeId);
         if (error) throw error;
       } else {
-        const { data, error } = await supabase
+        // Partial unique index can't be an ON CONFLICT target, so select-then-write.
+        const { data: existingRow, error: selectError } = await supabase
           .from('mistakes')
-          .upsert({
-            reciter_id: user.id,
-            word_id: wordId,
-            surah_number: selectedWordInfo.surah,
-            ayah_number: selectedWordInfo.ayah,
-            word_index: 0,
-            page_number: selectedWordInfo.pageNumber ?? null,
-            mistake_category: category,
-          }, { onConflict: 'reciter_id,word_id' })
-          .select()
-          .single();
+          .select('id')
+          .eq('reciter_id', user.id)
+          .eq('word_id', wordId)
+          .is('session_id', null)
+          .is('room_id', null)
+          .maybeSingle();
+        if (selectError) throw selectError;
 
-        if (error) throw error;
+        let savedId: string;
+        if (existingRow?.id) {
+          const { error: updateError } = await supabase
+            .from('mistakes')
+            .update({ mistake_category: category })
+            .eq('id', existingRow.id);
+          if (updateError) throw updateError;
+          savedId = existingRow.id;
+        } else {
+          const { data, error } = await supabase
+            .from('mistakes')
+            .insert({
+              reciter_id: user.id,
+              word_id: wordId,
+              surah_number: selectedWordInfo.surah,
+              ayah_number: selectedWordInfo.ayah,
+              word_index: 0,
+              page_number: selectedWordInfo.pageNumber ?? null,
+              mistake_category: category,
+            })
+            .select('id')
+            .single();
+          if (error) throw error;
+          savedId = data.id;
+        }
 
         setMistakes(prev => {
           const updated = new Map(prev);
           const current = updated.get(wordId);
           if (current) {
-            updated.set(wordId, { ...current, mistakeId: data.id });
+            updated.set(wordId, { ...current, mistakeId: savedId });
           }
           return updated;
         });
