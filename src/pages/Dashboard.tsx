@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -105,14 +105,14 @@ const Dashboard = () => {
   } = useAuth();
   const { data: chaptersData } = useSurahList();
   // Adapt chapters to the shape Dashboard expects
-  const surahs = (chaptersData || []).map(ch => ({
+  const surahs = useMemo(() => (chaptersData || []).map(ch => ({
     number: ch.id,
     name: ch.name_arabic,
     englishName: ch.name_simple,
     numberOfAyahs: ch.verses_count,
     startPage: 0,
     endPage: 0,
-  }));
+  })), [chaptersData]);
   const navigate = useNavigate();
   const location = useLocation();
   const [progress, setProgress] = useState<UserProgress>({
@@ -865,7 +865,9 @@ const Dashboard = () => {
       setUserProfile(data);
 
       // Show username setup if user doesn't have a username (only on initial load).
-      if (allowPrompt && !data?.username) {
+      if (data?.username) {
+        setShowUsernameSetup(false);
+      } else if (allowPrompt) {
         setShowUsernameSetup(true);
       }
     } catch (error) {
