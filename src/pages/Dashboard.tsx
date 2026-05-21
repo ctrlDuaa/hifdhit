@@ -1208,7 +1208,8 @@ const Dashboard = () => {
       {/* Username Setup Modal */}
       <UsernameSetup isOpen={showUsernameSetup} onComplete={() => {
       setShowUsernameSetup(false);
-      loadUserProfile();
+      // Optimistically refresh profile in the background; do NOT let a stale read re-open the dialog.
+      setTimeout(() => { loadUserProfile(); }, 500);
     }} />
     </div>;
 };
