@@ -48,6 +48,7 @@ const fromOverviewMistakeCategory = (cat: string | null | undefined): MistakeTyp
 interface PreexistingMistake {
   ids: string[];
   mistakeType: MistakeType;
+  note?: string;
 }
 
 export function useBlockReview() {
