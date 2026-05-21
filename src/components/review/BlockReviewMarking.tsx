@@ -116,7 +116,8 @@ export const BlockReviewMarking = ({
   }, 0);
 
   // Note content (placeholder — notes not stored in block review mistakes currently)
-  const NoteContent = () => (
+  // Defined as inline JSX (not a nested component) so the Textarea isn't remounted on every keystroke.
+  const noteContent = (
     <div className="space-y-3">
       <p className="text-center text-xl font-arabic" dir="rtl">{selectedWord?.wordText}</p>
       <Textarea
@@ -237,7 +238,7 @@ export const BlockReviewMarking = ({
         <Drawer open={noteDrawerOpen} onOpenChange={setNoteDrawerOpen}>
           <DrawerContent>
             <DrawerHeader><DrawerTitle>Mistake Note</DrawerTitle></DrawerHeader>
-            <div className="px-4 pb-2"><NoteContent /></div>
+            <div className="px-4 pb-2">{noteContent}</div>
             <DrawerFooter>
               <DrawerClose asChild>
                 <Button variant="outline" onClick={() => setNoteDrawerOpen(false)}>Close</Button>
@@ -249,7 +250,7 @@ export const BlockReviewMarking = ({
         <Sheet open={noteDrawerOpen} onOpenChange={setNoteDrawerOpen}>
           <SheetContent>
             <SheetHeader><SheetTitle>Mistake Note</SheetTitle></SheetHeader>
-            <div className="py-4"><NoteContent /></div>
+            <div className="py-4">{noteContent}</div>
             <SheetFooter>
               <SheetClose asChild>
                 <Button variant="outline">Close</Button>
