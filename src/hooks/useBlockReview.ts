@@ -284,14 +284,15 @@ export function useBlockReview() {
     const currentKeys = new Set(mistakeList.map(m => `${m.ayahNumber}:${m.wordIndex}`));
     const overviewRowsToInsert: Array<{
       reciter_id: string; surah_number: number; ayah_number: number;
-      word_index: number; mistake_category: string;
+      word_index: number; mistake_category: string; note: string | null;
     }> = [];
     const overviewIdsToDelete: string[] = [];
-    const overviewUpdates: Array<{ ids: string[]; mistake_category: string }> = [];
+    const overviewUpdates: Array<{ ids: string[]; mistake_category: string; note: string | null }> = [];
 
     for (const m of mistakeList) {
       const key = `${m.ayahNumber}:${m.wordIndex}`;
       const pre = preexistingMistakes.get(key);
+      const noteVal = m.note && m.note.trim() ? m.note : null;
       if (!pre) {
         overviewRowsToInsert.push({
           reciter_id: user.id,
@@ -299,11 +300,13 @@ export function useBlockReview() {
           ayah_number: m.ayahNumber,
           word_index: m.wordIndex + 1,
           mistake_category: toOverviewMistakeCategory(m.mistakeType),
+          note: noteVal,
         });
-      } else if (pre.mistakeType !== m.mistakeType) {
+      } else if (pre.mistakeType !== m.mistakeType || (pre.note ?? null) !== noteVal) {
         overviewUpdates.push({
           ids: pre.ids,
           mistake_category: toOverviewMistakeCategory(m.mistakeType),
+          note: noteVal,
         });
       }
     }
@@ -316,7 +319,7 @@ export function useBlockReview() {
       if (overviewMistakesError) throw overviewMistakesError;
     }
     for (const upd of overviewUpdates) {
-      await supabase.from('mistakes').update({ mistake_category: upd.mistake_category }).in('id', upd.ids);
+      await supabase.from('mistakes').update({ mistake_category: upd.mistake_category, note: upd.note }).in('id', upd.ids);
     }
     if (overviewIdsToDelete.length > 0) {
       await supabase.from('mistakes').delete().in('id', overviewIdsToDelete);
