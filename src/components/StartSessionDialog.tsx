@@ -6,9 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useSessionSystem } from '@/hooks/useSessionSystem';
 import { useNavigate } from 'react-router-dom';
-import { Copy, Check, Plus, Trash2, ChevronsUpDown } from 'lucide-react';
+import { Copy, Check, Plus, Trash2, ChevronsUpDown, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useSurahList } from '@/hooks/useQuranData';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SurahRange {
   surahNumber: string;
