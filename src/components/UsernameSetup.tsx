@@ -12,10 +12,12 @@ import { Globe } from 'lucide-react';
 interface UsernameSetupProps {
   isOpen: boolean;
   onComplete: () => void;
+  onClose?: () => void;
 }
 export const UsernameSetup = ({
   isOpen,
-  onComplete
+  onComplete,
+  onClose
 }: UsernameSetupProps) => {
   const {
     user
@@ -89,11 +91,11 @@ export const UsernameSetup = ({
         }
         throw error;
       }
+      onComplete();
       toast({
         title: "Setup Complete!",
         description: "Your profile has been successfully set up."
       });
-      onComplete();
     } catch (error) {
       console.error('Error setting username:', error);
       toast({
@@ -105,7 +107,9 @@ export const UsernameSetup = ({
       setIsSubmitting(false);
     }
   };
-  return <Dialog open={isOpen} onOpenChange={() => {}}>
+  return <Dialog open={isOpen} onOpenChange={(open) => {
+    if (!open) onClose?.();
+  }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
