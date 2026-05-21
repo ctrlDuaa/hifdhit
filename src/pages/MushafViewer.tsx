@@ -434,8 +434,8 @@ const MushafViewer = () => {
                         loadedPages={qcfLoadedPages}
                         wordWrapper={(w, _i, child) => {
                           if (w.char_type_name === 'end') return child;
-                          const wordKey = `${w.surah}-${w.ayah}-${w.position}`;
-                          const mistakeData = highlightedWords.get(wordKey);
+                          const wordId = typeof w.id === 'number' ? w.id : Number(w.id);
+                          const mistakeData = Number.isFinite(wordId) ? highlightedWords.get(wordId) : undefined;
                           const hasMistake = mistakeData !== undefined;
                           return (
                             <span

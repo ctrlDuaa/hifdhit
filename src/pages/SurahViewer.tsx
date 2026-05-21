@@ -19,14 +19,14 @@ import { Label } from '@/components/ui/label';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { AppHeader } from '@/components/AppHeader';
-import { buildPageWordKeySet, computeMistakeMapSignature, diffMistakeMaps, fetchCanonicalMistakesForPage, getNormalizedMistakeWordKey, mistakeDiffHasChanges } from '@/lib/mushafMistakeUtils';
+import { computeMistakeMapSignature, diffMistakeMaps, fetchMistakesByWordIds, mistakeDiffHasChanges } from '@/lib/mushafMistakeUtils';
 import { quranApi } from '@/services/quranApi';
 import { useQcfFontLoader } from '@/hooks/useQcfFontLoader';
 
 interface MistakeNote {
   id: string;
   ayah_number: number;
-  word_key: string;
+  word_id: number;
   note: string;
   mistake_category: string;
 }
@@ -49,7 +49,7 @@ const SurahViewer = () => {
   } = useSupabaseMushaf();
   const [currentPage, setCurrentPage] = useState(1);
   const [pageData, setPageData] = useState<any>(null);
-  const [highlightedWords, setHighlightedWords] = useState<Map<string, {
+  const [highlightedWords, setHighlightedWords] = useState<Map<number, {
     category: string;
     date?: string;
   }>>(new Map());
@@ -433,36 +433,32 @@ const SurahViewer = () => {
     if (!user) return;
     try {
       const activePageData = pageOverride ?? pageData;
-      const pageWordKeys = buildPageWordKeySet(activePageData);
-      const allMistakes = await fetchCanonicalMistakesForPage(user.id, page, activePageData);
-      // Deduplicate by word key (prefer the one with page_number set)
-      const mistakeMap = new Map<string, { category: string; date?: string }>();
-      const notesWithData: MistakeNote[] = [];
-      const seenKeys = new Set<string>();
+      // Collect all global word IDs on this page from the local mushaf data.
+      const wordIds: number[] = [];
+      activePageData?.lines?.forEach((line: any) => {
+        line.words?.forEach((w: any) => {
+          if (typeof w.id === 'number') wordIds.push(w.id);
+        });
+      });
 
-      allMistakes.forEach(mistake => {
-        const wordKey = getNormalizedMistakeWordKey(
-          mistake.surah_number,
-          mistake.ayah_number,
-          mistake.word_index,
-          pageWordKeys
-        );
-        if (!wordKey) return;
-        if (!seenKeys.has(wordKey)) {
-          seenKeys.add(wordKey);
-          mistakeMap.set(wordKey, {
-            category: mistake.mistake_category || 'tajweed',
-            date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : undefined
+      const rowsById = await fetchMistakesByWordIds(user.id, wordIds);
+
+      const mistakeMap = new Map<number, { category: string; date?: string }>();
+      const notesWithData: MistakeNote[] = [];
+
+      rowsById.forEach((mistake, wordId) => {
+        mistakeMap.set(wordId, {
+          category: mistake.mistake_category || 'tajweed',
+          date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : undefined,
+        });
+        if (mistake.note) {
+          notesWithData.push({
+            id: mistake.id,
+            ayah_number: mistake.ayah_number,
+            word_id: wordId,
+            note: mistake.note,
+            mistake_category: mistake.mistake_category || 'tajweed',
           });
-          if (mistake.note) {
-            notesWithData.push({
-              id: mistake.id,
-              ayah_number: mistake.ayah_number,
-              word_key: wordKey,
-              note: mistake.note,
-              mistake_category: mistake.mistake_category || 'tajweed'
-            });
-          }
         }
       });
 
@@ -1195,11 +1191,12 @@ const SurahViewer = () => {
                               if (!isEnd) {
                                 const localWord = localLineWords[localIdx];
                                 localIdx += 1;
-                                if (localWord && typeof localWord.surah === 'number' && typeof localWord.ayah === 'number' && typeof localWord.word === 'number') {
+                                if (localWord && typeof localWord.surah === 'number' && typeof localWord.ayah === 'number') {
                                   surahNum = localWord.surah;
                                   ayahNum = localWord.ayah;
-                                  const wordKey = `${localWord.surah}-${localWord.ayah}-${localWord.word}`;
-                                  mistakeData = highlightedWords.get(wordKey);
+                                  if (typeof localWord.id === 'number') {
+                                    mistakeData = highlightedWords.get(localWord.id);
+                                  }
                                 }
                               }
 

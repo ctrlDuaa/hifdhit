@@ -17,7 +17,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter, DrawerC
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetClose } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { buildPageWordKeySet, computeMistakeMapSignature, diffMistakeMaps, fetchCanonicalMistakeIdsForPageWord, fetchCanonicalMistakesForPage, getNormalizedMistakeWordKey, mistakeDiffHasChanges } from '@/lib/mushafMistakeUtils';
+import { computeMistakeMapSignature, diffMistakeMaps, fetchMistakesByWordIds, mistakeDiffHasChanges } from '@/lib/mushafMistakeUtils';
 type MistakeCategory = 'tajweed' | 'missed' | 'harakah' | 'incorrect';
 interface MistakeData {
   category: MistakeCategory;
@@ -53,8 +53,8 @@ export const SessionMushafViewer = ({
   const [currentPage, setCurrentPage] = useState(initialPage);
   const [pageData, setPageData] = useState<SupabasePage | null>(null);
   const [totalPages, setTotalPages] = useState(0);
-  const [highlightedWords, setHighlightedWords] = useState<Map<string, MistakeData>>(new Map());
-  const [pastMistakes, setPastMistakes] = useState<Map<string, MistakeData>>(new Map());
+  const [highlightedWords, setHighlightedWords] = useState<Map<number, MistakeData>>(new Map());
+  const [pastMistakes, setPastMistakes] = useState<Map<number, MistakeData>>(new Map());
   const [mistakeRefreshNonce, setMistakeRefreshNonce] = useState(0);
   const [selectedWord, setSelectedWord] = useState<SupabaseWord | null>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
@@ -154,12 +154,16 @@ export const SessionMushafViewer = ({
 
     const activeReciterId = reciterId;
     const activePage = pageData.page_number;
-    const pageWordKeys = buildPageWordKeySet(pageData);
+    const wordIds: number[] = [];
+    pageData.lines?.forEach((line) => {
+      line.words?.forEach((w) => {
+        if (typeof w.id === 'number') wordIds.push(w.id);
+      });
+    });
     let cancelled = false;
 
     console.log('🔁 Reloading mistakes for reciterId:', activeReciterId, 'page:', activePage);
 
-    // On reciter/page change, reset signatures so the first fetch always applies.
     highlightedSigRef.current = '';
     pastSigRef.current = '';
     setHighlightedWords(new Map());
@@ -167,34 +171,26 @@ export const SessionMushafViewer = ({
 
     (async () => {
       try {
-        const rows = await fetchCanonicalMistakesForPage(activeReciterId, activePage, pageData);
+        const rowsById = await fetchMistakesByWordIds(activeReciterId, wordIds);
 
         if (cancelled) return;
 
-        const toMap = (rows: any[] | null | undefined, currentSessionOnly: boolean) => {
-          const m = new Map<string, MistakeData>();
-          rows?.forEach((mistake) => {
-            const belongsToCurrentSession = mistake.session_id === sessionId;
-            if (currentSessionOnly !== belongsToCurrentSession) return;
-            const wordKey = getNormalizedMistakeWordKey(
-              mistake.surah_number,
-              mistake.ayah_number,
-              mistake.word_index,
-              pageWordKeys
-            );
-            if (!wordKey) return;
-            m.set(wordKey, {
-              category: (mistake.mistake_category as MistakeCategory) || 'tajweed',
-              date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : '',
-              mistakeId: mistake.id,
-              sessionId: mistake.session_id,
-            });
-          });
-          return m;
-        };
+        const nextHighlighted = new Map<number, MistakeData>();
+        const nextPast = new Map<number, MistakeData>();
 
-        const nextHighlighted = toMap(rows, true);
-        const nextPast = toMap(rows, false);
+        rowsById.forEach((mistake, wordId) => {
+          const data: MistakeData = {
+            category: (mistake.mistake_category as MistakeCategory) || 'tajweed',
+            date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : '',
+            mistakeId: mistake.id,
+            sessionId: mistake.session_id ?? undefined,
+          };
+          if (mistake.session_id === sessionId) {
+            nextHighlighted.set(wordId, data);
+          } else {
+            nextPast.set(wordId, data);
+          }
+        });
 
         setHighlightedWords((prev) => {
           const diff = diffMistakeMaps(prev, nextHighlighted);
@@ -203,9 +199,6 @@ export const SessionMushafViewer = ({
             return prev;
           }
           highlightedSigRef.current = sig;
-          if (mistakeDiffHasChanges(diff)) {
-            console.log('🩺 Mistake consistency diff (current session):', diff);
-          }
           return nextHighlighted;
         });
 
@@ -216,9 +209,6 @@ export const SessionMushafViewer = ({
             return prev;
           }
           pastSigRef.current = sig;
-          if (mistakeDiffHasChanges(diff)) {
-            console.log('🩺 Mistake consistency diff (past):', diff);
-          }
           return nextPast;
         });
       } catch (err) {
@@ -230,6 +220,7 @@ export const SessionMushafViewer = ({
       cancelled = true;
     };
   }, [sessionId, pageData, reciterId, mistakeRefreshNonce]);
+
 
 
   // Realtime + safety re-sync: refresh the canonical mistake set when any
@@ -291,66 +282,9 @@ export const SessionMushafViewer = ({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [popoverOpen]);
-  const loadSessionMistakes = async () => {
-    if (!pageData || !reciterId) return;
-    try {
-      console.log('Loading current session mistakes for reciterId:', reciterId, 'sessionId:', sessionId, 'page:', pageData.page_number);
-      
-      // Load mistakes for the CURRENT RECITER in this session only
-      const {
-        data,
-        error
-      } = await supabase.from('mistakes').select('*').eq('session_id', sessionId).eq('reciter_id', reciterId).eq('page_number', pageData.page_number);
-      
-      if (error) throw error;
-      console.log('✅ Current session mistakes loaded:', data?.length || 0, 'mistakes', data);
-      
-      const mistakes = new Map<string, MistakeData>();
-      data?.forEach(mistake => {
-        const wordKey = `${mistake.surah_number}-${mistake.ayah_number}-${mistake.word_index}`;
-        mistakes.set(wordKey, {
-          category: mistake.mistake_category as MistakeCategory || 'tajweed',
-          date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : '',
-          mistakeId: mistake.id,
-          sessionId: mistake.session_id
-        });
-        console.log('  → Current mistake word:', wordKey, 'category:', mistake.mistake_category);
-      });
-      console.log('✅ Setting highlightedWords with', mistakes.size, 'mistakes');
-      setHighlightedWords(mistakes);
-    } catch (err) {
-      console.error('Error loading mistakes:', err);
-    }
-  };
-  const loadPastMistakes = async () => {
-    if (!pageData || !reciterId) return;
-    try {
-      console.log('Loading past mistakes for reciterId:', reciterId, 'page:', pageData.page_number);
+  // (loadSessionMistakes / loadPastMistakes removed — canonical effect above
+  // now loads + splits all reciter mistakes by word_id.)
 
-      // Load all mistakes for this reciter on this page from OTHER sessions
-      const {
-        data,
-        error
-      } = await supabase.from('mistakes').select('*').eq('reciter_id', reciterId).eq('page_number', pageData.page_number).neq('session_id', sessionId);
-      if (error) throw error;
-      console.log('✅ Past mistakes loaded:', data?.length || 0, 'mistakes', data);
-      const mistakes = new Map<string, MistakeData>();
-      data?.forEach(mistake => {
-        const wordKey = `${mistake.surah_number}-${mistake.ayah_number}-${mistake.word_index}`;
-        mistakes.set(wordKey, {
-          category: mistake.mistake_category as MistakeCategory || 'tajweed',
-          date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : '',
-          mistakeId: mistake.id,
-          sessionId: mistake.session_id
-        });
-        console.log('  → Past mistake word:', wordKey, 'category:', mistake.mistake_category);
-      });
-      console.log('✅ Setting pastMistakes with', mistakes.size, 'mistakes');
-      setPastMistakes(mistakes);
-    } catch (err) {
-      console.error('Error loading past mistakes:', err);
-    }
-  };
   const loadPageData = async (page: number) => {
     console.log('📄 Loading page data for page:', page);
     const exists = await checkPageExists(page);
@@ -409,25 +343,22 @@ export const SessionMushafViewer = ({
   };
   const handleCategorySelect = async (category: MistakeCategory) => {
     if (!selectedWord) return;
-    const wordKey = `${selectedWord.surah}-${selectedWord.ayah}-${selectedWord.word}`;
+    const wordKey = selectedWord.id;
     const currentMistake = highlightedWords.get(wordKey);
     const pastMistake = pastMistakes.get(wordKey);
     const existingMistake = currentMistake || pastMistake;
     
     try {
       if (existingMistake?.mistakeId) {
-        // Update existing mistake by ID
         console.log('Updating existing mistake category:', existingMistake.mistakeId);
         
-        // Optimistic update - keep original sessionId for edited mistakes
         const mistakeData: MistakeData = {
           category,
           date: existingMistake.date,
           mistakeId: existingMistake.mistakeId,
-          sessionId: existingMistake.sessionId // Keep original session
+          sessionId: existingMistake.sessionId
         };
         
-        // Update in the appropriate map
         if (pastMistake) {
           setPastMistakes(prev => {
             const newMap = new Map(prev);
@@ -441,31 +372,19 @@ export const SessionMushafViewer = ({
             return newMap;
           });
         }
-        
-        const matchingMistakeIds = await fetchCanonicalMistakeIdsForPageWord(
-          reciterId,
-          selectedWord.surah,
-          selectedWord.ayah,
-          currentPage,
-          pageData,
-          wordKey
-        );
 
         const { error } = await supabase
           .from('mistakes')
           .update({ mistake_category: category })
-          .in('id', matchingMistakeIds.length > 0 ? matchingMistakeIds : [existingMistake.mistakeId]);
+          .eq('id', existingMistake.mistakeId);
         
         if (error) throw error;
-        
-        console.log('Mistake category updated successfully');
         
         toast({
           title: "Category Updated",
           description: "Mistake category changed successfully"
         });
       } else {
-        // Add new mistake with category - get the inserted record back
         console.log('Inserting new mistake');
         
         const { data, error } = await supabase
@@ -476,6 +395,7 @@ export const SessionMushafViewer = ({
             surah_number: selectedWord.surah,
             ayah_number: selectedWord.ayah,
             word_index: selectedWord.word,
+            word_id: selectedWord.id,
             page_number: currentPage,
             mistake_category: category
           })
@@ -483,6 +403,7 @@ export const SessionMushafViewer = ({
           .single();
         
         if (error) throw error;
+
         
         console.log('Mistake inserted with ID:', data.id);
         
@@ -546,7 +467,7 @@ export const SessionMushafViewer = ({
     
     if (!selectedWord) return;
     
-    const wordKey = `${selectedWord.surah}-${selectedWord.ayah}-${selectedWord.word}`;
+    const wordKey = selectedWord.id;
     const currentMistake = highlightedWords.get(wordKey);
     const pastMistake = pastMistakes.get(wordKey);
     const existingMistake = currentMistake || pastMistake;
@@ -581,7 +502,7 @@ export const SessionMushafViewer = ({
   const handleSaveNote = async () => {
     if (!selectedWord) return;
     
-    const wordKey = `${selectedWord.surah}-${selectedWord.ayah}-${selectedWord.word}`;
+    const wordKey = selectedWord.id;
     const currentMistake = highlightedWords.get(wordKey);
     const pastMistake = pastMistakes.get(wordKey);
     const existingMistake = currentMistake || pastMistake;
@@ -622,7 +543,7 @@ export const SessionMushafViewer = ({
   };
   const handleRemoveMistake = async () => {
     if (!selectedWord) return;
-    const wordKey = `${selectedWord.surah}-${selectedWord.ayah}-${selectedWord.word}`;
+    const wordKey = selectedWord.id;
     
     const currentMistake = highlightedWords.get(wordKey);
     const pastMistake = pastMistakes.get(wordKey);
@@ -653,18 +574,10 @@ export const SessionMushafViewer = ({
     }
     
     try {
-      const matchingMistakeIds = await fetchCanonicalMistakeIdsForPageWord(
-        reciterId,
-        selectedWord.surah,
-        selectedWord.ayah,
-        currentPage,
-        pageData,
-        wordKey
-      );
       const { error } = await supabase
         .from('mistakes')
         .delete()
-        .in('id', matchingMistakeIds.length > 0 ? matchingMistakeIds : [existingMistake.mistakeId]);
+        .eq('id', existingMistake.mistakeId);
       if (error) throw error;
 
       console.log('Mistake deleted');
@@ -947,11 +860,9 @@ export const SessionMushafViewer = ({
                     const localWord = !isEnd ? localLineWords[localIdx] : undefined;
                     if (!isEnd) localIdx += 1;
 
-                    const wordKey = localWord
-                      ? `${localWord.surah}-${localWord.ayah}-${localWord.word}`
-                      : null;
-                    const currentMistake = wordKey ? highlightedWords.get(wordKey) : undefined;
-                    const pastMistake = wordKey ? pastMistakes.get(wordKey) : undefined;
+                    const wordKey = localWord && typeof localWord.id === 'number' ? localWord.id : null;
+                    const currentMistake = wordKey != null ? highlightedWords.get(wordKey) : undefined;
+                    const pastMistake = wordKey != null ? pastMistakes.get(wordKey) : undefined;
                     const hasMistake = !!currentMistake || !!pastMistake;
                     const mistakeCategory = currentMistake?.category || pastMistake?.category;
 
@@ -1073,7 +984,7 @@ export const SessionMushafViewer = ({
               <Button variant="ghost" size="sm" className="px-2.5 py-1.5 text-xs h-8" onClick={() => handleCategorySelect('harakah')}>
                 Harakah
               </Button>
-              {selectedWord && (highlightedWords.has(`${selectedWord.surah}-${selectedWord.ayah}-${selectedWord.word}`) || pastMistakes.has(`${selectedWord.surah}-${selectedWord.ayah}-${selectedWord.word}`)) && (
+              {selectedWord && (highlightedWords.has(selectedWord.id) || pastMistakes.has(selectedWord.id)) && (
                 <>
                   <Button variant="ghost" size="sm" className="px-2.5 py-1.5 text-xs h-8" onClick={handleOpenNoteDrawer}>
                     <FileText className="w-3.5 h-3.5" />
@@ -1110,7 +1021,7 @@ export const SessionMushafViewer = ({
                 <Button variant="ghost" size="sm" className="px-3 py-2" onClick={() => handleCategorySelect('harakah')} title="Harakah mistake">
                   Harakah
                 </Button>
-                {selectedWord && (highlightedWords.has(`${selectedWord.surah}-${selectedWord.ayah}-${selectedWord.word}`) || pastMistakes.has(`${selectedWord.surah}-${selectedWord.ayah}-${selectedWord.word}`)) && (
+                {selectedWord && (highlightedWords.has(selectedWord.id) || pastMistakes.has(selectedWord.id)) && (
                   <>
                     <Button variant="ghost" size="sm" className="px-3 py-2" onClick={handleOpenNoteDrawer} title="Add note">
                       <FileText className="w-4 h-4" />
