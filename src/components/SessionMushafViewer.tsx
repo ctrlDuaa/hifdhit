@@ -467,7 +467,7 @@ export const SessionMushafViewer = ({
     
     if (!selectedWord) return;
     
-    const wordKey = `${selectedWord.surah}-${selectedWord.ayah}-${selectedWord.word}`;
+    const wordKey = selectedWord.id;
     const currentMistake = highlightedWords.get(wordKey);
     const pastMistake = pastMistakes.get(wordKey);
     const existingMistake = currentMistake || pastMistake;
