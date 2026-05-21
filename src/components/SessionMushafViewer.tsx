@@ -282,66 +282,9 @@ export const SessionMushafViewer = ({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [popoverOpen]);
-  const loadSessionMistakes = async () => {
-    if (!pageData || !reciterId) return;
-    try {
-      console.log('Loading current session mistakes for reciterId:', reciterId, 'sessionId:', sessionId, 'page:', pageData.page_number);
-      
-      // Load mistakes for the CURRENT RECITER in this session only
-      const {
-        data,
-        error
-      } = await supabase.from('mistakes').select('*').eq('session_id', sessionId).eq('reciter_id', reciterId).eq('page_number', pageData.page_number);
-      
-      if (error) throw error;
-      console.log('✅ Current session mistakes loaded:', data?.length || 0, 'mistakes', data);
-      
-      const mistakes = new Map<string, MistakeData>();
-      data?.forEach(mistake => {
-        const wordKey = `${mistake.surah_number}-${mistake.ayah_number}-${mistake.word_index}`;
-        mistakes.set(wordKey, {
-          category: mistake.mistake_category as MistakeCategory || 'tajweed',
-          date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : '',
-          mistakeId: mistake.id,
-          sessionId: mistake.session_id
-        });
-        console.log('  → Current mistake word:', wordKey, 'category:', mistake.mistake_category);
-      });
-      console.log('✅ Setting highlightedWords with', mistakes.size, 'mistakes');
-      setHighlightedWords(mistakes);
-    } catch (err) {
-      console.error('Error loading mistakes:', err);
-    }
-  };
-  const loadPastMistakes = async () => {
-    if (!pageData || !reciterId) return;
-    try {
-      console.log('Loading past mistakes for reciterId:', reciterId, 'page:', pageData.page_number);
+  // (loadSessionMistakes / loadPastMistakes removed — canonical effect above
+  // now loads + splits all reciter mistakes by word_id.)
 
-      // Load all mistakes for this reciter on this page from OTHER sessions
-      const {
-        data,
-        error
-      } = await supabase.from('mistakes').select('*').eq('reciter_id', reciterId).eq('page_number', pageData.page_number).neq('session_id', sessionId);
-      if (error) throw error;
-      console.log('✅ Past mistakes loaded:', data?.length || 0, 'mistakes', data);
-      const mistakes = new Map<string, MistakeData>();
-      data?.forEach(mistake => {
-        const wordKey = `${mistake.surah_number}-${mistake.ayah_number}-${mistake.word_index}`;
-        mistakes.set(wordKey, {
-          category: mistake.mistake_category as MistakeCategory || 'tajweed',
-          date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : '',
-          mistakeId: mistake.id,
-          sessionId: mistake.session_id
-        });
-        console.log('  → Past mistake word:', wordKey, 'category:', mistake.mistake_category);
-      });
-      console.log('✅ Setting pastMistakes with', mistakes.size, 'mistakes');
-      setPastMistakes(mistakes);
-    } catch (err) {
-      console.error('Error loading past mistakes:', err);
-    }
-  };
   const loadPageData = async (page: number) => {
     console.log('📄 Loading page data for page:', page);
     const exists = await checkPageExists(page);
