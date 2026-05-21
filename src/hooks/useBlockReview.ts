@@ -477,6 +477,8 @@ export function useBlockReview() {
     startReview,
     toggleMistake,
     removeMistake,
+    setMistakeNote,
+    getNoteForWord,
     getMistakeForWord,
     goToRating,
     goBackToMarking,
