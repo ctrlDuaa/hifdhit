@@ -79,7 +79,7 @@ export function useBlockReview() {
       if (user) {
         const { data: existing } = await supabase
           .from('mistakes')
-          .select('id, ayah_number, word_index, mistake_category')
+          .select('id, ayah_number, word_index, mistake_category, note')
           .eq('reciter_id', user.id)
           .eq('surah_number', blockInfo.surahId)
           .gte('ayah_number', blockInfo.startAyah)
@@ -101,8 +101,9 @@ export function useBlockReview() {
             wordIndex: wordIdx,
             wordText: '',
             mistakeType: type,
+            note: row.note ?? undefined,
           });
-          initialPreexisting.set(key, { ids: [row.id], mistakeType: type });
+          initialPreexisting.set(key, { ids: [row.id], mistakeType: type, note: row.note ?? undefined });
         }
       }
       setMistakes(initialMistakes);
