@@ -66,8 +66,6 @@ export const UsernameSetup = ({
       return;
     }
     setIsSubmitting(true);
-    // Close immediately for a seamless experience — we'll surface only real errors.
-    onComplete();
     try {
       const payload = {
         user_id: user!.id,
@@ -86,6 +84,7 @@ export const UsernameSetup = ({
             description: "This username is already taken. Please choose another.",
             variant: "destructive"
           });
+          setIsSubmitting(false);
           return;
         }
         throw error;
@@ -94,8 +93,14 @@ export const UsernameSetup = ({
         title: "Setup Complete!",
         description: "Your profile has been successfully set up."
       });
+      onComplete();
     } catch (error) {
       console.error('Error setting username:', error);
+      toast({
+        title: "Error",
+        description: "Failed to set username. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsSubmitting(false);
     }
