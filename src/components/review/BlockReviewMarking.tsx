@@ -52,8 +52,10 @@ function getCategoryColor(type: MistakeCategory): string {
 export const BlockReviewMarking = ({
   verses,
   getMistakeForWord,
+  getNoteForWord,
   onToggleMistake,
   onRemoveMistake,
+  onSaveNote,
   onFinishMarking,
   surahName,
   surahId,
