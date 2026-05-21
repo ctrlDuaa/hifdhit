@@ -34,7 +34,7 @@ const MushafViewer = () => {
   const [pageData, setPageData] = useState<SupabasePage | null>(null);
   const [totalPages, setTotalPages] = useState(0);
   const [highlightedWords, setHighlightedWords] = useState<Map<number, MistakeData>>(new Map());
-  const highlightedSigRef = useRef<string>('');
+  
 
 
   // ── QCF V2 (Quran Foundation glyph rendering) ──
