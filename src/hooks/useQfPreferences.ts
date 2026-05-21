@@ -70,7 +70,7 @@ export function useQfPreferences(): ResolvedQfPreferences {
       const connected = isQfSessionValid(appUserId);
       let prefs: QfPreferences | null = null;
       if (connected) {
-        prefs = await getQfPreferences();
+        prefs = await getQfPreferences(appUserId);
       }
 
       const reciterId = prefs?.reciterId ?? FALLBACK.reciterId;
