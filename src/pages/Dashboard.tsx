@@ -1208,11 +1208,19 @@ const Dashboard = () => {
       </main>
 
       {/* Username Setup Modal */}
-      <UsernameSetup isOpen={showUsernameSetup} onComplete={() => {
-      setShowUsernameSetup(false);
-      // Refresh profile without re-triggering the prompt (avoids stale-read flicker).
-      setTimeout(() => { loadUserProfile(false); }, 300);
-    }} />
+      <UsernameSetup
+        isOpen={showUsernameSetup}
+        onClose={() => setShowUsernameSetup(false)}
+        onComplete={() => {
+          setShowUsernameSetup(false);
+          setUserProfile((current: any) => ({
+            ...current,
+            user_id: user?.id,
+          }));
+          // Refresh profile without re-triggering the prompt (avoids stale-read flicker).
+          setTimeout(() => { loadUserProfile(false); }, 300);
+        }}
+      />
     </div>;
 };
 export default Dashboard;
