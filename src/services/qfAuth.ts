@@ -120,6 +120,12 @@ function qfSessionKey(appUserId?: string | null): string | null {
   return uid ? `${QF_SESSION_PREFIX}${uid}` : null;
 }
 
+async function resolveAppUserId(appUserId?: string | null): Promise<string | null> {
+  if (appUserId) return appUserId;
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.id || getCurrentAppUserId();
+}
+
 export function getQfSession(appUserId?: string | null): QfOAuthSession | null {
   try {
     const key = qfSessionKey(appUserId);
@@ -318,7 +324,8 @@ export async function handleQfCallback(searchParams: URLSearchParams): Promise<Q
  * Refresh the access token using the backend.
  */
 export async function refreshQfToken(appUserId?: string | null): Promise<QfOAuthSession | null> {
-  const current = getQfSession(appUserId);
+  const resolvedAppUserId = await resolveAppUserId(appUserId);
+  const current = getQfSession(resolvedAppUserId);
   if (!current?.refreshToken) return null;
 
   try {
@@ -334,10 +341,10 @@ export async function refreshQfToken(appUserId?: string | null): Promise<QfOAuth
       scope: data.scope || current.scope,
     };
 
-    setQfSession(session, appUserId);
+    setQfSession(session, resolvedAppUserId);
     return session;
   } catch {
-    clearQfSession(appUserId);
+    clearQfSession(resolvedAppUserId);
     return null;
   }
 }
@@ -346,12 +353,13 @@ export async function refreshQfToken(appUserId?: string | null): Promise<QfOAuth
  * Get a valid access token, refreshing if needed.
  */
 export async function getValidAccessToken(appUserId?: string | null): Promise<string | null> {
-  let session = getQfSession(appUserId);
+  const resolvedAppUserId = await resolveAppUserId(appUserId);
+  let session = getQfSession(resolvedAppUserId);
   if (!session) return null;
 
   // Refresh if expired or about to expire (30s buffer)
   if (Date.now() >= session.expiresAt - 30_000) {
-    session = await refreshQfToken(appUserId);
+    session = await refreshQfToken(resolvedAppUserId);
   }
 
   return session?.accessToken || null;
