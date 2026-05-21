@@ -433,36 +433,32 @@ const SurahViewer = () => {
     if (!user) return;
     try {
       const activePageData = pageOverride ?? pageData;
-      const pageWordKeys = buildPageWordKeySet(activePageData);
-      const allMistakes = await fetchCanonicalMistakesForPage(user.id, page, activePageData);
-      // Deduplicate by word key (prefer the one with page_number set)
-      const mistakeMap = new Map<string, { category: string; date?: string }>();
-      const notesWithData: MistakeNote[] = [];
-      const seenKeys = new Set<string>();
+      // Collect all global word IDs on this page from the local mushaf data.
+      const wordIds: number[] = [];
+      activePageData?.lines?.forEach((line: any) => {
+        line.words?.forEach((w: any) => {
+          if (typeof w.id === 'number') wordIds.push(w.id);
+        });
+      });
 
-      allMistakes.forEach(mistake => {
-        const wordKey = getNormalizedMistakeWordKey(
-          mistake.surah_number,
-          mistake.ayah_number,
-          mistake.word_index,
-          pageWordKeys
-        );
-        if (!wordKey) return;
-        if (!seenKeys.has(wordKey)) {
-          seenKeys.add(wordKey);
-          mistakeMap.set(wordKey, {
-            category: mistake.mistake_category || 'tajweed',
-            date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : undefined
+      const rowsById = await fetchMistakesByWordIds(user.id, wordIds);
+
+      const mistakeMap = new Map<number, { category: string; date?: string }>();
+      const notesWithData: MistakeNote[] = [];
+
+      rowsById.forEach((mistake, wordId) => {
+        mistakeMap.set(wordId, {
+          category: mistake.mistake_category || 'tajweed',
+          date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : undefined,
+        });
+        if (mistake.note) {
+          notesWithData.push({
+            id: mistake.id,
+            ayah_number: mistake.ayah_number,
+            word_id: wordId,
+            note: mistake.note,
+            mistake_category: mistake.mistake_category || 'tajweed',
           });
-          if (mistake.note) {
-            notesWithData.push({
-              id: mistake.id,
-              ayah_number: mistake.ayah_number,
-              word_key: wordKey,
-              note: mistake.note,
-              mistake_category: mistake.mistake_category || 'tajweed'
-            });
-          }
         }
       });
 
