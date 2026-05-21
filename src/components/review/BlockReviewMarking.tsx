@@ -25,8 +25,10 @@ import { RecitationRecorder } from '@/components/memorization/RecitationRecorder
 interface Props {
   verses: QuranVerse[];
   getMistakeForWord: (ayahNumber: number, wordIndex: number) => MistakeType | null;
+  getNoteForWord?: (ayahNumber: number, wordIndex: number) => string;
   onToggleMistake: (ayahNumber: number, wordIndex: number, wordText: string, type: MistakeType) => void;
   onRemoveMistake: (ayahNumber: number, wordIndex: number) => void;
+  onSaveNote?: (ayahNumber: number, wordIndex: number, note: string) => void;
   onFinishMarking: () => void;
   surahName: string;
   surahId: number;
