@@ -543,7 +543,7 @@ export const SessionMushafViewer = ({
   };
   const handleRemoveMistake = async () => {
     if (!selectedWord) return;
-    const wordKey = `${selectedWord.surah}-${selectedWord.ayah}-${selectedWord.word}`;
+    const wordKey = selectedWord.id;
     
     const currentMistake = highlightedWords.get(wordKey);
     const pastMistake = pastMistakes.get(wordKey);
@@ -574,18 +574,10 @@ export const SessionMushafViewer = ({
     }
     
     try {
-      const matchingMistakeIds = await fetchCanonicalMistakeIdsForPageWord(
-        reciterId,
-        selectedWord.surah,
-        selectedWord.ayah,
-        currentPage,
-        pageData,
-        wordKey
-      );
       const { error } = await supabase
         .from('mistakes')
         .delete()
-        .in('id', matchingMistakeIds.length > 0 ? matchingMistakeIds : [existingMistake.mistakeId]);
+        .eq('id', existingMistake.mistakeId);
       if (error) throw error;
 
       console.log('Mistake deleted');
