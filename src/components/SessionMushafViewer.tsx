@@ -343,25 +343,22 @@ export const SessionMushafViewer = ({
   };
   const handleCategorySelect = async (category: MistakeCategory) => {
     if (!selectedWord) return;
-    const wordKey = `${selectedWord.surah}-${selectedWord.ayah}-${selectedWord.word}`;
+    const wordKey = selectedWord.id;
     const currentMistake = highlightedWords.get(wordKey);
     const pastMistake = pastMistakes.get(wordKey);
     const existingMistake = currentMistake || pastMistake;
     
     try {
       if (existingMistake?.mistakeId) {
-        // Update existing mistake by ID
         console.log('Updating existing mistake category:', existingMistake.mistakeId);
         
-        // Optimistic update - keep original sessionId for edited mistakes
         const mistakeData: MistakeData = {
           category,
           date: existingMistake.date,
           mistakeId: existingMistake.mistakeId,
-          sessionId: existingMistake.sessionId // Keep original session
+          sessionId: existingMistake.sessionId
         };
         
-        // Update in the appropriate map
         if (pastMistake) {
           setPastMistakes(prev => {
             const newMap = new Map(prev);
@@ -375,31 +372,19 @@ export const SessionMushafViewer = ({
             return newMap;
           });
         }
-        
-        const matchingMistakeIds = await fetchCanonicalMistakeIdsForPageWord(
-          reciterId,
-          selectedWord.surah,
-          selectedWord.ayah,
-          currentPage,
-          pageData,
-          wordKey
-        );
 
         const { error } = await supabase
           .from('mistakes')
           .update({ mistake_category: category })
-          .in('id', matchingMistakeIds.length > 0 ? matchingMistakeIds : [existingMistake.mistakeId]);
+          .eq('id', existingMistake.mistakeId);
         
         if (error) throw error;
-        
-        console.log('Mistake category updated successfully');
         
         toast({
           title: "Category Updated",
           description: "Mistake category changed successfully"
         });
       } else {
-        // Add new mistake with category - get the inserted record back
         console.log('Inserting new mistake');
         
         const { data, error } = await supabase
@@ -410,6 +395,7 @@ export const SessionMushafViewer = ({
             surah_number: selectedWord.surah,
             ayah_number: selectedWord.ayah,
             word_index: selectedWord.word,
+            word_id: selectedWord.id,
             page_number: currentPage,
             mistake_category: category
           })
@@ -417,6 +403,7 @@ export const SessionMushafViewer = ({
           .single();
         
         if (error) throw error;
+
         
         console.log('Mistake inserted with ID:', data.id);
         
