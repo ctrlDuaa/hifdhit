@@ -860,11 +860,9 @@ export const SessionMushafViewer = ({
                     const localWord = !isEnd ? localLineWords[localIdx] : undefined;
                     if (!isEnd) localIdx += 1;
 
-                    const wordKey = localWord
-                      ? `${localWord.surah}-${localWord.ayah}-${localWord.word}`
-                      : null;
-                    const currentMistake = wordKey ? highlightedWords.get(wordKey) : undefined;
-                    const pastMistake = wordKey ? pastMistakes.get(wordKey) : undefined;
+                    const wordKey = localWord && typeof localWord.id === 'number' ? localWord.id : null;
+                    const currentMistake = wordKey != null ? highlightedWords.get(wordKey) : undefined;
+                    const pastMistake = wordKey != null ? pastMistakes.get(wordKey) : undefined;
                     const hasMistake = !!currentMistake || !!pastMistake;
                     const mistakeCategory = currentMistake?.category || pastMistake?.category;
 
