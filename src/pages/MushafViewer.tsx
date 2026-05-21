@@ -474,7 +474,7 @@ const MushafViewer = () => {
                                 className={`relative ${hasMistake ? 'dark:text-black' : ''}`}
                                 style={{ zIndex: 1, fontFamily: family }}
                               >
-                                {word.text_qpc_hafs ?? localWord?.text ?? ''}
+                                {word.text_qpc_hafs ?? ''}
                               </span>
                             )}
                           </span>
