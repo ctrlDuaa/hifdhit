@@ -18,13 +18,13 @@ import {
 export const AppHeader = () => {
   const { signOut, user } = useAuth();
   const { toast } = useToast();
-  const [qfConnected, setQfConnected] = useState(() => isQfSessionValid(user?.id));
+  const [qfConnected, setQfConnected] = useState(() => isQfSessionValid(user?.id || null));
   const [qfLoading, setQfLoading] = useState(false);
   const [bookmarksOpen, setBookmarksOpen] = useState(false);
   const [benefitsOpen, setBenefitsOpen] = useState(false);
 
   useEffect(() => {
-    setQfConnected(isQfSessionValid(user?.id));
+    setQfConnected(isQfSessionValid(user?.id || null));
     setQfLoading(false);
     setBenefitsOpen(false);
     setBookmarksOpen(false);
