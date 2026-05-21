@@ -366,7 +366,10 @@ export const MushafContextLines = ({
             {words.map((word, wi) => {
               const isEnd = word.char_type_name === 'end';
               const isTargetAyah = word.verse_key === verseKey;
-              const wordPosition = !isEnd ? word.normalizedPosition ?? word.position : undefined;
+              // Single canonical source — values come directly from the page's
+              // flat word list, never re-derived from local loops or UI maps.
+              const wordPosition = !isEnd ? word.wordPosition : undefined;
+              const flatIndex = !isEnd ? word.flatIndex : undefined;
 
               const mistakeKey = isTargetAyah && !isEnd
                 ? `${surahId}-${ayahNumber}-${wordPosition}`
@@ -380,7 +383,6 @@ export const MushafContextLines = ({
               const family = useGlyph ? `'p${pageNum}-v2'` : "'UthmanicHafs', serif";
 
               const interactive = isTargetAyah && !isEnd && !!onWordClick;
-              const wordPositionForClick = wordPosition;
 
               // Hide-mode logic — only target-ayah, non-end words.
               let hidden = false;
@@ -395,7 +397,7 @@ export const MushafContextLines = ({
 
               return (
                 <span
-                  key={`ctx-${ln}-${wi}`}
+                  key={`ctx-flat-${word.flatIndex || `end-${ln}-${wi}`}`}
                   className={cn(
                     'relative inline-block transition-opacity',
                     interactive && 'cursor-pointer hover:opacity-70',
@@ -403,9 +405,10 @@ export const MushafContextLines = ({
                   )}
                   style={{ margin: '0 0.5px' }}
                   onClick={interactive
-                    ? (e) => typeof wordPositionForClick === 'number' && onWordClick!(ayahNumber, wordPositionForClick, e, pageNum || undefined)
+                    ? (e) => typeof wordPosition === 'number' && onWordClick!(ayahNumber, wordPosition, e, pageNum || undefined, flatIndex)
                     : undefined}
                 >
+
                   {hasMistake && mistake && !hidden && (
                     <span
                       className="absolute rounded-sm pointer-events-none"
