@@ -5,17 +5,16 @@ import { useQcfFontLoader } from '@/hooks/useQcfFontLoader';
 import { cn } from '@/lib/utils';
 
 /**
- * Renders the Mushaf line(s) of a given ayah using the QCF V2 glyph fonts —
- * same pipeline as SurahViewer / Quran Overview.
+ * Renders the Mushaf line(s) of a given ayah using the QCF V2 glyph fonts.
  *
- * Default: shows the line above + ayah lines + the line below ("context window").
- * `showFullPage`: renders every line on the page.
- *
- * Words belonging to the target ayah are interactive (clickable) and can
- * display mistake highlights via the optional callbacks/maps.
+ * Mistake tracking is fully ID-based: words are keyed by their Quran.com
+ * global `word.id`. The `mistakes` map and the `onWordClick` callback both
+ * use that integer ID as the sole identifier — no array indices, no
+ * positions, no string composites.
  */
 
 interface QcfWord {
+  id?: number;
   verse_key?: string;
   page_number?: number;
   line_number?: number;
@@ -40,40 +39,22 @@ interface QcfPagePayload {
   verses?: QcfVersePayload[];
 }
 
-type PositionedQcfWord = QcfWord & {
-  verse_key?: string;
-  normalizedPosition?: number;
-};
-
-const normalizeQcfPageWords = (verses: QcfVersePayload[]): PositionedQcfWord[] => {
-  const counters = new Map<string, number>();
-
-  return verses.flatMap((v) => {
-    const verseKey = v?.verse_key ?? '';
-    return (v?.words ?? []).map((word) => {
-      const withVerseKey: PositionedQcfWord = { ...word, verse_key: word.verse_key ?? verseKey };
-      const isEnd = withVerseKey.char_type_name === 'end';
-      if (!isEnd && withVerseKey.verse_key) {
-        const nextPosition = (counters.get(withVerseKey.verse_key) ?? 0) + 1;
-        counters.set(withVerseKey.verse_key, nextPosition);
-        withVerseKey.normalizedPosition = nextPosition;
-      }
-      return withVerseKey;
-    });
-  });
-};
-
 export type HideMode = 'none' | 'hide-third' | 'hide-half' | 'first-letters' | 'full-hide';
 
 export interface MushafContextLinesProps {
   surahId: number;
   ayahNumber: number;
   showFullPage?: boolean;
-  /** Map keyed by `${surahId}-${ayahNumber}-${wordPosition}` (1-based Mushaf position, end markers excluded). */
-  mistakes?: Map<string, { category: string }>;
-  /** Click handler for words inside the target ayah. wordPosition is the 1-based Mushaf position. */
-  onWordClick?: (ayahNumber: number, wordPosition: number, e: React.MouseEvent<HTMLSpanElement>, pageNumber?: number) => void;
-  /** Hide pattern applied ONLY to words inside the target ayah. */
+  /** Map keyed by Quran.com global `word.id`. */
+  mistakes?: Map<number, { category: string }>;
+  /** Click handler for words inside the target ayah. Provides the canonical word.id. */
+  onWordClick?: (args: {
+    ayahNumber: number;
+    wordId: number;
+    wordPosition: number;
+    pageNumber?: number;
+    event: React.MouseEvent<HTMLSpanElement>;
+  }) => void;
   hideMode?: HideMode;
   className?: string;
 }
@@ -129,10 +110,9 @@ export const MushafContextLines = ({
 }: MushafContextLinesProps) => {
   const verseKey = `${surahId}:${ayahNumber}`;
   const [pageNumber, setPageNumber] = useState<number | null>(null);
-  const [pageWords, setPageWords] = useState<PositionedQcfWord[]>([]);
+  const [pageWords, setPageWords] = useState<QcfWord[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Resolve the page that contains this verse, then load its QCF data.
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -141,9 +121,6 @@ export const MushafContextLines = ({
 
     (async () => {
       try {
-        // 1) Resolve the page that contains this verse via the proxied edge
-        //    function (api.quran.com is CORS-blocked from the browser, so a
-        //    direct fetch leaves the page in a permanent skeleton state).
         let page: number | null = null;
         try {
           const res = await quranApi.getVerse(verseKey) as VerseResponsePayload;
@@ -163,11 +140,11 @@ export const MushafContextLines = ({
         }
         setPageNumber(page);
 
-        // 2) Fetch QCF data for the page (verses + words).
         const data = await quranApi.getPageQcf(page) as QcfPagePayload;
         const verses = Array.isArray(data?.verses) ? data.verses : [];
-
-        const words = normalizeQcfPageWords(verses);
+        const words: QcfWord[] = verses.flatMap((v) =>
+          (v?.words ?? []).map((w) => ({ ...w, verse_key: w.verse_key ?? v.verse_key }))
+        );
 
         if (!cancelled) setPageWords(words);
       } catch {
@@ -180,12 +157,10 @@ export const MushafContextLines = ({
     return () => { cancelled = true; };
   }, [verseKey]);
 
-  // Prefetch font glyphs.
   const { loadedPages: qcfLoadedPages } = useQcfFontLoader(pageWords);
 
-  // Group words by line.
   const lineMap = useMemo(() => {
-    const m = new Map<number, PositionedQcfWord[]>();
+    const m = new Map<number, QcfWord[]>();
     for (const w of pageWords) {
       const ln = typeof w.line_number === 'number' ? w.line_number : -1;
       if (ln < 0) continue;
@@ -195,7 +170,6 @@ export const MushafContextLines = ({
     return m;
   }, [pageWords]);
 
-  // Lines that contain the target ayah.
   const { ayahLines, allLines } = useMemo(() => {
     const all = Array.from(lineMap.keys()).sort((a, b) => a - b);
     const hit = new Set<number>();
@@ -207,7 +181,6 @@ export const MushafContextLines = ({
     return { ayahLines: Array.from(hit).sort((a, b) => a - b), allLines: all };
   }, [lineMap, pageWords, verseKey]);
 
-  // Lines to actually render: just above + ayah + below, or whole page.
   const linesToRender = useMemo(() => {
     if (showFullPage) return allLines;
     if (ayahLines.length === 0) return [];
@@ -226,8 +199,6 @@ export const MushafContextLines = ({
     );
   }
 
-  // Track surah transitions so we can render the surah-name + bismillah header
-  // when a new surah starts on the page (only meaningful in full-page mode).
   let prevSurahOnPage: number | null = null;
 
   return (
@@ -236,8 +207,6 @@ export const MushafContextLines = ({
         const words = lineMap.get(ln) ?? [];
         const isAyahLine = ayahLines.includes(ln);
 
-        // Determine the surah & first-ayah this line belongs to (from first
-        // word that has a verse_key). Used for new-surah header detection.
         let lineSurah: number | null = null;
         let lineFirstAyah: number | null = null;
         for (const w of words) {
@@ -252,9 +221,6 @@ export const MushafContextLines = ({
           }
         }
 
-        // Show a surah-name + bismillah header above this line when the page
-        // transitions into a new surah mid-page. Always show on the first line
-        // when it starts at ayah 1 of a surah (i.e. a new surah opens the page).
         const isNewSurahStart =
           showFullPage &&
           lineSurah !== null &&
@@ -293,118 +259,126 @@ export const MushafContextLines = ({
         return (
           <div key={`ctx-line-wrap-${ln}`}>
             {surahHeader}
-          <div
-            key={`ctx-line-${ln}`}
-            className={cn(
-              'text-xl md:text-2xl lg:text-3xl leading-tight w-full mx-auto px-2',
-            )}
-            style={{
-              lineHeight: '1.7',
-              textAlign: 'center',
-              direction: 'rtl',
-              wordSpacing: '-0.02em',
-            }}
-          >
-            {words.map((word, wi) => {
-              const isEnd = word.char_type_name === 'end';
-              const isTargetAyah = word.verse_key === verseKey;
-              const wordPosition = !isEnd ? word.normalizedPosition ?? word.position : undefined;
+            <div
+              className={cn(
+                'text-xl md:text-2xl lg:text-3xl leading-tight w-full mx-auto px-2',
+              )}
+              style={{
+                lineHeight: '1.7',
+                textAlign: 'center',
+                direction: 'rtl',
+                wordSpacing: '-0.02em',
+              }}
+            >
+              {words.map((word) => {
+                const isEnd = word.char_type_name === 'end';
+                const isTargetAyah = word.verse_key === verseKey;
+                const wordId = typeof word.id === 'number' ? word.id : null;
 
-              const mistakeKey = isTargetAyah && !isEnd
-                ? `${surahId}-${ayahNumber}-${wordPosition}`
-                : null;
-              const mistake = mistakeKey ? mistakes?.get(mistakeKey) : undefined;
-              const hasMistake = !!mistake;
+                const mistake = !isEnd && wordId !== null ? mistakes?.get(wordId) : undefined;
+                const hasMistake = !!mistake;
 
-              const pageNum = typeof word.page_number === 'number' ? word.page_number : pageNumber ?? 0;
-              const fontReady = qcfLoadedPages.has(pageNum);
-              const useGlyph = !isEnd && fontReady && !!word.code_v2;
-              const family = useGlyph ? `'p${pageNum}-v2'` : "'UthmanicHafs', serif";
+                const pageNum = typeof word.page_number === 'number' ? word.page_number : pageNumber ?? 0;
+                const fontReady = qcfLoadedPages.has(pageNum);
+                const useGlyph = !isEnd && fontReady && !!word.code_v2;
+                const family = useGlyph ? `'p${pageNum}-v2'` : "'UthmanicHafs', serif";
 
-              const interactive = isTargetAyah && !isEnd && !!onWordClick;
-              const wordPositionForClick = wordPosition;
+                const interactive = isTargetAyah && !isEnd && !!onWordClick && wordId !== null;
 
-              // Hide-mode logic — only target-ayah, non-end words.
-              let hidden = false;
-              let firstLetterOnly = false;
-              if (isTargetAyah && !isEnd && typeof wordPosition === 'number' && hideMode !== 'none') {
-                const zeroBasedWordIndex = wordPosition - 1;
-                if (hideMode === 'full-hide') hidden = true;
-                else if (hideMode === 'hide-third') hidden = zeroBasedWordIndex % 3 === 2;
-                else if (hideMode === 'hide-half') hidden = zeroBasedWordIndex % 2 === 1;
-                else if (hideMode === 'first-letters') { hidden = true; firstLetterOnly = true; }
-              }
+                let hidden = false;
+                let firstLetterOnly = false;
+                if (isTargetAyah && !isEnd && typeof word.position === 'number' && hideMode !== 'none') {
+                  const zeroBasedWordIndex = word.position - 1;
+                  if (hideMode === 'full-hide') hidden = true;
+                  else if (hideMode === 'hide-third') hidden = zeroBasedWordIndex % 3 === 2;
+                  else if (hideMode === 'hide-half') hidden = zeroBasedWordIndex % 2 === 1;
+                  else if (hideMode === 'first-letters') { hidden = true; firstLetterOnly = true; }
+                }
 
-              return (
-                <span
-                  key={`ctx-${ln}-${wi}`}
-                  className={cn(
-                    'relative inline-block transition-opacity',
-                    interactive && 'cursor-pointer hover:opacity-70',
-                    !isTargetAyah && 'opacity-40',
-                  )}
-                  style={{ margin: '0 0.5px' }}
-                  onClick={interactive
-                    ? (e) => typeof wordPositionForClick === 'number' && onWordClick!(ayahNumber, wordPositionForClick, e, pageNum || undefined)
-                    : undefined}
-                >
-                  {hasMistake && mistake && !hidden && (
-                    <span
-                      className="absolute rounded-sm pointer-events-none"
-                      style={{
-                        backgroundColor: getCategoryColor(mistake.category),
-                        top: '1px',
-                        left: '-2px',
-                        right: '-2px',
-                        bottom: '1px',
-                        zIndex: 0,
-                      }}
-                    />
-                  )}
-                  {useGlyph ? (
-                    <span
-                      className={cn('relative', hasMistake && 'dark:text-black')}
-                      style={{
-                        zIndex: 1,
-                        fontFamily: family,
-                        color: hidden ? 'transparent' : undefined,
-                        textShadow: hidden ? 'none' : undefined,
-                      }}
-                      dangerouslySetInnerHTML={{ __html: word.code_v2! }}
-                    />
-                  ) : (
-                    <span
-                      className={cn('relative', hasMistake && 'dark:text-black')}
-                      style={{
-                        zIndex: 1,
-                        fontFamily: family,
-                        color: hidden ? 'transparent' : undefined,
-                        textShadow: hidden ? 'none' : undefined,
-                      }}
-                    >
-                      {word.text_qpc_hafs ?? ''}
-                    </span>
-                  )}
-                  {hidden && (
-                    <span
-                      className="absolute inset-0 flex items-center justify-center pointer-events-none text-muted-foreground/70"
-                      style={{
-                        zIndex: 2,
-                        fontFamily: "'UthmanicHafs', serif",
-                        fontSize: '0.7em',
-                        lineHeight: 1,
-                      }}
-                      aria-hidden="true"
-                    >
-                      {firstLetterOnly
-                        ? ((word.text_qpc_hafs ?? '').trim().charAt(0) || '•') + '…'
-                        : '•••'}
-                    </span>
-                  )}
-                </span>
-              );
-            })}
-          </div>
+                // Stable React key uses the canonical word.id (falling back to verse_key+position for safety)
+                const reactKey = wordId !== null
+                  ? `w-${wordId}`
+                  : `ctx-${ln}-${word.verse_key ?? 'x'}-${word.position ?? 'e'}-${word.char_type_name ?? ''}`;
+
+                return (
+                  <span
+                    key={reactKey}
+                    className={cn(
+                      'relative inline-block transition-opacity',
+                      interactive && 'cursor-pointer hover:opacity-70',
+                      !isTargetAyah && 'opacity-40',
+                    )}
+                    style={{ margin: '0 0.5px' }}
+                    onClick={
+                      interactive
+                        ? (e) =>
+                            onWordClick!({
+                              ayahNumber,
+                              wordId: wordId!,
+                              wordPosition: typeof word.position === 'number' ? word.position : 0,
+                              pageNumber: pageNum || undefined,
+                              event: e,
+                            })
+                        : undefined
+                    }
+                  >
+                    {hasMistake && mistake && !hidden && (
+                      <span
+                        className="absolute rounded-sm pointer-events-none"
+                        style={{
+                          backgroundColor: getCategoryColor(mistake.category),
+                          top: '1px',
+                          left: '-2px',
+                          right: '-2px',
+                          bottom: '1px',
+                          zIndex: 0,
+                        }}
+                      />
+                    )}
+                    {useGlyph ? (
+                      <span
+                        className={cn('relative', hasMistake && 'dark:text-black')}
+                        style={{
+                          zIndex: 1,
+                          fontFamily: family,
+                          color: hidden ? 'transparent' : undefined,
+                          textShadow: hidden ? 'none' : undefined,
+                        }}
+                        dangerouslySetInnerHTML={{ __html: word.code_v2! }}
+                      />
+                    ) : (
+                      <span
+                        className={cn('relative', hasMistake && 'dark:text-black')}
+                        style={{
+                          zIndex: 1,
+                          fontFamily: family,
+                          color: hidden ? 'transparent' : undefined,
+                          textShadow: hidden ? 'none' : undefined,
+                        }}
+                      >
+                        {word.text_qpc_hafs ?? ''}
+                      </span>
+                    )}
+                    {hidden && (
+                      <span
+                        className="absolute inset-0 flex items-center justify-center pointer-events-none text-muted-foreground/70"
+                        style={{
+                          zIndex: 2,
+                          fontFamily: "'UthmanicHafs', serif",
+                          fontSize: '0.7em',
+                          lineHeight: 1,
+                        }}
+                        aria-hidden="true"
+                      >
+                        {firstLetterOnly
+                          ? ((word.text_qpc_hafs ?? '').trim().charAt(0) || '•') + '…'
+                          : '•••'}
+                      </span>
+                    )}
+                  </span>
+                );
+              })}
+            </div>
           </div>
         );
       })}
