@@ -48,6 +48,7 @@ const fromOverviewMistakeCategory = (cat: string | null | undefined): MistakeTyp
 interface PreexistingMistake {
   ids: string[];
   mistakeType: MistakeType;
+  note?: string;
 }
 
 export function useBlockReview() {
@@ -78,7 +79,7 @@ export function useBlockReview() {
       if (user) {
         const { data: existing } = await supabase
           .from('mistakes')
-          .select('id, ayah_number, word_index, mistake_category')
+          .select('id, ayah_number, word_index, mistake_category, note')
           .eq('reciter_id', user.id)
           .eq('surah_number', blockInfo.surahId)
           .gte('ayah_number', blockInfo.startAyah)
@@ -100,8 +101,9 @@ export function useBlockReview() {
             wordIndex: wordIdx,
             wordText: '',
             mistakeType: type,
+            note: row.note ?? undefined,
           });
-          initialPreexisting.set(key, { ids: [row.id], mistakeType: type });
+          initialPreexisting.set(key, { ids: [row.id], mistakeType: type, note: row.note ?? undefined });
         }
       }
       setMistakes(initialMistakes);
@@ -123,7 +125,7 @@ export function useBlockReview() {
       if (existing && existing.mistakeType === type) {
         next.delete(key);
       } else {
-        next.set(key, { ayahNumber, wordIndex, wordText, mistakeType: type });
+        next.set(key, { ayahNumber, wordIndex, wordText, mistakeType: type, note: existing?.note });
       }
       return next;
     });
@@ -136,6 +138,21 @@ export function useBlockReview() {
       return next;
     });
   }, []);
+
+  const setMistakeNote = useCallback((ayahNumber: number, wordIndex: number, note: string) => {
+    setMistakes(prev => {
+      const key = `${ayahNumber}:${wordIndex}`;
+      const existing = prev.get(key);
+      if (!existing) return prev;
+      const next = new Map(prev);
+      next.set(key, { ...existing, note: note.trim() ? note : undefined });
+      return next;
+    });
+  }, []);
+
+  const getNoteForWord = useCallback((ayahNumber: number, wordIndex: number): string => {
+    return mistakes.get(`${ayahNumber}:${wordIndex}`)?.note ?? '';
+  }, [mistakes]);
 
   const getMistakeForWord = useCallback((ayahNumber: number, wordIndex: number): MistakeType | null => {
     return mistakes.get(`${ayahNumber}:${wordIndex}`)?.mistakeType || null;
@@ -267,14 +284,15 @@ export function useBlockReview() {
     const currentKeys = new Set(mistakeList.map(m => `${m.ayahNumber}:${m.wordIndex}`));
     const overviewRowsToInsert: Array<{
       reciter_id: string; surah_number: number; ayah_number: number;
-      word_index: number; mistake_category: string;
+      word_index: number; mistake_category: string; note: string | null;
     }> = [];
     const overviewIdsToDelete: string[] = [];
-    const overviewUpdates: Array<{ ids: string[]; mistake_category: string }> = [];
+    const overviewUpdates: Array<{ ids: string[]; mistake_category: string; note: string | null }> = [];
 
     for (const m of mistakeList) {
       const key = `${m.ayahNumber}:${m.wordIndex}`;
       const pre = preexistingMistakes.get(key);
+      const noteVal = m.note && m.note.trim() ? m.note : null;
       if (!pre) {
         overviewRowsToInsert.push({
           reciter_id: user.id,
@@ -282,11 +300,13 @@ export function useBlockReview() {
           ayah_number: m.ayahNumber,
           word_index: m.wordIndex + 1,
           mistake_category: toOverviewMistakeCategory(m.mistakeType),
+          note: noteVal,
         });
-      } else if (pre.mistakeType !== m.mistakeType) {
+      } else if (pre.mistakeType !== m.mistakeType || (pre.note ?? null) !== noteVal) {
         overviewUpdates.push({
           ids: pre.ids,
           mistake_category: toOverviewMistakeCategory(m.mistakeType),
+          note: noteVal,
         });
       }
     }
@@ -299,7 +319,7 @@ export function useBlockReview() {
       if (overviewMistakesError) throw overviewMistakesError;
     }
     for (const upd of overviewUpdates) {
-      await supabase.from('mistakes').update({ mistake_category: upd.mistake_category }).in('id', upd.ids);
+      await supabase.from('mistakes').update({ mistake_category: upd.mistake_category, note: upd.note }).in('id', upd.ids);
     }
     if (overviewIdsToDelete.length > 0) {
       await supabase.from('mistakes').delete().in('id', overviewIdsToDelete);
@@ -457,6 +477,8 @@ export function useBlockReview() {
     startReview,
     toggleMistake,
     removeMistake,
+    setMistakeNote,
+    getNoteForWord,
     getMistakeForWord,
     goToRating,
     goBackToMarking,

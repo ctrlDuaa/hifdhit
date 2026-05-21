@@ -17,6 +17,7 @@ export interface WordMistake {
   wordIndex: number;
   wordText: string;
   mistakeType: MistakeType;
+  note?: string;
 }
 
 export interface SessionResult {
