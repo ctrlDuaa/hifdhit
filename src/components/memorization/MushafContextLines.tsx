@@ -187,7 +187,7 @@ export const MushafContextLines = ({
 }: MushafContextLinesProps) => {
   const verseKey = `${surahId}:${ayahNumber}`;
   const [pageNumber, setPageNumber] = useState<number | null>(null);
-  const [pageWords, setPageWords] = useState<PositionedQcfWord[]>([]);
+  const [pageWords, setPageWords] = useState<FlatWord[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Resolve the page that contains this verse, then load its QCF data.
