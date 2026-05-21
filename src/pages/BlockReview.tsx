@@ -104,8 +104,10 @@ const BlockReviewPage = () => {
         <BlockReviewMarking
           verses={review.verses}
           getMistakeForWord={review.getMistakeForWord}
+          getNoteForWord={review.getNoteForWord}
           onToggleMistake={review.toggleMistake}
           onRemoveMistake={review.removeMistake}
+          onSaveNote={review.setMistakeNote}
           onFinishMarking={review.goToRating}
           surahName={review.block.surahName}
           surahId={review.block.surahId}
