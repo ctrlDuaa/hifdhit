@@ -447,13 +447,14 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
     setNoteDrawerOpen(false);
 
     setCurrentNote('');
-    setSelectedWordKey(null);
+    setSelectedWordId(null);
   };
 
-  // ── Render Arabic text with mistake highlighting ─────────
+  // ── Render Arabic text (fallback only — primary path is MushafContextLines) ─────────
+  // This path is intentionally NOT clickable for mistake-marking: marking flows
+  // exclusively through MushafContextLines which provides the canonical word.id.
   function renderArabicText(ayah: MemorizationAyah, stage: MemorizationStage): React.ReactNode {
     const words = ayah.words;
-    const ayahNum = ayah.number;
 
     if (stage === 'full-hide') {
       return <span className="text-muted-foreground/30 select-none blur-md">{ayah.text}</span>;
@@ -469,33 +470,9 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
           if (stage === 'hide-half') hidden = i % 2 === 1;
           if (stage === 'first-letters') { hidden = true; showFirstLetter = true; }
 
-          const wordPosition = i + 1;
-          const wordKey = `${surahId}-${ayahNum}-${wordPosition}`;
-          const mistake = mistakes.get(wordKey);
-          const hasMistake = !!mistake;
-
           return (
-            <span
-              key={i}
-              className={cn(
-                'relative inline-block cursor-pointer transition-opacity hover:opacity-70',
-              )}
-              onClick={(e) => handleWordClick(ayahNum, wordPosition, e)}
-            >
-              {hasMistake && mistake && (
-                <span
-                  className="absolute rounded-sm pointer-events-none"
-                  style={{
-                    backgroundColor: getCategoryColor(mistake.category),
-                    top: '1px',
-                    left: '-2px',
-                    right: '-2px',
-                    bottom: '1px',
-                    zIndex: 0,
-                  }}
-                />
-              )}
-              <span className={cn('relative', hasMistake && 'dark:text-black')} style={{ zIndex: 1 }}>
+            <span key={`fallback-${ayah.number}-${i}`} className="relative inline-block">
+              <span className="relative" style={{ zIndex: 1 }}>
                 {hidden
                   ? (
                     <span className="inline-block px-2 py-1 rounded bg-muted/60 text-muted-foreground/40 min-w-[2rem] text-center transition-all">
@@ -523,7 +500,8 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
     );
   }
 
-  const hasMistakeOnSelected = selectedWordKey ? mistakes.has(selectedWordKey) : false;
+  const hasMistakeOnSelected = selectedWordId !== null ? mistakes.has(selectedWordId) : false;
+
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-background">
