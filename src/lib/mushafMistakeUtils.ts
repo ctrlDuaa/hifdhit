@@ -113,24 +113,25 @@ export const getNormalizedMistakeWordKey = (
   if (
     typeof surahNumber !== 'number' ||
     typeof ayahNumber !== 'number' ||
-    typeof wordIndex !== 'number' ||
-    wordIndex < 1
+    typeof wordIndex !== 'number'
   ) {
     return null;
   }
 
-  // All writers (memorization + session viewer) now store the canonical
-  // 1-based Mushaf word position, so this resolver is a strict exact match.
-  // The previous `wordIndex + 1` fallback was masking off-by-one writes and
-  // could silently render a mistake on the word *before* the intended one
-  // whenever both keys existed on the page.
-  const key = `${surahNumber}-${ayahNumber}-${wordIndex}`;
+  const candidates = [...new Set([wordIndex, wordIndex + 1].filter((value) => value >= 1))];
 
   if (!pageWordKeys || pageWordKeys.size === 0) {
-    return key;
+    return `${surahNumber}-${ayahNumber}-${candidates[0]}`;
   }
 
-  return pageWordKeys.has(key) ? key : null;
+  for (const candidate of candidates) {
+    const key = `${surahNumber}-${ayahNumber}-${candidate}`;
+    if (pageWordKeys.has(key)) {
+      return key;
+    }
+  }
+
+  return null;
 };
 
 // ---------------------------------------------------------------------------

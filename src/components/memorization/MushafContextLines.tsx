@@ -16,7 +16,6 @@ import { cn } from '@/lib/utils';
  */
 
 interface QcfWord {
-  id?: number;
   verse_key?: string;
   page_number?: number;
   line_number?: number;
@@ -41,42 +40,27 @@ interface QcfPagePayload {
   verses?: QcfVersePayload[];
 }
 
-/**
- * Canonical flat word entry. Words are identified ONLY by Quran.com `word.id`
- * — no positional/index logic, no inferred ordering.
- */
-type FlatWord = QcfWord & {
+type PositionedQcfWord = QcfWord & {
   verse_key?: string;
-  surahNumber?: number;
-  ayahNumber?: number;
+  normalizedPosition?: number;
 };
 
-const buildCanonicalFlatWordList = (verses: QcfVersePayload[]): FlatWord[] => {
-  const flat: FlatWord[] = [];
+const normalizeQcfPageWords = (verses: QcfVersePayload[]): PositionedQcfWord[] => {
+  const counters = new Map<string, number>();
 
-  for (const v of verses) {
+  return verses.flatMap((v) => {
     const verseKey = v?.verse_key ?? '';
-    let surahNumber: number | undefined;
-    let ayahNumber: number | undefined;
-    if (verseKey) {
-      const [s, a] = verseKey.split(':');
-      const sn = Number(s);
-      const an = Number(a);
-      if (Number.isFinite(sn)) surahNumber = sn;
-      if (Number.isFinite(an)) ayahNumber = an;
-    }
-
-    for (const word of v?.words ?? []) {
-      flat.push({
-        ...word,
-        verse_key: word.verse_key ?? verseKey,
-        surahNumber,
-        ayahNumber,
-      });
-    }
-  }
-
-  return flat;
+    return (v?.words ?? []).map((word) => {
+      const withVerseKey: PositionedQcfWord = { ...word, verse_key: word.verse_key ?? verseKey };
+      const isEnd = withVerseKey.char_type_name === 'end';
+      if (!isEnd && withVerseKey.verse_key) {
+        const nextPosition = (counters.get(withVerseKey.verse_key) ?? 0) + 1;
+        counters.set(withVerseKey.verse_key, nextPosition);
+        withVerseKey.normalizedPosition = nextPosition;
+      }
+      return withVerseKey;
+    });
+  });
 };
 
 export type HideMode = 'none' | 'hide-third' | 'hide-half' | 'first-letters' | 'full-hide';
@@ -85,15 +69,10 @@ export interface MushafContextLinesProps {
   surahId: number;
   ayahNumber: number;
   showFullPage?: boolean;
-  /** Map keyed by Quran.com canonical `word.id`. */
-  mistakes?: Map<number, { category: string }>;
-  /** Click handler — receives canonical `word.id` (plus ayah for convenience). */
-  onWordClick?: (
-    wordId: number,
-    ayahNumber: number,
-    e: React.MouseEvent<HTMLSpanElement>,
-    pageNumber?: number,
-  ) => void;
+  /** Map keyed by `${surahId}-${ayahNumber}-${wordPosition}` (1-based Mushaf position, end markers excluded). */
+  mistakes?: Map<string, { category: string }>;
+  /** Click handler for words inside the target ayah. wordPosition is the 1-based Mushaf position. */
+  onWordClick?: (ayahNumber: number, wordPosition: number, e: React.MouseEvent<HTMLSpanElement>, pageNumber?: number) => void;
   /** Hide pattern applied ONLY to words inside the target ayah. */
   hideMode?: HideMode;
   className?: string;
@@ -150,7 +129,7 @@ export const MushafContextLines = ({
 }: MushafContextLinesProps) => {
   const verseKey = `${surahId}:${ayahNumber}`;
   const [pageNumber, setPageNumber] = useState<number | null>(null);
-  const [pageWords, setPageWords] = useState<FlatWord[]>([]);
+  const [pageWords, setPageWords] = useState<PositionedQcfWord[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Resolve the page that contains this verse, then load its QCF data.
@@ -188,7 +167,7 @@ export const MushafContextLines = ({
         const data = await quranApi.getPageQcf(page) as QcfPagePayload;
         const verses = Array.isArray(data?.verses) ? data.verses : [];
 
-        const words = buildCanonicalFlatWordList(verses);
+        const words = normalizeQcfPageWords(verses);
 
         if (!cancelled) setPageWords(words);
       } catch {
@@ -206,7 +185,7 @@ export const MushafContextLines = ({
 
   // Group words by line.
   const lineMap = useMemo(() => {
-    const m = new Map<number, FlatWord[]>();
+    const m = new Map<number, PositionedQcfWord[]>();
     for (const w of pageWords) {
       const ln = typeof w.line_number === 'number' ? w.line_number : -1;
       if (ln < 0) continue;
@@ -326,17 +305,15 @@ export const MushafContextLines = ({
               wordSpacing: '-0.02em',
             }}
           >
-            {(() => {
-              let targetAyahCounter = -1; // 0-based per-render-pass counter used ONLY for hide-mode visuals
-              return words.map((word, wi) => {
+            {words.map((word, wi) => {
               const isEnd = word.char_type_name === 'end';
               const isTargetAyah = word.verse_key === verseKey;
-              const wordId = typeof word.id === 'number' ? word.id : undefined;
+              const wordPosition = !isEnd ? word.normalizedPosition ?? word.position : undefined;
 
-              if (isTargetAyah && !isEnd) targetAyahCounter += 1;
-              const hideIdx = targetAyahCounter;
-
-              const mistake = !isEnd && typeof wordId === 'number' ? mistakes?.get(wordId) : undefined;
+              const mistakeKey = isTargetAyah && !isEnd
+                ? `${surahId}-${ayahNumber}-${wordPosition}`
+                : null;
+              const mistake = mistakeKey ? mistakes?.get(mistakeKey) : undefined;
               const hasMistake = !!mistake;
 
               const pageNum = typeof word.page_number === 'number' ? word.page_number : pageNumber ?? 0;
@@ -344,22 +321,23 @@ export const MushafContextLines = ({
               const useGlyph = !isEnd && fontReady && !!word.code_v2;
               const family = useGlyph ? `'p${pageNum}-v2'` : "'UthmanicHafs', serif";
 
-              const interactive = isTargetAyah && !isEnd && typeof wordId === 'number' && !!onWordClick;
+              const interactive = isTargetAyah && !isEnd && !!onWordClick;
+              const wordPositionForClick = wordPosition;
 
-              // Hide-mode is a purely visual pattern; uses a local render-pass
-              // counter (NOT used for mistake tracking).
+              // Hide-mode logic — only target-ayah, non-end words.
               let hidden = false;
               let firstLetterOnly = false;
-              if (isTargetAyah && !isEnd && hideIdx >= 0 && hideMode !== 'none') {
+              if (isTargetAyah && !isEnd && typeof wordPosition === 'number' && hideMode !== 'none') {
+                const zeroBasedWordIndex = wordPosition - 1;
                 if (hideMode === 'full-hide') hidden = true;
-                else if (hideMode === 'hide-third') hidden = hideIdx % 3 === 2;
-                else if (hideMode === 'hide-half') hidden = hideIdx % 2 === 1;
+                else if (hideMode === 'hide-third') hidden = zeroBasedWordIndex % 3 === 2;
+                else if (hideMode === 'hide-half') hidden = zeroBasedWordIndex % 2 === 1;
                 else if (hideMode === 'first-letters') { hidden = true; firstLetterOnly = true; }
               }
 
               return (
                 <span
-                  key={typeof wordId === 'number' ? `w-${wordId}` : `ctx-end-${ln}-${wi}`}
+                  key={`ctx-${ln}-${wi}`}
                   className={cn(
                     'relative inline-block transition-opacity',
                     interactive && 'cursor-pointer hover:opacity-70',
@@ -367,11 +345,9 @@ export const MushafContextLines = ({
                   )}
                   style={{ margin: '0 0.5px' }}
                   onClick={interactive
-                    ? (e) => onWordClick!(wordId!, ayahNumber, e, pageNum || undefined)
+                    ? (e) => typeof wordPositionForClick === 'number' && onWordClick!(ayahNumber, wordPositionForClick, e, pageNum || undefined)
                     : undefined}
                 >
-
-
                   {hasMistake && mistake && !hidden && (
                     <span
                       className="absolute rounded-sm pointer-events-none"
@@ -427,9 +403,7 @@ export const MushafContextLines = ({
                   )}
                 </span>
               );
-            });
-            })()}
-
+            })}
           </div>
           </div>
         );

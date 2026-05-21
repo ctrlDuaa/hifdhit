@@ -92,10 +92,10 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   const { toast } = useToast();
 
   // ── Mistake state ────────────────────────────────────────
-  // Keyed by Quran.com canonical `word.id` (single source of truth).
-  const [mistakes, setMistakes] = useState<Map<number, MistakeData>>(new Map());
-  const [selectedWordId, setSelectedWordId] = useState<number | null>(null);
-  const [selectedWordInfo, setSelectedWordInfo] = useState<{ wordId: number; surah: number; ayah: number; pageNumber?: number } | null>(null);
+  // Key: "surahNumber-ayahNumber-wordPosition" using the canonical 1-based Mushaf word position.
+  const [mistakes, setMistakes] = useState<Map<string, MistakeData>>(new Map());
+  const [selectedWordKey, setSelectedWordKey] = useState<string | null>(null);
+  const [selectedWordInfo, setSelectedWordInfo] = useState<{ surah: number; ayah: number; wordPosition: number; pageNumber?: number } | null>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
@@ -128,15 +128,15 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
           .eq('reciter_id', user.id)
           .eq('surah_number', surahId)
           .gte('ayah_number', state.config.ayahStart)
-          .lte('ayah_number', state.config.ayahEnd)
-          .not('word_id', 'is', null);
+          .lte('ayah_number', state.config.ayahEnd);
 
         if (error) throw error;
 
-        const loaded = new Map<number, MistakeData>();
+        const loaded = new Map<string, MistakeData>();
         data?.forEach(m => {
-          if (typeof m.word_id !== 'number') return;
-          loaded.set(m.word_id, {
+          // DB and Mushaf renderers both use the same 1-based word position.
+          const key = `${m.surah_number}-${m.ayah_number}-${m.word_index}`;
+          loaded.set(key, {
             category: (m.mistake_category as MistakeCategory) || 'tajweed',
             note: m.note || '',
             mistakeId: m.id,
@@ -246,24 +246,24 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   }, [popoverOpen]);
 
   // ── Mistake handlers ─────────────────────────────────────
-  // All identification flows through Quran.com canonical `word.id`.
-  const handleWordClick = (wordId: number, ayahNum: number, event: React.MouseEvent<HTMLSpanElement>, pageNumber?: number) => {
+  const handleWordClick = (ayahNum: number, wordPosition: number, event: React.MouseEvent<HTMLSpanElement>, pageNumber?: number) => {
     const rect = event.currentTarget.getBoundingClientRect();
     setPopoverPosition({ x: rect.left + rect.width / 2, y: rect.top });
-    setSelectedWordId(wordId);
-    setSelectedWordInfo({ wordId, surah: surahId, ayah: ayahNum, pageNumber });
+    const key = `${surahId}-${ayahNum}-${wordPosition}`;
+    setSelectedWordKey(key);
+    setSelectedWordInfo({ surah: surahId, ayah: ayahNum, wordPosition, pageNumber });
     setPopoverOpen(true);
   };
 
   const handleCategorySelect = async (category: MistakeCategory) => {
-    if (selectedWordId == null || !selectedWordInfo || !user) return;
-    const wordId = selectedWordId;
+    if (!selectedWordKey || !selectedWordInfo || !user) return;
 
-    const existing = mistakes.get(wordId);
+    const existing = mistakes.get(selectedWordKey);
 
+    // Optimistic update
     setMistakes(prev => {
       const updated = new Map(prev);
-      updated.set(wordId, {
+      updated.set(selectedWordKey, {
         category,
         note: existing?.note ?? '',
         mistakeId: existing?.mistakeId,
@@ -271,74 +271,59 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
       return updated;
     });
     setPopoverOpen(false);
-    setSelectedWordId(null);
+    setSelectedWordKey(null);
 
     try {
       if (existing?.mistakeId) {
+        // Update existing
         const { error } = await supabase
           .from('mistakes')
           .update({ mistake_category: category })
           .eq('id', existing.mistakeId);
         if (error) throw error;
       } else {
-        // Partial unique index can't be an ON CONFLICT target, so select-then-write.
-        const { data: existingRow, error: selectError } = await supabase
+        // Insert new — use upsert to handle the unique constraint
+        const { data, error } = await supabase
           .from('mistakes')
-          .select('id')
-          .eq('reciter_id', user.id)
-          .eq('word_id', wordId)
-          .is('session_id', null)
-          .is('room_id', null)
-          .maybeSingle();
-        if (selectError) throw selectError;
+          .upsert({
+            reciter_id: user.id,
+            surah_number: selectedWordInfo.surah,
+            ayah_number: selectedWordInfo.ayah,
+            word_index: selectedWordInfo.wordPosition,
+            page_number: selectedWordInfo.pageNumber ?? null,
+            mistake_category: category,
+          }, { onConflict: 'reciter_id,surah_number,ayah_number,word_index' })
+          .select()
+          .single();
 
-        let savedId: string;
-        if (existingRow?.id) {
-          const { error: updateError } = await supabase
-            .from('mistakes')
-            .update({ mistake_category: category })
-            .eq('id', existingRow.id);
-          if (updateError) throw updateError;
-          savedId = existingRow.id;
-        } else {
-          const { data, error } = await supabase
-            .from('mistakes')
-            .insert({
-              reciter_id: user.id,
-              word_id: wordId,
-              surah_number: selectedWordInfo.surah,
-              ayah_number: selectedWordInfo.ayah,
-              word_index: 0,
-              page_number: selectedWordInfo.pageNumber ?? null,
-              mistake_category: category,
-            })
-            .select('id')
-            .single();
-          if (error) throw error;
-          savedId = data.id;
-        }
+        if (error) throw error;
 
+        // Update local state with the DB id
         setMistakes(prev => {
           const updated = new Map(prev);
-          const current = updated.get(wordId);
+          const current = updated.get(`${selectedWordInfo.surah}-${selectedWordInfo.ayah}-${selectedWordInfo.wordPosition}`);
           if (current) {
-            updated.set(wordId, { ...current, mistakeId: savedId });
+            updated.set(`${selectedWordInfo.surah}-${selectedWordInfo.ayah}-${selectedWordInfo.wordPosition}`, {
+              ...current,
+              mistakeId: data.id,
+            });
           }
           return updated;
         });
       }
     } catch (err) {
       console.error('Failed to save mistake:', err);
+      // Revert optimistic update
       if (existing) {
         setMistakes(prev => {
           const updated = new Map(prev);
-          updated.set(wordId, existing);
+          updated.set(selectedWordKey, existing);
           return updated;
         });
       } else {
         setMistakes(prev => {
           const updated = new Map(prev);
-          updated.delete(wordId);
+          updated.delete(selectedWordKey);
           return updated;
         });
       }
@@ -347,18 +332,18 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   };
 
   const handleRemoveMistake = async () => {
-    if (selectedWordId == null) return;
-    const wordId = selectedWordId;
-    const existing = mistakes.get(wordId);
+    if (!selectedWordKey) return;
+    const existing = mistakes.get(selectedWordKey);
     if (!existing?.mistakeId) return;
 
+    // Optimistic delete
     setMistakes(prev => {
       const updated = new Map(prev);
-      updated.delete(wordId);
+      updated.delete(selectedWordKey);
       return updated;
     });
     setPopoverOpen(false);
-    setSelectedWordId(null);
+    setSelectedWordKey(null);
 
     try {
       const { error } = await supabase
@@ -366,12 +351,14 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
         .delete()
         .eq('id', existing.mistakeId);
       if (error) throw error;
+
       toast({ title: 'Mistake removed' });
     } catch (err) {
       console.error('Failed to delete mistake:', err);
+      // Revert
       setMistakes(prev => {
         const updated = new Map(prev);
-        updated.set(wordId, existing);
+        updated.set(selectedWordKey, existing);
         return updated;
       });
       toast({ title: 'Failed to remove mistake', variant: 'destructive' });
@@ -380,9 +367,10 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
 
   const handleOpenNoteDrawer = async () => {
     setPopoverOpen(false);
-    if (selectedWordId == null) return;
-    const existing = mistakes.get(selectedWordId);
+    if (!selectedWordKey) return;
+    const existing = mistakes.get(selectedWordKey);
 
+    // Load note from DB if we have a mistakeId
     if (existing?.mistakeId) {
       try {
         const { data } = await supabase
@@ -401,9 +389,8 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   };
 
   const handleSaveNote = async () => {
-    if (selectedWordId == null) return;
-    const wordId = selectedWordId;
-    const existing = mistakes.get(wordId);
+    if (!selectedWordKey) return;
+    const existing = mistakes.get(selectedWordKey);
 
     if (existing?.mistakeId) {
       try {
@@ -413,9 +400,10 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
           .eq('id', existing.mistakeId);
         if (error) throw error;
 
+        // Update local state
         setMistakes(prev => {
           const updated = new Map(prev);
-          updated.set(wordId, { ...existing, note: currentNote });
+          updated.set(selectedWordKey, { ...existing, note: currentNote });
           return updated;
         });
         toast({ title: 'Note saved' });
@@ -427,12 +415,70 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
 
     setNoteDrawerOpen(false);
     setCurrentNote('');
-    setSelectedWordId(null);
+    setSelectedWordKey(null);
   };
 
-  // All mistake tracking flows through Quran.com canonical `word.id`. No
-  // positional / index logic is used anywhere in this component.
+  // ── Render Arabic text with mistake highlighting ─────────
+  function renderArabicText(ayah: MemorizationAyah, stage: MemorizationStage): React.ReactNode {
+    const words = ayah.words;
+    const ayahNum = ayah.number;
 
+    if (stage === 'full-hide') {
+      return <span className="text-muted-foreground/30 select-none blur-md">{ayah.text}</span>;
+    }
+
+    return (
+      <span className="flex flex-wrap justify-center gap-x-3 gap-y-1" dir="rtl">
+        {words.map((word, i) => {
+          let hidden = false;
+          let showFirstLetter = false;
+
+          if (stage === 'hide-third') hidden = i % 3 === 2;
+          if (stage === 'hide-half') hidden = i % 2 === 1;
+          if (stage === 'first-letters') { hidden = true; showFirstLetter = true; }
+
+          const wordPosition = i + 1;
+          const wordKey = `${surahId}-${ayahNum}-${wordPosition}`;
+          const mistake = mistakes.get(wordKey);
+          const hasMistake = !!mistake;
+
+          return (
+            <span
+              key={i}
+              className={cn(
+                'relative inline-block cursor-pointer transition-opacity hover:opacity-70',
+              )}
+              onClick={(e) => handleWordClick(ayahNum, wordPosition, e)}
+            >
+              {hasMistake && mistake && (
+                <span
+                  className="absolute rounded-sm pointer-events-none"
+                  style={{
+                    backgroundColor: getCategoryColor(mistake.category),
+                    top: '1px',
+                    left: '-2px',
+                    right: '-2px',
+                    bottom: '1px',
+                    zIndex: 0,
+                  }}
+                />
+              )}
+              <span className={cn('relative', hasMistake && 'dark:text-black')} style={{ zIndex: 1 }}>
+                {hidden
+                  ? (
+                    <span className="inline-block px-2 py-1 rounded bg-muted/60 text-muted-foreground/40 min-w-[2rem] text-center transition-all">
+                      {showFirstLetter ? word.charAt(0) + '...' : '•••'}
+                    </span>
+                  )
+                  : word
+                }
+              </span>
+            </span>
+          );
+        })}
+      </span>
+    );
+  }
 
   if (!currentAyah) {
     return (
@@ -445,7 +491,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
     );
   }
 
-  const hasMistakeOnSelected = selectedWordId != null ? mistakes.has(selectedWordId) : false;
+  const hasMistakeOnSelected = selectedWordKey ? mistakes.has(selectedWordKey) : false;
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-background">
@@ -540,7 +586,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
                     ayahNumber={currentAyahNum}
                     showFullPage={showFullPage}
                     mistakes={mistakes}
-                    onWordClick={(wordId, ayah, e, pageNumber) => handleWordClick(wordId, ayah, e, pageNumber)}
+                    onWordClick={(ayah, wordPosition, e, pageNumber) => handleWordClick(ayah, wordPosition, e, pageNumber)}
                     hideMode={
                       state.currentStage === 'hide-third' ? 'hide-third'
                       : state.currentStage === 'hide-half' ? 'hide-half'
