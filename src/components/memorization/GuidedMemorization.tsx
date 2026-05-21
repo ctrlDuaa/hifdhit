@@ -95,7 +95,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   // Key: "surahNumber-ayahNumber-wordPosition" using the canonical 1-based Mushaf word position.
   const [mistakes, setMistakes] = useState<Map<string, MistakeData>>(new Map());
   const [selectedWordKey, setSelectedWordKey] = useState<string | null>(null);
-  const [selectedWordInfo, setSelectedWordInfo] = useState<{ surah: number; ayah: number; wordPosition: number; pageNumber?: number } | null>(null);
+  const [selectedWordInfo, setSelectedWordInfo] = useState<{ surah: number; ayah: number; wordPosition: number; pageNumber?: number; flatIndex?: number } | null>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
@@ -246,12 +246,15 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
   }, [popoverOpen]);
 
   // ── Mistake handlers ─────────────────────────────────────
-  const handleWordClick = (ayahNum: number, wordPosition: number, event: React.MouseEvent<HTMLSpanElement>, pageNumber?: number) => {
+  // `wordPosition` and `flatIndex` both originate from the single canonical
+  // flat word list inside `MushafContextLines` — never from `ayah.words` or
+  // any other re-computed array.
+  const handleWordClick = (ayahNum: number, wordPosition: number, event: React.MouseEvent<HTMLSpanElement>, pageNumber?: number, flatIndex?: number) => {
     const rect = event.currentTarget.getBoundingClientRect();
     setPopoverPosition({ x: rect.left + rect.width / 2, y: rect.top });
     const key = `${surahId}-${ayahNum}-${wordPosition}`;
     setSelectedWordKey(key);
-    setSelectedWordInfo({ surah: surahId, ayah: ayahNum, wordPosition, pageNumber });
+    setSelectedWordInfo({ surah: surahId, ayah: ayahNum, wordPosition, pageNumber, flatIndex });
     setPopoverOpen(true);
   };
 
@@ -418,67 +421,12 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
     setSelectedWordKey(null);
   };
 
-  // ── Render Arabic text with mistake highlighting ─────────
-  function renderArabicText(ayah: MemorizationAyah, stage: MemorizationStage): React.ReactNode {
-    const words = ayah.words;
-    const ayahNum = ayah.number;
+  // NOTE: A previous fallback renderer (`renderArabicText`) that re-derived
+  // word indices from `ayah.words[i] + 1` was removed. All mistake tracking
+  // now flows through the single canonical flat word list built by
+  // `MushafContextLines` so indices cannot drift between the renderer and the
+  // DB save logic.
 
-    if (stage === 'full-hide') {
-      return <span className="text-muted-foreground/30 select-none blur-md">{ayah.text}</span>;
-    }
-
-    return (
-      <span className="flex flex-wrap justify-center gap-x-3 gap-y-1" dir="rtl">
-        {words.map((word, i) => {
-          let hidden = false;
-          let showFirstLetter = false;
-
-          if (stage === 'hide-third') hidden = i % 3 === 2;
-          if (stage === 'hide-half') hidden = i % 2 === 1;
-          if (stage === 'first-letters') { hidden = true; showFirstLetter = true; }
-
-          const wordPosition = i + 1;
-          const wordKey = `${surahId}-${ayahNum}-${wordPosition}`;
-          const mistake = mistakes.get(wordKey);
-          const hasMistake = !!mistake;
-
-          return (
-            <span
-              key={i}
-              className={cn(
-                'relative inline-block cursor-pointer transition-opacity hover:opacity-70',
-              )}
-              onClick={(e) => handleWordClick(ayahNum, wordPosition, e)}
-            >
-              {hasMistake && mistake && (
-                <span
-                  className="absolute rounded-sm pointer-events-none"
-                  style={{
-                    backgroundColor: getCategoryColor(mistake.category),
-                    top: '1px',
-                    left: '-2px',
-                    right: '-2px',
-                    bottom: '1px',
-                    zIndex: 0,
-                  }}
-                />
-              )}
-              <span className={cn('relative', hasMistake && 'dark:text-black')} style={{ zIndex: 1 }}>
-                {hidden
-                  ? (
-                    <span className="inline-block px-2 py-1 rounded bg-muted/60 text-muted-foreground/40 min-w-[2rem] text-center transition-all">
-                      {showFirstLetter ? word.charAt(0) + '...' : '•••'}
-                    </span>
-                  )
-                  : word
-                }
-              </span>
-            </span>
-          );
-        })}
-      </span>
-    );
-  }
 
   if (!currentAyah) {
     return (
@@ -586,7 +534,7 @@ export const GuidedMemorization = ({ state, currentAyah, onAdvanceStage, onRateA
                     ayahNumber={currentAyahNum}
                     showFullPage={showFullPage}
                     mistakes={mistakes}
-                    onWordClick={(ayah, wordPosition, e, pageNumber) => handleWordClick(ayah, wordPosition, e, pageNumber)}
+                    onWordClick={(ayah, wordPosition, e, pageNumber, flatIndex) => handleWordClick(ayah, wordPosition, e, pageNumber, flatIndex)}
                     hideMode={
                       state.currentStage === 'hide-third' ? 'hide-third'
                       : state.currentStage === 'hide-half' ? 'hide-half'

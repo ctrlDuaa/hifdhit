@@ -40,27 +40,79 @@ interface QcfPagePayload {
   verses?: QcfVersePayload[];
 }
 
-type PositionedQcfWord = QcfWord & {
+/**
+ * Canonical flat word entry for a single Mushaf page.
+ *
+ * The flat list is built ONCE per page fetch (see effect below) and is the
+ * single source of truth for:
+ *   - line grouping / rendering
+ *   - click handling (`flatIndex` identifies the exact word that was clicked)
+ *   - mistake tracking (`wordPosition` is the 1-based per-ayah Mushaf position
+ *     stored in the DB, derived from the same flat list — never re-computed
+ *     from nested verse loops or `ayah.words` elsewhere).
+ *
+ * `flatIndex` is 1-based across all non-end words on the page in render order
+ * (end markers receive 0). `wordPosition` is 1-based per `verse_key` and
+ * matches the canonical Mushaf word index used by the `mistakes` table and
+ * the Quran Overview viewer.
+ */
+type FlatWord = QcfWord & {
   verse_key?: string;
-  normalizedPosition?: number;
+  flatIndex: number;
+  wordPosition: number;
+  surahNumber?: number;
+  ayahNumber?: number;
 };
 
-const normalizeQcfPageWords = (verses: QcfVersePayload[]): PositionedQcfWord[] => {
-  const counters = new Map<string, number>();
+const buildCanonicalFlatWordList = (verses: QcfVersePayload[]): FlatWord[] => {
+  const perAyahCounters = new Map<string, number>();
+  let flatCounter = 0;
+  const flat: FlatWord[] = [];
 
-  return verses.flatMap((v) => {
+  for (const v of verses) {
     const verseKey = v?.verse_key ?? '';
-    return (v?.words ?? []).map((word) => {
-      const withVerseKey: PositionedQcfWord = { ...word, verse_key: word.verse_key ?? verseKey };
-      const isEnd = withVerseKey.char_type_name === 'end';
-      if (!isEnd && withVerseKey.verse_key) {
-        const nextPosition = (counters.get(withVerseKey.verse_key) ?? 0) + 1;
-        counters.set(withVerseKey.verse_key, nextPosition);
-        withVerseKey.normalizedPosition = nextPosition;
+    let surahNumber: number | undefined;
+    let ayahNumber: number | undefined;
+    if (verseKey) {
+      const [s, a] = verseKey.split(':');
+      const sn = Number(s);
+      const an = Number(a);
+      if (Number.isFinite(sn)) surahNumber = sn;
+      if (Number.isFinite(an)) ayahNumber = an;
+    }
+
+    for (const word of v?.words ?? []) {
+      const isEnd = word.char_type_name === 'end';
+      const resolvedKey = word.verse_key ?? verseKey;
+
+      if (isEnd) {
+        flat.push({
+          ...word,
+          verse_key: resolvedKey,
+          flatIndex: 0,
+          wordPosition: 0,
+          surahNumber,
+          ayahNumber,
+        });
+        continue;
       }
-      return withVerseKey;
-    });
-  });
+
+      flatCounter += 1;
+      const nextPos = (perAyahCounters.get(resolvedKey) ?? 0) + 1;
+      perAyahCounters.set(resolvedKey, nextPos);
+
+      flat.push({
+        ...word,
+        verse_key: resolvedKey,
+        flatIndex: flatCounter,
+        wordPosition: nextPos,
+        surahNumber,
+        ayahNumber,
+      });
+    }
+  }
+
+  return flat;
 };
 
 export type HideMode = 'none' | 'hide-third' | 'hide-half' | 'first-letters' | 'full-hide';
@@ -71,8 +123,14 @@ export interface MushafContextLinesProps {
   showFullPage?: boolean;
   /** Map keyed by `${surahId}-${ayahNumber}-${wordPosition}` (1-based Mushaf position, end markers excluded). */
   mistakes?: Map<string, { category: string }>;
-  /** Click handler for words inside the target ayah. wordPosition is the 1-based Mushaf position. */
-  onWordClick?: (ayahNumber: number, wordPosition: number, e: React.MouseEvent<HTMLSpanElement>, pageNumber?: number) => void;
+  /** Click handler. Both `wordPosition` (per-ayah, DB-canonical) and `flatIndex` (page-canonical) come from the single flat word list. */
+  onWordClick?: (
+    ayahNumber: number,
+    wordPosition: number,
+    e: React.MouseEvent<HTMLSpanElement>,
+    pageNumber?: number,
+    flatIndex?: number,
+  ) => void;
   /** Hide pattern applied ONLY to words inside the target ayah. */
   hideMode?: HideMode;
   className?: string;
@@ -129,7 +187,7 @@ export const MushafContextLines = ({
 }: MushafContextLinesProps) => {
   const verseKey = `${surahId}:${ayahNumber}`;
   const [pageNumber, setPageNumber] = useState<number | null>(null);
-  const [pageWords, setPageWords] = useState<PositionedQcfWord[]>([]);
+  const [pageWords, setPageWords] = useState<FlatWord[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Resolve the page that contains this verse, then load its QCF data.
@@ -167,7 +225,7 @@ export const MushafContextLines = ({
         const data = await quranApi.getPageQcf(page) as QcfPagePayload;
         const verses = Array.isArray(data?.verses) ? data.verses : [];
 
-        const words = normalizeQcfPageWords(verses);
+        const words = buildCanonicalFlatWordList(verses);
 
         if (!cancelled) setPageWords(words);
       } catch {
@@ -185,7 +243,7 @@ export const MushafContextLines = ({
 
   // Group words by line.
   const lineMap = useMemo(() => {
-    const m = new Map<number, PositionedQcfWord[]>();
+    const m = new Map<number, FlatWord[]>();
     for (const w of pageWords) {
       const ln = typeof w.line_number === 'number' ? w.line_number : -1;
       if (ln < 0) continue;
@@ -308,7 +366,10 @@ export const MushafContextLines = ({
             {words.map((word, wi) => {
               const isEnd = word.char_type_name === 'end';
               const isTargetAyah = word.verse_key === verseKey;
-              const wordPosition = !isEnd ? word.normalizedPosition ?? word.position : undefined;
+              // Single canonical source — values come directly from the page's
+              // flat word list, never re-derived from local loops or UI maps.
+              const wordPosition = !isEnd ? word.wordPosition : undefined;
+              const flatIndex = !isEnd ? word.flatIndex : undefined;
 
               const mistakeKey = isTargetAyah && !isEnd
                 ? `${surahId}-${ayahNumber}-${wordPosition}`
@@ -322,7 +383,6 @@ export const MushafContextLines = ({
               const family = useGlyph ? `'p${pageNum}-v2'` : "'UthmanicHafs', serif";
 
               const interactive = isTargetAyah && !isEnd && !!onWordClick;
-              const wordPositionForClick = wordPosition;
 
               // Hide-mode logic — only target-ayah, non-end words.
               let hidden = false;
@@ -337,7 +397,7 @@ export const MushafContextLines = ({
 
               return (
                 <span
-                  key={`ctx-${ln}-${wi}`}
+                  key={`ctx-flat-${word.flatIndex || `end-${ln}-${wi}`}`}
                   className={cn(
                     'relative inline-block transition-opacity',
                     interactive && 'cursor-pointer hover:opacity-70',
@@ -345,9 +405,10 @@ export const MushafContextLines = ({
                   )}
                   style={{ margin: '0 0.5px' }}
                   onClick={interactive
-                    ? (e) => typeof wordPositionForClick === 'number' && onWordClick!(ayahNumber, wordPositionForClick, e, pageNum || undefined)
+                    ? (e) => typeof wordPosition === 'number' && onWordClick!(ayahNumber, wordPosition, e, pageNum || undefined, flatIndex)
                     : undefined}
                 >
+
                   {hasMistake && mistake && !hidden && (
                     <span
                       className="absolute rounded-sm pointer-events-none"
