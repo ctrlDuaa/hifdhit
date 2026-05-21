@@ -230,6 +230,7 @@ export async function startQfLogin(scopes = 'openid offline_access user bookmark
   const { data: { user } } = await supabase.auth.getUser();
   const appUserId = user?.id || getCurrentAppUserId();
   if (!appUserId) throw new Error('Please sign in before connecting Quran.com.');
+  clearQfSession(appUserId);
 
   const { clientId, authBaseUrl } = await getQfOAuthConfig();
   const { codeVerifier, codeChallenge } = await generatePkce();
