@@ -191,29 +191,24 @@ const MushafViewer = () => {
 
     try {
       const activePageData = pageOverride ?? pageData;
-      const pageWordKeys = buildPageWordKeySet(activePageData);
-      const canonicalMistakes = await fetchCanonicalMistakesForPage(user.id, page, activePageData);
+      // Collect all global word IDs on this page from the local mushaf data.
+      const wordIds: number[] = [];
+      activePageData?.lines?.forEach((line) => {
+        line.words?.forEach((w) => {
+          if (typeof w.id === 'number') wordIds.push(w.id);
+        });
+      });
 
-      const mistakes = new Map<string, MistakeData>();
-      const seenKeys = new Set<string>();
+      const rowsById = await fetchMistakesByWordIds(user.id, wordIds);
 
-      canonicalMistakes.forEach(mistake => {
-        const wordKey = getNormalizedMistakeWordKey(
-          mistake.surah_number,
-          mistake.ayah_number,
-          mistake.word_index,
-          pageWordKeys
-        );
-        if (!wordKey) return;
-        if (!seenKeys.has(wordKey)) {
-          seenKeys.add(wordKey);
-          mistakes.set(wordKey, {
-            category: (mistake.mistake_category as MistakeCategory) || 'tajweed',
-            date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : '',
-            mistakeId: mistake.id,
-            note: mistake.note || undefined
-          });
-        }
+      const mistakes = new Map<number, MistakeData>();
+      rowsById.forEach((mistake, wordId) => {
+        mistakes.set(wordId, {
+          category: (mistake.mistake_category as MistakeCategory) || 'tajweed',
+          date: mistake.created_at ? format(new Date(mistake.created_at), 'MMM dd, yyyy') : '',
+          mistakeId: mistake.id,
+          note: mistake.note || undefined,
+        });
       });
 
       setHighlightedWords((prev) => {
@@ -223,15 +218,13 @@ const MushafViewer = () => {
           return prev;
         }
         highlightedSigRef.current = sig;
-        if (mistakeDiffHasChanges(diff)) {
-          console.log('🩺 MushafViewer mistake diff:', diff);
-        }
         return mistakes;
       });
     } catch (err) {
       console.error('Error loading mistakes:', err);
     }
   };
+
 
   const goToNextPage = () => {
     if (currentPage < totalPages) {
