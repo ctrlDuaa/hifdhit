@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getQfPreferences, isQfSessionValid, QfPreferences } from '@/services/qfAuth';
 import { quranApi } from '@/services/quranApi';
 import { DEFAULT_RECITER_ID, DEFAULT_TRANSLATION_ID } from '@/config/quranDefaults';
+import { useAuth } from '@/hooks/useAuth';
 
 export interface ResolvedQfPreferences {
   /** Whether the user has an authenticated Quran.com session */
@@ -33,16 +34,19 @@ const FALLBACK = {
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes — pick up Quran.com changes quickly.
 let cache: ResolvedQfPreferences | null = null;
 let cacheTimestamp = 0;
+let cacheUserId: string | null = null;
 
 /**
  * Resolve Quran Foundation user preferences (reciter / translation / language)
  * to concrete IDs + display names, falling back to app defaults.
  */
 export function useQfPreferences(): ResolvedQfPreferences {
-  const cacheFresh = cache && Date.now() - cacheTimestamp < CACHE_TTL_MS;
+  const { user } = useAuth();
+  const appUserId = user?.id || null;
+  const cacheFresh = cache && cacheUserId === appUserId && Date.now() - cacheTimestamp < CACHE_TTL_MS;
   const [state, setState] = useState<ResolvedQfPreferences>(
     () => (cacheFresh ? cache! : {
-      qfConnected: isQfSessionValid(),
+      qfConnected: isQfSessionValid(appUserId),
       loading: true,
       reciterId: FALLBACK.reciterId,
       translationId: FALLBACK.translationId,
@@ -55,7 +59,7 @@ export function useQfPreferences(): ResolvedQfPreferences {
 
   useEffect(() => {
     // Skip re-fetching if we already have a fresh cache.
-    if (cache && Date.now() - cacheTimestamp < CACHE_TTL_MS) {
+    if (cache && cacheUserId === appUserId && Date.now() - cacheTimestamp < CACHE_TTL_MS) {
       setState(cache);
       return;
     }
@@ -63,10 +67,10 @@ export function useQfPreferences(): ResolvedQfPreferences {
     let cancelled = false;
 
     (async () => {
-      const connected = isQfSessionValid();
+      const connected = isQfSessionValid(appUserId);
       let prefs: QfPreferences | null = null;
       if (connected) {
-        prefs = await getQfPreferences();
+        prefs = await getQfPreferences(appUserId);
       }
 
       const reciterId = prefs?.reciterId ?? FALLBACK.reciterId;
@@ -103,12 +107,13 @@ export function useQfPreferences(): ResolvedQfPreferences {
         fromQfPreferences: !!prefs,
       };
       cache = next;
+      cacheUserId = appUserId;
       cacheTimestamp = Date.now();
       if (!cancelled) setState(next);
     })();
 
     return () => { cancelled = true; };
-  }, []);
+  }, [appUserId]);
 
   return state;
 }

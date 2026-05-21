@@ -11,6 +11,8 @@
  *   - Backend exchanges using CLIENT_SECRET
  */
 
+import { supabase } from '@/integrations/supabase/client';
+
 // ── PKCE helpers ─────────────────────────────────────────────
 
 function base64url(buffer: ArrayBuffer): string {
@@ -43,6 +45,7 @@ interface PkceState {
   state: string;
   nonce: string;
   redirectUri: string;
+  appUserId: string;
 }
 
 function storePkceState(data: PkceState) {
@@ -66,6 +69,7 @@ export function clearPkceState() {
 
 const QF_SESSION_PREFIX = 'qf_oauth_session::';
 const QF_LEGACY_KEY = 'qf_oauth_session';
+let activeAppUserId: string | null | undefined = undefined;
 
 export interface QfOAuthSession {
   accessToken: string;
@@ -89,6 +93,7 @@ export interface QfOAuthSession {
  */
 function getCurrentAppUserId(): string | null {
   try {
+    const candidates: Array<{ userId: string; expiresAt: number; lastSeen: number }> = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (!key) continue;
@@ -97,21 +102,41 @@ function getCurrentAppUserId(): string | null {
         if (!raw) continue;
         const parsed = JSON.parse(raw);
         const userId = parsed?.user?.id || parsed?.currentSession?.user?.id;
-        if (userId) return userId as string;
+        if (!userId) continue;
+        const expiresAt = Number(parsed?.expires_at || parsed?.currentSession?.expires_at || 0);
+        if (expiresAt && expiresAt * 1000 < Date.now()) continue;
+        const lastSignInAt = parsed?.user?.last_sign_in_at || parsed?.currentSession?.user?.last_sign_in_at;
+        const lastSeen = lastSignInAt ? Date.parse(lastSignInAt) || 0 : expiresAt;
+        candidates.push({ userId: userId as string, expiresAt, lastSeen });
       }
     }
+    candidates.sort((a, b) => (b.lastSeen || b.expiresAt) - (a.lastSeen || a.expiresAt));
+    return candidates[0]?.userId || null;
   } catch {}
   return null;
 }
 
-function qfSessionKey(): string | null {
-  const uid = getCurrentAppUserId();
+function qfSessionKey(appUserId?: string | null): string | null {
+  const uid = appUserId === undefined
+    ? activeAppUserId !== undefined ? activeAppUserId : getCurrentAppUserId()
+    : appUserId;
   return uid ? `${QF_SESSION_PREFIX}${uid}` : null;
 }
 
-export function getQfSession(): QfOAuthSession | null {
+export function setQfActiveAppUserId(userId: string | null) {
+  activeAppUserId = userId;
+}
+
+async function resolveAppUserId(appUserId?: string | null): Promise<string | null> {
+  if (appUserId !== undefined) return appUserId;
+  if (activeAppUserId !== undefined) return activeAppUserId;
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.id || getCurrentAppUserId();
+}
+
+export function getQfSession(appUserId?: string | null): QfOAuthSession | null {
   try {
-    const key = qfSessionKey();
+    const key = qfSessionKey(appUserId);
     if (!key) return null;
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : null;
@@ -120,21 +145,21 @@ export function getQfSession(): QfOAuthSession | null {
   }
 }
 
-export function setQfSession(session: QfOAuthSession) {
-  const key = qfSessionKey();
+export function setQfSession(session: QfOAuthSession, appUserId?: string | null) {
+  const key = qfSessionKey(appUserId);
   if (!key) return;
   localStorage.setItem(key, JSON.stringify(session));
 }
 
-export function clearQfSession() {
-  const key = qfSessionKey();
+export function clearQfSession(appUserId?: string | null) {
+  const key = qfSessionKey(appUserId);
   if (key) localStorage.removeItem(key);
   // Always drop the legacy global key so older shared sessions can't leak across users.
   localStorage.removeItem(QF_LEGACY_KEY);
 }
 
-export function isQfSessionValid(): boolean {
-  const session = getQfSession();
+export function isQfSessionValid(appUserId?: string | null): boolean {
+  const session = getQfSession(appUserId);
   if (!session) return false;
   return Date.now() < session.expiresAt;
 }
@@ -148,8 +173,6 @@ try {
 } catch {}
 
 // ── Edge function caller ─────────────────────────────────────
-
-import { supabase } from '@/integrations/supabase/client';
 
 async function callEdgeFunction(action: string, body: Record<string, unknown>) {
   console.log(`[QF OAuth] Calling edge function: ${action}`, body);
@@ -212,6 +235,11 @@ export async function startQfLogin(scopes = 'openid offline_access user bookmark
     throw new Error('Quran.com OAuth must be started from the published app URL: https://hifdhit.lovable.app. Preview URLs use a different origin, so the registered redirect URI will be rejected.');
   }
 
+  const { data: { user } } = await supabase.auth.getUser();
+  const appUserId = user?.id || getCurrentAppUserId();
+  if (!appUserId) throw new Error('Please sign in before connecting Quran.com.');
+  clearQfSession(appUserId);
+
   const { clientId, authBaseUrl } = await getQfOAuthConfig();
   const { codeVerifier, codeChallenge } = await generatePkce();
   const state = randomString(16);
@@ -221,7 +249,7 @@ export async function startQfLogin(scopes = 'openid offline_access user bookmark
   const redirectUri = `${window.location.origin}/callback`;
 
   // Store PKCE state for the callback
-  storePkceState({ codeVerifier, state, nonce, redirectUri });
+  storePkceState({ codeVerifier, state, nonce, redirectUri, appUserId });
 
   // Build authorization URL
   const params = new URLSearchParams({
@@ -233,6 +261,8 @@ export async function startQfLogin(scopes = 'openid offline_access user bookmark
     nonce,
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
+    prompt: 'login',
+    max_age: '0',
   });
 
   // Redirect to QF hosted login
@@ -262,6 +292,13 @@ export async function handleQfCallback(searchParams: URLSearchParams): Promise<Q
   if (!pkce) throw new Error('No PKCE state found — session may have expired');
   if (pkce.state !== returnedState) throw new Error('State mismatch — possible CSRF attack');
 
+  const { data: { user } } = await supabase.auth.getUser();
+  const currentAppUserId = user?.id || getCurrentAppUserId();
+  if (!currentAppUserId || currentAppUserId !== pkce.appUserId) {
+    clearPkceState();
+    throw new Error('App sign-in changed during Quran.com connection. Please try again.');
+  }
+
   // Exchange code for tokens via backend
   const data = await callEdgeFunction('exchange', {
     code,
@@ -288,15 +325,16 @@ export async function handleQfCallback(searchParams: URLSearchParams): Promise<Q
     user: data.user,
   };
 
-  setQfSession(session);
+  setQfSession(session, pkce.appUserId);
   return session;
 }
 
 /**
  * Refresh the access token using the backend.
  */
-export async function refreshQfToken(): Promise<QfOAuthSession | null> {
-  const current = getQfSession();
+export async function refreshQfToken(appUserId?: string | null): Promise<QfOAuthSession | null> {
+  const resolvedAppUserId = await resolveAppUserId(appUserId);
+  const current = getQfSession(resolvedAppUserId);
   if (!current?.refreshToken) return null;
 
   try {
@@ -312,10 +350,10 @@ export async function refreshQfToken(): Promise<QfOAuthSession | null> {
       scope: data.scope || current.scope,
     };
 
-    setQfSession(session);
+    setQfSession(session, resolvedAppUserId);
     return session;
   } catch {
-    clearQfSession();
+    clearQfSession(resolvedAppUserId);
     return null;
   }
 }
@@ -323,13 +361,14 @@ export async function refreshQfToken(): Promise<QfOAuthSession | null> {
 /**
  * Get a valid access token, refreshing if needed.
  */
-export async function getValidAccessToken(): Promise<string | null> {
-  let session = getQfSession();
+export async function getValidAccessToken(appUserId?: string | null): Promise<string | null> {
+  const resolvedAppUserId = await resolveAppUserId(appUserId);
+  let session = getQfSession(resolvedAppUserId);
   if (!session) return null;
 
   // Refresh if expired or about to expire (30s buffer)
   if (Date.now() >= session.expiresAt - 30_000) {
-    session = await refreshQfToken();
+    session = await refreshQfToken(resolvedAppUserId);
   }
 
   return session?.accessToken || null;
@@ -342,10 +381,11 @@ export async function getValidAccessToken(): Promise<string | null> {
 export async function callQfUserApi(
   path: string,
   method = 'GET',
-  body?: unknown
+  body?: unknown,
+  appUserId?: string | null
 ): Promise<unknown> {
   console.log("FINAL PATH:", path);
-  let accessToken = await getValidAccessToken();
+  let accessToken = await getValidAccessToken(appUserId);
   if (!accessToken) throw new Error('Not authenticated with Quran Foundation');
 
   try {
@@ -357,7 +397,7 @@ export async function callQfUserApi(
     });
   } catch (err) {
     // Try one refresh + retry on failure
-    const refreshed = await refreshQfToken();
+    const refreshed = await refreshQfToken(appUserId);
     if (!refreshed) throw err;
 
     return callEdgeFunction('user-api', {
@@ -398,10 +438,10 @@ export interface QfPreferences {
  *
  * We defensively unwrap any of these shapes so a stray layer doesn't drop prefs.
  */
-export async function getQfPreferences(): Promise<QfPreferences | null> {
-  if (!isQfSessionValid()) return null;
+export async function getQfPreferences(appUserId?: string | null): Promise<QfPreferences | null> {
+  if (!isQfSessionValid(appUserId)) return null;
   try {
-    const res: any = await callQfUserApi('/auth/v1/preferences');
+    const res: any = await callQfUserApi('/auth/v1/preferences', 'GET', undefined, appUserId);
 
     // Walk down through up to 3 layers of `.data` wrapping until we find the prefs object.
     let prefs: any = res;
