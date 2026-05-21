@@ -431,13 +431,11 @@ const MushafViewer = () => {
                     >
                       {qcfLineWords.map((word, wordIndex) => {
                         const isEnd = word.char_type_name === 'end';
-                        const localWord = !isEnd ? localLineWords[localIdx] : undefined;
                         if (!isEnd) localIdx += 1;
 
-                        const wordKey = localWord
-                          ? `${localWord.surah}-${localWord.ayah}-${localWord.word}`
-                          : null;
-                        const mistakeData = wordKey ? highlightedWords.get(wordKey) : undefined;
+                        // Highlight strictly by canonical Quran.com word.id.
+                        const wordId = typeof word.id === 'number' ? word.id : null;
+                        const mistakeData = !isEnd && wordId != null ? highlightedWords.get(wordId) : undefined;
                         const hasMistake = !!mistakeData;
                         const pageNum = typeof word.page_number === 'number' ? word.page_number : currentPage;
                         const fontReady = qcfLoadedPages.has(pageNum);
@@ -446,7 +444,7 @@ const MushafViewer = () => {
 
                         return (
                           <span
-                            key={`${currentPage}-${line.line_number}-${wordIndex}`}
+                            key={wordId != null ? `w-${wordId}` : `end-${currentPage}-${line.line_number}-${wordIndex}`}
                             className="relative inline-block transition-opacity"
                             style={{ margin: '0 0.5px' }}
                             title={hasMistake ? `${mistakeData.category} - ${mistakeData.date}` : ''}
